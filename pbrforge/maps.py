@@ -42,19 +42,35 @@ def joint_polarity(albedo: np.ndarray) -> int:
     return 1 if dark >= light else -1
 
 
+# Absolute amplitudes. Each signal is normalised by max(its own range, a reference), never by its
+# own range alone: stretching made a smooth painted door (Muse height range 0.09, fine detail 0.01)
+# as bumpy as a brick wall (0.76, 0.28). The references sit below brick, walnut and copper, so
+# materials with real relief are unchanged and only flat ones stay flat.
+GUIDE_REF = 0.45  # p1-p99 range of a blurred Muse height
+FINE_REF = 0.09  # p1-p99 range of the luminance bands
+MICRO_REF = 0.08  # p99.5 of the albedo's high band
+OCC_REF = 0.4  # p99 of the cavity measure
+HP_REF = 0.5  # max of the height's high band (roughness variation)
+CURV_REF = 0.09  # p97 of convex curvature (edge wear)
+
+
+def _spread(a: np.ndarray, ref: float) -> np.ndarray:
+    """a - p1, divided by max(p1..p99 range, ref): full scale only when the signal is strong."""
+    lo, hi = np.percentile(a, 1), np.percentile(a, 99)
+    return np.clip((a - lo) / max(hi - lo, ref), 0, 1).astype(np.float32)
+
+
 def height(albedo: np.ndarray, detail: float = 1.0, guide: np.ndarray | None = None) -> np.ndarray:
-    """Height map. `guide` is a height painted by Muse Image from the albedo (r=0.67 against the
-    reference displacement, vs 0.24 for luminance alone); the luminance bands add fine grain.
-    Without a guide (offline), luminance with automatic joint polarity."""
+    """Height map, 0..~1 for strong relief and proportionally less for smooth surfaces. `guide` is
+    a height painted by Muse Image from the albedo (r=0.67 against the reference displacement, vs
+    0.24 for luminance alone); the luminance bands add fine grain. Without a guide (offline),
+    luminance with automatic joint polarity."""
     fine = _luminance_height(albedo, detail, joint_polarity(albedo))
     if guide is None:
         return fine
     # Muse's fine relief is plausible but not pixel-exact: keep its shapes, drop its grain.
-    g = filters.blur(guide, guide.shape[0] / 341)
-    g = g - g.min()
-    g = g / (g.max() + 1e-9)
-    h = 0.85 * g + 0.15 * fine
-    return ((h - h.min()) / (h.max() - h.min() + 1e-9)).astype(np.float32)
+    g = _spread(filters.blur(guide, guide.shape[0] / 341), GUIDE_REF)
+    return (0.85 * g + 0.15 * fine).astype(np.float32)
 
 
 def _luminance_height(albedo: np.ndarray, detail: float, polarity: int) -> np.ndarray:
@@ -69,8 +85,7 @@ def _luminance_height(albedo: np.ndarray, detail: float, polarity: int) -> np.nd
         band = prev - blurred
         h += band * wgt * (detail if i < 2 else 1.0)
         prev = blurred
-    h -= h.min()
-    return (h / (h.max() + 1e-9)).astype(np.float32)
+    return _spread(h, FINE_REF)
 
 
 def normal(h: np.ndarray, strength: float = 1.0, directx: bool = False) -> np.ndarray:
@@ -100,7 +115,7 @@ def micro_height(albedo: np.ndarray, polarity: int) -> np.ndarray:
     if polarity < 0:
         lum = 1 - lum
     band = lum - filters.blur(lum, 6 * lum.shape[0] / 1024)
-    return band / (np.percentile(np.abs(band), 99.5) + 1e-6)
+    return band / max(float(np.percentile(np.abs(band), 99.5)), MICRO_REF)
 
 
 def blend_normals(base: np.ndarray, detail: np.ndarray) -> np.ndarray:
@@ -132,14 +147,14 @@ def ambient_occlusion(h: np.ndarray, strength: float = 1.2) -> np.ndarray:
     occ = np.zeros_like(h)
     for s in (4, 12, 32):
         occ += np.clip(filters.blur(h, s * scale) - h, 0, None)
-    occ /= np.percentile(occ, 99) + 1e-6
+    occ /= max(float(np.percentile(occ, 99)), OCC_REF)
     return np.clip(1 - occ * strength * 0.5, 0, 1).astype(np.float32)
 
 
 def roughness(albedo: np.ndarray, h: np.ndarray, p: MapParams) -> np.ndarray:
     """Base roughness from the plan; cavities rougher, raised worn areas slightly smoother."""
     hp = h - filters.blur(h, h.shape[0] / 64)
-    hp /= np.abs(hp).max() + 1e-6
+    hp /= max(float(np.abs(hp).max()), HP_REF)
     r = p.roughness - hp * p.roughness_variation * 0.5
     return np.clip(r, 0.02, 1).astype(np.float32)
 
@@ -173,7 +188,7 @@ def edge_wear(h: np.ndarray, ao: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """(edges, cavities) masks, 0..1: convex rims that rub and wear, recesses where dirt settles."""
     scale = h.shape[0] / 1024
     curv = filters.blur(h, 2 * scale) - filters.blur(h, 10 * scale)
-    edges = np.clip(curv / (np.percentile(curv, 97) + 1e-6), 0, 1)
+    edges = np.clip(curv / max(float(np.percentile(curv, 97)), CURV_REF), 0, 1)
     cavities = np.clip((1 - ao) * 1.5, 0, 1)
     return edges.astype(np.float32), cavities.astype(np.float32)
 
