@@ -73,6 +73,13 @@ $("#snapshot").addEventListener("click", () => {
   a.click();
 });
 let currentName = "matterlift";
+$("#triplanar").addEventListener("click", (e) => {
+  const b = e.currentTarget as HTMLButtonElement;
+  const on = !b.classList.contains("on");
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", String(on));
+  preview.setTriplanar(on);
+});
 
 function absolute(maps: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(maps).map(([k, v]) => [k, API + v]));

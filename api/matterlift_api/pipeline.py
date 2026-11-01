@@ -51,6 +51,10 @@ clean, flat, unoccluded areas of that surface, far from its edges and from objec
  "metal_on_desaturated": true only for rusty or painted metal where grey areas are bare metal,
  "height_strength": 0.3..1.5, "normal_strength": 0.3..2 (rough stone 1.5, brick 1, wood 0.6, fabric 0.5, metal 0.4),
  "detail": 0.5..2 (fine surface grain),
+ "detail_kind": the procedural micro-detail layered on top, one of "wood", "stone", "fabric", \
+"metal", "plaster", "none",
+ "detail_strength": 0..1 (0.3 subtle, 0.6 clearly visible up close),
+ "wear": 0..1 (0 new, 0.4 used, 0.8 old and worn: lighter rubbed edges, dirt in recesses),
  "shading": {"transmission": 0..1, "ior": 1..2.4, "clearcoat": 0..1, "clearcoat_roughness": 0..1,
              "sheen": 0..1, "subsurface": 0..1, "anisotropy": 0..1}
 }

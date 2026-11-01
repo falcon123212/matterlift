@@ -110,3 +110,37 @@ def test_periodic_component_adds_no_ramp_to_a_uniform_tile():
     out = seamless.periodic_component(img)
     rows = metrics.luminance(out).mean(axis=1)
     assert rows.max() - rows.min() < 0.02
+
+
+@pytest.mark.parametrize("kind", ["wood", "stone", "fabric", "metal", "plaster"])
+def test_detail_layers_tile(kind):
+    from pbrforge import detail
+
+    h = detail.detail_tiled(kind, 512, 8)
+    assert h.shape == (512, 512)
+    assert metrics.seam_score(h) < 1.6, kind
+
+
+def test_detail_kind_inferred_from_names():
+    from pbrforge import detail
+
+    assert detail.infer_kind("vieux parquet de chêne") == "wood"
+    assert detail.infer_kind("rusty steel") == "metal"
+    assert detail.infer_kind("linen cloth") == "fabric"
+    assert detail.infer_kind("dalle en pierre") == "stone"
+
+
+def test_wear_lightens_edges_and_darkens_cavities():
+    albedo = _noise(256)
+    plain = maps.derive(albedo, maps.MapParams(wear=0))
+    worn = maps.derive(albedo, maps.MapParams(wear=1))
+    edges, cavities = maps.edge_wear(plain["height"], plain["ao"])
+    lum = lambda m: metrics.luminance(m["albedo"])  # noqa: E731
+    assert (lum(worn) - lum(plain))[edges > 0.8].mean() > 0
+    assert (lum(worn) - lum(plain))[cavities > 0.8].mean() < 0
+
+
+def test_detail_layer_keeps_normals_unit_length():
+    m = maps.derive(_noise(256), maps.MapParams(detail_kind="stone", detail_strength=1))
+    n = m["normal"] * 2 - 1
+    assert np.allclose(np.linalg.norm(n, axis=-1), 1, atol=0.02)
