@@ -174,3 +174,30 @@ def test_crop_grid_leaves_planks_alone():
         b[:3] *= 0.3  # dark gap between boards
     planks = np.concatenate(boards, axis=0)
     assert seamless.crop_grid(planks).shape == planks.shape
+
+
+def test_smooth_surfaces_stay_smooth():
+    """Regression: every signal was stretched to full scale, so a smooth painted door came out
+    as bumpy as a brick wall."""
+    rng = np.random.default_rng(4)
+    paint = np.clip(0.6 + rng.normal(0, 0.006, (256, 256, 3)), 0, 1).astype(np.float32)  # sensor noise
+    rough = _noise(256, sigma=2.0)
+    flat_guide = 0.5 + 0.02 * _noise(256, seed=6)[..., 0]
+    deep_guide = _noise(256, seed=6)[..., 0]
+    smooth = maps.derive(paint, maps.MapParams(), height_guide=flat_guide)
+    bumpy = maps.derive(rough, maps.MapParams(), height_guide=deep_guide)
+    tilt = lambda m: np.degrees(np.arccos(np.clip(m["normal"][..., 2] * 2 - 1, -1, 1))).mean()  # noqa: E731
+    assert tilt(smooth) < tilt(bumpy) / 3
+    assert smooth["ao"].min() > 0.8
+
+
+def test_flatten_uniform_only_touches_plain_surfaces():
+    from pbrforge import delight
+
+    yy, xx = np.mgrid[:256, :256] / 256.0
+    blotch = (np.sin(xx * 2 * np.pi) * 0.04)[..., None]
+    paint = np.clip(0.6 + blotch + np.random.default_rng(2).normal(0, 0.004, (256, 256, 3)), 0, 1).astype(np.float32)
+    out, k = delight.flatten_uniform(paint)
+    assert k == 1.0 and metrics.luminance(out).std() < metrics.luminance(paint).std() / 3
+    _, k_rough = delight.flatten_uniform(_noise(256, sigma=1.5))
+    assert k_rough == 0.0

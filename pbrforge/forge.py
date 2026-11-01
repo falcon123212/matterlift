@@ -34,6 +34,7 @@ def fix_albedo(img: np.ndarray, singletons: float = 0.8, fix_grid: bool = False)
         best = min(tries, key=metrics.seam_score)
         if metrics.seam_score(best) < metrics.seam_score(out):
             out = best
+    out, flattened = delight.flatten_uniform(out)  # uniform paint: no checkerboard when tiled
     if fix_grid:
         out = seamless.fix_blocks(out)
     touched = 0.0
@@ -41,4 +42,5 @@ def fix_albedo(img: np.ndarray, singletons: float = 0.8, fix_grid: bool = False)
         out, touched = seamless.suppress_singletons(out, singletons)
     after = metrics.report(out)
     after["singletons_touched"] = round(touched, 2)
+    after["flattened"] = flattened
     return out, {"before": before, "after": after}
