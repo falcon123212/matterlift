@@ -35,6 +35,17 @@ HEIGHT_PROMPT = (
     "edge exactly aligned with the input, same framing, no shading, no colour."
 )
 
+ENHANCE_SYSTEM = """You are the technical artist of MatterLift. A user describes, in a few words, a \
+material they want for a game (and may show a photo of it). Rewrite their request as a precise \
+material brief: the material and its variety (wood species, stone type, metal, fabric), colour, \
+finish (matte, satin, polished, painted, raw), surface detail (grain, pores, weave, joints), wear \
+and age, and the scale of the pattern (plank width, brick or tile size). Keep their intent and \
+every detail they gave; never contradict them; when a photo is given, use what you see in it; \
+when they leave something open, choose the most likely option and state it plainly (never write \
+"unspecified" or "undetermined"). \
+Write in the SAME language as the request, one or two sentences, at most 45 words, no preamble. \
+Answer with ONE JSON object only: {"text": "..."}"""
+
 PLAN_SYSTEM ="""You are the technical artist of MatterLift. You turn a user's request (and an \
 optional photo) into a plan for a game-ready PBR material. Answer with ONE JSON object only:
 {
@@ -79,6 +90,17 @@ class Pipeline:
         self.client = client or MetaClient()
         self.data_dir = data_dir
         self.understand_dir = understand_dir
+
+    def enhance(self, request: str, photo: Image.Image | None = None) -> str:
+        """Spark fleshes out a short request ("prends ce bois") into a precise material brief,
+        in the user's language, keeping their intent; shown to them to edit before generating."""
+        user = f"Request: {request}"
+        if photo is not None:
+            user += "\nThe photo shows the surface the user is pointing at: describe what you see in it."
+        raw = self.client.chat_json(ENHANCE_SYSTEM, user, [photo] if photo is not None else None)
+        text = raw.get("text") if isinstance(raw, dict) else None
+        text = text.strip() if isinstance(text, str) else ""
+        return text[:400] or request
 
     def plan(self, request: str, photo: Image.Image | None) -> MaterialPlan:
         user = f"Request: {request}"

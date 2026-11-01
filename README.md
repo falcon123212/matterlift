@@ -55,7 +55,8 @@ pass, but a point selects an object, one brick rather than the wall, so concept 
 
 ```
 photo + voice/text
-  -> Muse Voice Transcribe   (voice -> text)
+  -> Muse Voice Transcribe   (voice -> text, shown in the box right after recording)
+  -> Muse Spark (Enrich)     ("old brick" -> a precise brief: colour, finish, wear, scale; editable, undoable)
   -> Muse Spark              (reads request + photo: material plan as JSON, what SAM should look for)
   -> SAM 3.1                 (masks the surface in the photo)
   -> samples                 (up to 3 rectangles inside the mask: objects lying on it are avoided)
@@ -68,7 +69,7 @@ photo + voice/text
 
 | Model | Role |
 |---|---|
-| Muse Spark | Plans the material (roughness, metal, relief, shading model), names the surface for SAM |
+| Muse Spark | Enriches short requests into a precise brief (same language, uses the photo); plans the material (roughness, metal, relief, shading model), names the surface for SAM |
 | SAM 3.1 | Masks the surface in the photo, so the samples avoid what lies on it |
 | Muse Image | Paints the albedo from the photo sample or the text; paints the height map from the albedo |
 | Muse Voice Transcribe | Spoken requests |

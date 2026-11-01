@@ -251,3 +251,18 @@ def test_critique_colour_fix_is_deterministic_no_muse(tmp_path, photo):
     c = critique(pipe, mat)
     assert c.colour_matched and c.chosen == c.after
     assert client.calls.count("muse:edit") == edits
+
+
+def test_enhance_returns_spark_brief_or_the_original(tmp_path):
+    class Spark(FakeClient):
+        def __init__(self, answer):
+            super().__init__()
+            self.answer = answer
+
+        def chat_json(self, system, user, images=None):
+            return self.answer
+
+    good = _pipe(tmp_path, Spark({"text": "Vieux chêne patiné, lames de 12 cm, finition mate cirée."}))
+    assert good.enhance("vieux bois").startswith("Vieux chêne")
+    for garbage in ("not json", {"text": ""}, {"text": 42}, {}):
+        assert _pipe(tmp_path, Spark(garbage)).enhance("vieux bois") == "vieux bois"
