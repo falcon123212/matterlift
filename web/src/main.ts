@@ -1,4 +1,5 @@
 import "./style.css";
+import { createRtViewer, type RtViewer } from "./rt";
 import { Preview, type Aov, type LightPass, type MaterialMaps, type Shading, type Shape } from "./preview";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -83,10 +84,29 @@ toggle("#shapes", "shape", (v) => preview.setShape(v as Shape));
 toggle("#lights", "light", (v) => preview.setLight(v as LightPass));
 let currentAov: Aov = "beauty";
 toggle("#aovs", "aov", (v) => preview.setAov((currentAov = v as Aov)));
+// Ray-traced preview (HyperWave WebGPU port): offered only when the engine is in this build and the
+// browser has WebGPU; otherwise the button stays hidden and the Three.js preview is the only one.
+let rt: RtViewer | null = null;
+let rtOn = false;
+let rtMaps: { maps: MaterialMaps; shading: Shading | null } | null = null;
+void createRtViewer($("#canvas-wrap")).then((viewer) => {
+  rt = viewer;
+  if (rt) $("#raytraced").hidden = false;
+});
+$("#raytraced").addEventListener("click", (e) => {
+  if (!rt) return;
+  const b = e.currentTarget as HTMLButtonElement;
+  rtOn = !b.classList.contains("on");
+  b.classList.toggle("on", rtOn);
+  b.setAttribute("aria-pressed", String(rtOn));
+  rt.setVisible(rtOn);
+  if (rtOn && rtMaps) void rt.setMaterial(rtMaps.maps, rtMaps.shading);
+});
+
 $("#snapshot").addEventListener("click", () => {
   const a = document.createElement("a");
-  a.href = preview.snapshot();
-  a.download = `${currentName}_${currentAov}.png`;
+  a.href = rtOn && rt ? rt.capture() : preview.snapshot();
+  a.download = `${currentName}_${rtOn ? "raytraced" : currentAov}.png`;
   a.click();
 });
 let currentName = "matterlift";
@@ -198,6 +218,8 @@ async function show(mat: Material, updateUrl = true) {
   updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
   await preview.load(maps, mat.plan.shading);
+  rtMaps = { maps, shading: mat.plan.shading };
+  if (rtOn && rt) void rt.setMaterial(maps, mat.plan.shading);
   $("#tiling").style.backgroundImage = `url(${maps.albedo})`;
   $("#maps").innerHTML = Object.entries(maps)
     .map(([k, v]) => `<figure><img src="${v}" alt="${k}" loading="lazy" /><figcaption>${k}</figcaption></figure>`)
