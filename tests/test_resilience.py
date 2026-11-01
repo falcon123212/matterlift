@@ -266,3 +266,22 @@ def test_enhance_returns_spark_brief_or_the_original(tmp_path):
     assert good.enhance("vieux bois").startswith("Vieux chêne")
     for garbage in ("not json", {"text": ""}, {"text": 42}, {}):
         assert _pipe(tmp_path, Spark(garbage)).enhance("vieux bois") == "vieux bois"
+
+
+def test_audio_level_tells_silence_from_speech():
+    import io
+    import wave
+
+    from matterlift_api.meta_client import audio_level
+
+    def wav(x):
+        b = io.BytesIO()
+        with wave.open(b, "wb") as w:
+            w.setnchannels(1), w.setsampwidth(2), w.setframerate(48_000)
+            w.writeframes((x * 32767).astype(np.int16).tobytes())
+        return b.getvalue()
+
+    seconds, peak = audio_level(wav(np.zeros(96_000)))
+    assert abs(seconds - 2) < 0.01 and peak == 0
+    _, peak = audio_level(wav(0.5 * np.sin(np.linspace(0, 2000, 48_000))))
+    assert 0.45 < peak < 0.55

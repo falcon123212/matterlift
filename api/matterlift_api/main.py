@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 
 from .critique import critique_by_id
+from .meta_client import audio_level
 from .library import LIBRARY_DIR, build_library, load_library, understand_library
 from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
                        load_understanding, normalize_photo)
@@ -65,9 +66,14 @@ async def _request_text(text: str, audio: UploadFile | None) -> str:
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)) -> dict:
     """Voice request -> text, right after recording, so the user sees and can edit what was heard."""
+    data = await audio.read()
+    await audio.seek(0)
     text = await _request_text("", audio)
     if not text:
-        raise HTTPException(422, "nothing was heard in the recording")
+        seconds, peak = await run_in_threadpool(audio_level, data)
+        why = ("the recording is silent: the browser is using a microphone that hears nothing"
+               if peak < 0.01 else "no words were recognised: speak closer to the microphone")
+        raise HTTPException(422, f"{why} ({seconds:.1f} s, level {peak:.0%})")
     return {"text": text}
 
 

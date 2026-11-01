@@ -259,15 +259,28 @@ mic.addEventListener("click", async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     const chunks: Blob[] = [];
+    // Live level: shows which microphone the browser picked and that it hears something.
+    const device = stream.getAudioTracks()[0]?.label || "default microphone";
+    const meterCtx = new AudioContext();
+    const analyser = meterCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    meterCtx.createMediaStreamSource(stream).connect(analyser);
+    const samples = new Float32Array(analyser.fftSize);
+    let loudest = 0;
     recorder = new MediaRecorder(stream);
     recorder.ondataavailable = (ev) => chunks.push(ev.data);
     recorder.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
+      void meterCtx.close();
       clearInterval(recTick);
       mic.textContent = "🎤 Speak";
       mic.classList.remove("on");
       mic.setAttribute("aria-pressed", "false");
       const seconds = (performance.now() - recStart) / 1000;
+      if (loudest < 0.01) {
+        voiceState.textContent = `“${device}” heard nothing: pick another microphone (icon in the address bar) or check it is not muted`;
+        return;
+      }
       let wav: Blob;
       try {
         wav = await toWav(new Blob(chunks, { type: recorder!.mimeType }));
@@ -298,8 +311,12 @@ mic.addEventListener("click", async () => {
     mic.classList.add("on");
     mic.setAttribute("aria-pressed", "true");
     recTick = window.setInterval(() => {
-      voiceState.textContent = `● recording ${((performance.now() - recStart) / 1000).toFixed(0)} s`;
-    }, 250);
+      analyser.getFloatTimeDomainData(samples);
+      const peak = samples.reduce((m, s) => Math.max(m, Math.abs(s)), 0);
+      loudest = Math.max(loudest, peak);
+      const bars = "▮".repeat(Math.min(10, Math.round(peak * 30))).padEnd(10, "▯");
+      voiceState.textContent = `● ${((performance.now() - recStart) / 1000).toFixed(0)} s ${bars} ${device}`;
+    }, 100);
   } catch (err) {
     voiceState.textContent = `Microphone unavailable: ${(err as Error).message}`;
   }
