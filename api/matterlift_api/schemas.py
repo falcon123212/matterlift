@@ -23,7 +23,7 @@ class MaterialPlan(BaseModel):
     metallic: float = 0.0
     metal_on_desaturated: bool = False
     height_strength: float = 1.0
-    normal_strength: float = 4.0
+    normal_strength: float = 1.0
     detail: float = 1.0
     shading: Shading = Shading()
 

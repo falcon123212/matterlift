@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import ndimage
 
-from . import metrics
+from . import filters, metrics
 
 
 def crop_period(img: np.ndarray, min_frac: float = 0.45) -> np.ndarray:
@@ -32,7 +32,14 @@ def periodic_component(img: np.ndarray, blur_frac: float = 1 / 48) -> np.ndarray
     """
     h, w = img.shape[:2]
     sigma = max(h, w) * blur_frac
-    blurred = ndimage.gaussian_filter(img, (sigma, sigma, 0) if img.ndim == 3 else sigma, mode="nearest")
+    # Blur at 1/8 resolution (fast; borders clamp, not wrap) and bring back to full size.
+    f = int(np.clip(sigma / 4, 1, 8))
+    zoom = (1 / f, 1 / f, 1) if img.ndim == 3 else (1 / f, 1 / f)
+    small = ndimage.zoom(img, zoom, order=1)
+    small = ndimage.gaussian_filter(small, (sigma / f, sigma / f, 0) if img.ndim == 3 else sigma / f,
+                                    mode="nearest")
+    back = tuple(t / s for t, s in zip(img.shape, small.shape))
+    blurred = ndimage.zoom(small, back, order=1)[:h, :w]
     chans = [blurred] if img.ndim == 2 else [blurred[..., c] for c in range(img.shape[2])]
     q = np.arange(h)[:, None]
     r = np.arange(w)[None, :]
@@ -136,10 +143,10 @@ def suppress_singletons(img: np.ndarray, strength: float = 0.8) -> tuple[np.ndar
     mask = metrics.salient_mask(img)
     if not mask.any():
         return img, 0.0
-    soft = ndimage.gaussian_filter(mask.astype(np.float32), 3, mode="wrap")[..., None] * strength
+    soft = filters.blur(mask.astype(np.float32), 3)[..., None] * strength
     sigma = max(img.shape[:2]) / 24
-    local = np.stack([ndimage.gaussian_filter(img[..., c], sigma, mode="wrap") for c in range(3)], -1)
+    local = filters.blur(img, sigma)
     # Keep the blob's fine detail, replace its colour offset.
-    detail = img - np.stack([ndimage.gaussian_filter(img[..., c], 3, mode="wrap") for c in range(3)], -1)
+    detail = img - filters.blur(img, 3)
     out = img * (1 - soft) + (local + detail) * soft
     return np.clip(out, 0, 1), float(mask.mean() * 100)
