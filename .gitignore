@@ -8,6 +8,6 @@ data/
 samples/gate/
 samples/out/
 .pytest_cache/
-.claude/settings.local.json
+.claude/
 .wrangler/
 web/.wrangler/

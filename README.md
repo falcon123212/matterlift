@@ -1,22 +1,53 @@
 # MatterLift
 
+[![tests](https://github.com/falcon123212/matterlift/actions/workflows/tests.yml/badge.svg)](https://github.com/falcon123212/matterlift/actions/workflows/tests.yml)
+
 **Point at anything. Say what you want. Get a game-ready material.**
+
+- **Live demo:** https://matterlift.taurus-silver-dev.workers.dev (page on Cloudflare Workers, API on Modal)
+- **Video:** coming soon
+- **Repository:** https://github.com/falcon123212/matterlift
+
+<!-- Hero image goes here: photo -> material on the sphere (picked from the results gallery). -->
 
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot,
-Blender, Unity or Unreal. Open source, built on Meta's models.
+Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
+Muse Voice Transcribe).
+
+## 60-second judge path
+
+1. **Ask.** Open the [live demo](https://matterlift.taurus-silver-dev.workers.dev), type
+   `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
+   and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
+2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
+   passes (Depth, Normal, Albedo, Rough, AO). With a photo, MatterLift first shows what it
+   understood: the surface SAM masked and the square it sampled, before generating anything.
+3. **Use it.** **Download .zip**: ambientCG-style maps, a glTF `.glb`, Godot `.tres` and
+   `.gdshader`, MaterialX, USD and a Blender script. Drop the `.glb` into Godot, Blender or any
+   glTF viewer.
+
+## Honest scope
 
 MatterLift does not scan the surface the way photogrammetry tools do: Muse Image repaints the photo
 sample as a clean, flat, tileable texture, then pbrforge matches its colours back to the photo and
 derives the maps. The result is faithful in character and colour (Delta E shown in the UI), not a
 pixel-exact capture.
 
-Repository: https://github.com/falcon123212/matterlift
+## Built during the hackathon
 
-Try it: https://matterlift.taurus-silver-dev.workers.dev (page on Cloudflare Workers, API on Modal)
+Meta hackathon *Build for Your World*, Indie Developer track.
 
-All code in this repository was written from 2026-11-01 onward, for the Meta hackathon
-(Build for Your World, Indie Developer track). The Git history is the proof.
+| | |
+|---|---|
+| First commit | 2026-11-01 18:57 (Paris) |
+| Our code | Everything in this repository was written from 2026-11-01 onward; the Git history is the proof |
+| Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
+| Ported from Meta | `api/matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
+| Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
+| Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, Vite, TypeScript |
+| Hosting | Modal (API), Cloudflare Workers (page) |
+| Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
 ## How it works
 
@@ -240,4 +271,5 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
 
 ## License
 
-MIT
+MIT (see `LICENSE`), except `api/matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
+which is distributed under the SAM License (see `LICENSE-SAM`).
