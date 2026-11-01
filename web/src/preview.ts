@@ -26,9 +26,76 @@ export interface Shading {
 }
 
 const REPEAT = 2;
+// Triplanar tiles per world unit, matching each shape's UV density (REPEAT tiles across its UVs).
+const TRI_SCALE: Record<Shape, number> = { sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4 };
 // The height map displaces the mesh for real, so silhouettes and the depth AOV show the relief.
 const DISPLACEMENT = 0.035;
 const BACKGROUND = new THREE.Color(0x141416);
+
+/** Triplanar projection, injected into MeshPhysicalMaterial: every map is sampled along the three
+ * world axes and blended by the surface normal, so no UV layout is needed and nothing stretches
+ * (sphere poles, arbitrary game meshes). Normals use the whiteout blend, in world space. */
+const TRIPLANAR_GLSL = /* glsl */ `
+uniform float triplanar;
+uniform float triScale;
+varying vec3 vTriPos;
+varying vec3 vTriNormal;
+vec3 triWeights() {
+  vec3 w = pow(abs(normalize(vTriNormal)), vec3(4.0));
+  return w / (w.x + w.y + w.z);
+}
+vec4 triTex(sampler2D t, vec2 uv) {
+  vec4 c = texture2D(t, uv);
+  if (triplanar > 0.5) {
+    vec3 p = vTriPos * triScale;
+    vec3 w = triWeights();
+    c = texture2D(t, p.zy) * w.x + texture2D(t, p.xz) * w.y + texture2D(t, p.xy) * w.z;
+  }
+  return c;
+}
+vec3 triNormalWorld(sampler2D t) {
+  vec3 n = normalize(vTriNormal);
+  vec3 p = vTriPos * triScale;
+  vec3 w = triWeights();
+  vec3 tx = texture2D(t, p.zy).xyz * 2.0 - 1.0;
+  vec3 ty = texture2D(t, p.xz).xyz * 2.0 - 1.0;
+  vec3 tz = texture2D(t, p.xy).xyz * 2.0 - 1.0;
+  tx = vec3(tx.xy + n.zy, abs(tx.z) * n.x);
+  ty = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
+  tz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
+  return normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+}
+`;
+
+function addTriplanar(material: THREE.MeshPhysicalMaterial, uniforms: { triplanar: { value: number }; triScale: { value: number } }) {
+  material.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms);
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vTriPos;\nvarying vec3 vTriNormal;")
+      .replace(
+        "#include <worldpos_vertex>",
+        "#include <worldpos_vertex>\nvTriPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n" +
+          "vTriNormal = normalize(mat3(modelMatrix) * objectNormal);",
+      );
+    // The shader still holds #include directives here: swap each one for its chunk, patched.
+    const chunk = (name: keyof typeof THREE.ShaderChunk, from: string, to: string) => {
+      const patched = THREE.ShaderChunk[name].replace(from, to);
+      if (patched === THREE.ShaderChunk[name]) console.warn(`triplanar: ${name} did not match`);
+      shader.fragmentShader = shader.fragmentShader.replace(`#include <${name}>`, patched);
+    };
+    shader.fragmentShader = shader.fragmentShader.replace("#include <common>", "#include <common>\n" + TRIPLANAR_GLSL);
+    chunk("map_fragment", "texture2D( map, vMapUv )", "triTex( map, vMapUv )");
+    chunk("roughnessmap_fragment", "texture2D( roughnessMap, vRoughnessMapUv )", "triTex( roughnessMap, vRoughnessMapUv )");
+    chunk("metalnessmap_fragment", "texture2D( metalnessMap, vMetalnessMapUv )", "triTex( metalnessMap, vMetalnessMapUv )");
+    chunk("aomap_fragment", "texture2D( aoMap, vAoMapUv )", "triTex( aoMap, vAoMapUv )");
+    chunk(
+      "normal_fragment_maps",
+      "normal = normalize( tbn * mapN );",
+      "normal = normalize( tbn * mapN );\n" +
+        "\tif ( triplanar > 0.5 ) normal = normalize( ( viewMatrix * vec4( triNormalWorld( normalMap ), 0.0 ) ).xyz );",
+    );
+  };
+}
 
 /** View-space depth, linear between near (white) and far (black) set around the object. */
 class LinearDepthMaterial extends THREE.ShaderMaterial {
@@ -78,6 +145,7 @@ export class Preview {
   private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
   private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height", THREE.Texture>> = {};
   private aov: Aov = "beauty";
+  private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere } };
   private envMap: THREE.Texture;
   private sun = new THREE.DirectionalLight(0xffffff, 3);
   private loader = new THREE.TextureLoader();
@@ -99,6 +167,7 @@ export class Preview {
     this.scene.background = BACKGROUND;
     this.scene.add(this.sun);
 
+    addTriplanar(this.material, this.tri);
     this.mesh = new THREE.Mesh(this.geometry("sphere"), this.material);
     this.scene.add(this.mesh);
     this.setLight("hdri");
@@ -123,6 +192,7 @@ export class Preview {
     this.mesh.geometry.dispose();
     this.mesh.geometry = this.geometry(shape);
     this.mesh.rotation.set(shape === "plane" ? -0.9 : 0, 0, 0);
+    this.tri.triScale.value = TRI_SCALE[shape];
   }
 
   /** Lighting passes: HDRI for the overall read, key/raking/back to check relief and seams. */
@@ -138,6 +208,11 @@ export class Preview {
       back: [0, 1.5, -4],
     };
     this.sun.position.set(...pos[pass]);
+  }
+
+  /** Triplanar projection on or off (beauty pass). */
+  setTriplanar(on: boolean) {
+    this.tri.triplanar.value = on ? 1 : 0;
   }
 
   /** Show one render pass. Lighting choices only affect the beauty pass. */

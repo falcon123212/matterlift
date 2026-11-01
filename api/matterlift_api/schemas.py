@@ -4,6 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field, ValidationError
 
+from pbrforge.detail import KINDS as DETAIL_KINDS
+from pbrforge.detail import infer_kind
+
 
 class Shading(BaseModel):
     """Proposed by Spark, adjustable in the UI. Maps to glTF KHR_materials_* extensions."""
@@ -29,6 +32,9 @@ class MaterialPlan(BaseModel):
     height_strength: float = 1.0
     normal_strength: float = 1.0
     detail: float = 1.0
+    detail_kind: str = ""  # procedural detail layer: wood, stone, fabric, metal, plaster or none
+    detail_strength: float = 0.5
+    wear: float = 0.0
     shading: Shading = Shading()
 
     @classmethod
@@ -50,10 +56,13 @@ class MaterialPlan(BaseModel):
         else:
             plan = cls()
         clamp = {"roughness": (0.02, 1), "roughness_variation": (0, 0.5), "metallic": (0, 1),
-                 "height_strength": (0.1, 2), "normal_strength": (0.1, 3), "detail": (0.25, 3)}
+                 "height_strength": (0.1, 2), "normal_strength": (0.1, 3), "detail": (0.25, 3),
+                 "detail_strength": (0, 1), "wear": (0, 1)}
         fixed = {k: min(hi, max(lo, getattr(plan, k))) for k, (lo, hi) in clamp.items()}
         fixed["points"] = [(min(1000, max(0, x)), min(1000, max(0, y))) for x, y in plan.points][:3]
         fixed["name"] = plan.name.strip().replace(" ", "_")[:48] or "material"
+        kind = plan.detail_kind.strip().lower()
+        fixed["detail_kind"] = kind if kind in DETAIL_KINDS else infer_kind(fixed["name"], plan.texture_prompt)
         return plan.model_copy(update=fixed)
 
 

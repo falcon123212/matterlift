@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import ndimage
 
-from . import filters, io
+from . import detail, filters, io
 from .metrics import luminance
 
 # Weight per band, fine -> coarse. Low frequencies dominate: the stone shape, not its speckle,
@@ -24,6 +24,10 @@ class MapParams:
     height_strength: float = 1.0
     normal_strength: float = 1.0  # times MACRO_GAIN; calibrated on Bricks113A against its NormalGL
     detail: float = 1.0  # scales the fine bands
+    detail_kind: str = "none"  # procedural detail layer, see detail.py
+    detail_strength: float = 0.5
+    detail_repeats: int = 8  # detail tiles per texture side
+    wear: float = 0.0  # 0 new .. 1 heavily worn: lighter smoother edges, dirt in cavities
     directx_normal: bool = False
 
 
@@ -150,9 +154,37 @@ def metallic(albedo: np.ndarray, p: MapParams) -> np.ndarray:
     return (bare * p.metallic).astype(np.float32)
 
 
+DETAIL_GAIN = 0.35  # detail normal strength at detail_strength = 1
+
+
+def edge_wear(h: np.ndarray, ao: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """(edges, cavities) masks, 0..1: convex rims that rub and wear, recesses where dirt settles."""
+    scale = h.shape[0] / 1024
+    curv = filters.blur(h, 2 * scale) - filters.blur(h, 10 * scale)
+    edges = np.clip(curv / (np.percentile(curv, 97) + 1e-6), 0, 1)
+    cavities = np.clip((1 - ao) * 1.5, 0, 1)
+    return edges.astype(np.float32), cavities.astype(np.float32)
+
+
+def apply_wear(albedo: np.ndarray, rough: np.ndarray, h: np.ndarray, ao: np.ndarray,
+               wear: float) -> tuple[np.ndarray, np.ndarray]:
+    """Worn edges: lighter, less saturated, smoother. Cavities: darker and rougher."""
+    if wear <= 0:
+        return albedo, rough
+    edges, cavities = edge_wear(h, ao)
+    e = (edges * wear * 0.5)[..., None]
+    c = (cavities * wear * 0.35)[..., None]
+    grey = albedo.mean(axis=-1, keepdims=True)
+    worn = albedo * (1 - e) + (0.6 * albedo + 0.4 * grey + 0.12) * e
+    worn = worn * (1 - c * 0.6)
+    rough = rough - edges * wear * 0.18 + cavities * wear * 0.1
+    return np.clip(worn, 0, 1).astype(np.float32), np.clip(rough, 0.02, 1).astype(np.float32)
+
+
 def derive(albedo: np.ndarray, p: MapParams | None = None, size: int | None = None,
            height_guide: np.ndarray | None = None) -> dict[str, np.ndarray]:
-    """All maps at `size` (default: albedo size). Maps are computed at the target size."""
+    """All maps at `size` (default: albedo size). Maps are computed at the target size, so the
+    procedural detail layer is at full resolution in every export."""
     p = p or MapParams()
     if size:
         albedo = io.resize(albedo, size).clip(0, 1)
@@ -162,10 +194,19 @@ def derive(albedo: np.ndarray, p: MapParams | None = None, size: int | None = No
     ao = ambient_occlusion(h)
     rough = roughness(albedo, h, p)
     metal = metallic(albedo, p)
+    n = studio_normal(h, albedo, p.normal_strength, p.detail)
+    if p.detail_kind in detail.KINDS and p.detail_kind != "none" and p.detail_strength > 0:
+        dh = detail.detail_tiled(p.detail_kind, albedo.shape[0], p.detail_repeats)
+        k = detail.KIND_GAIN[p.detail_kind] * p.detail_strength
+        n = blend_normals(n, normal(dh * 0.5 + 0.5, DETAIL_GAIN * k))
+        rough = np.clip(rough + dh * 0.05 * k, 0.02, 1).astype(np.float32)
+    albedo, rough = apply_wear(albedo, rough, h, ao, p.wear)
+    if p.directx_normal:
+        n[..., 1] = 1 - n[..., 1]
     return {
         "albedo": albedo,
         "height": h,
-        "normal": studio_normal(h, albedo, p.normal_strength, p.detail, p.directx_normal),
+        "normal": n,
         "ao": ao,
         "roughness": rough,
         "metallic": metal,

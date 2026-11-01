@@ -94,6 +94,17 @@ with Reoriented Normal Mapping. Mean angular error is not the target: a flat nor
 8.0 deg on it, so it rewards smooth faces. Muse painting the normal map directly was tried and is
 worse (r 0.34, wrong neutral colour).
 
+**Detail layer** (`pbrforge/detail.py`). What a studio adds on top of a scan: a procedural micro
+relief (wood fibres and pores, stone grit and pits, fabric fuzz, brushed metal with scratches, plaster
+sand), periodic so it tiles, repeated 8 times per texture and computed at the export resolution, so
+a 4K export gets real 4K micro detail although Muse paints 1600 px. Blended into the normal with RNM
+and into roughness. Plus edge wear: convex rims lighter and smoother, recesses darker and rougher.
+Spark picks `detail_kind`, `detail_strength` and `wear` from the request ("vieux parquet très usé"
+-> wood, 0.6, wear 0.85); the kind is inferred from the name when it does not say.
+
+**Triplanar preview.** A Triplanar toggle projects every map along the world axes (whiteout blend
+for normals): no UVs needed, no stretching at the sphere's poles, the same scale as the UVs.
+
 **Colour fidelity.** Muse repaints the sample, so colours drift (a dusty terracotta comes back bright
 orange). The albedo is matched to the delit photo samples in CIELAB, hue fully and lightness at 60%
 (a sample in shadow says little about the true value). Delta E between mean colours, kitchen
