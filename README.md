@@ -18,6 +18,14 @@ With a photo, MatterLift works in two steps so you see what it understood before
    will be sampled and Spark's description.
 2. **Generate** (~25 s per material, in parallel for a room): Muse Image and pbrforge.
 
+**Samples** (`api/matterlift_api/sampling.py`): the largest rectangle inside the mask (aspect up to
+3:1, so a countertop strip still gives a clean sample), then up to two more away from it (a floor
+half hidden by furniture is better described by several samples). Muse gets all of them and is
+told to keep the pattern scale of the first: the kitchen's octagonal floor tiles stay octagons.
+
+**Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, with the height map as real
+displacement on the mesh (so the depth pass shows the relief), and Save PNG for the current pass.
+
 **Library mode**: one photo of a room gives every material in it. Spark lists up to 8 materials
 with two points on each; SAM masks each from its noun phrase (one concept per request, all in
 parallel), Spark's points pick the right instance; then every sample is generated in parallel.
@@ -29,7 +37,7 @@ photo + voice/text
   -> Muse Voice Transcribe   (voice -> text)
   -> Muse Spark              (reads request + photo: material plan as JSON, what SAM should look for)
   -> SAM 3.1                 (masks the surface in the photo)
-  -> crop                    (largest square inside the mask: objects lying on it are avoided)
+  -> samples                 (up to 3 rectangles inside the mask: objects lying on it are avoided)
   -> Muse Image              (sample -> flat, delit, top-down albedo; or text -> albedo without a photo)
   -> pbrforge                (period crop, seamless wrap, delight, singleton taming)
   -> Muse Image              (albedo -> height map, aligned with it)
@@ -40,7 +48,7 @@ photo + voice/text
 | Model | Role |
 |---|---|
 | Muse Spark | Plans the material (roughness, metal, relief, shading model), names the surface for SAM |
-| SAM 3.1 | Masks the surface in the photo, so the sample avoids what lies on it |
+| SAM 3.1 | Masks the surface in the photo, so the samples avoid what lies on it |
 | Muse Image | Paints the albedo from the photo sample or the text; paints the height map from the albedo |
 | Muse Voice Transcribe | Spoken requests |
 

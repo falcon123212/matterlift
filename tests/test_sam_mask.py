@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from matterlift_api.pipeline import largest_square_in_mask
+from matterlift_api.sampling import sample_regions
 from matterlift_api.sam_mask import MaskError, decode_one_bit
 
 # Real one_bit payloads returned by sam-3.1 for "stone" on a 256 px flagstone texture.
@@ -33,14 +33,32 @@ def test_rejects_wrong_marker_and_truncation():
         decode_one_bit(STONE[2][:-3], STONE[0], STONE[1])
 
 
-def test_largest_square_avoids_holes():
+def test_samples_avoid_holes():
     mask = np.zeros((400, 600), dtype=bool)
     mask[50:350, 50:550] = True  # table top
     mask[60:200, 60:200] = False  # bowl
-    x, y, side = largest_square_in_mask(mask, margin=0)
-    assert mask[y : y + side, x : x + side].all()
-    assert side >= 260
+    regions = sample_regions(mask, margin=0)
+    assert regions
+    for x, y, w, h in regions:
+        assert mask[y : y + h, x : x + w].all()
+    assert regions[0][2] * regions[0][3] >= 300 * 200
 
 
-def test_largest_square_none_for_empty_mask():
-    assert largest_square_in_mask(np.zeros((50, 50), dtype=bool)) is None
+def test_thin_strip_gives_a_long_sample():
+    mask = np.zeros((300, 900), dtype=bool)
+    mask[100:180, 20:880] = True  # countertop seen edge-on
+    x, y, w, h = sample_regions(mask)[0]
+    assert w > 2 * h and h >= 40
+
+
+def test_partly_hidden_surface_gives_several_samples():
+    mask = np.zeros((400, 800), dtype=bool)
+    mask[:, :] = True
+    mask[:, 250:550] = False  # a table hides the middle of the floor
+    regions = sample_regions(mask)
+    assert len(regions) >= 2
+    assert {r[0] < 250 for r in regions} == {True, False}  # one each side
+
+
+def test_no_samples_in_empty_mask():
+    assert sample_regions(np.zeros((50, 50), dtype=bool)) == []

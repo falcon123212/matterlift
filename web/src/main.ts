@@ -1,5 +1,5 @@
 import "./style.css";
-import { Preview, type LightPass, type MaterialMaps, type Shading, type Shape } from "./preview";
+import { Preview, type Aov, type LightPass, type MaterialMaps, type Shading, type Shape } from "./preview";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -29,7 +29,7 @@ interface Understanding {
   plan: Plan;
   matched: boolean;
   overlay: string;
-  crop: string | null;
+  crops: string[];
   timings: Record<string, number>;
 }
 
@@ -37,7 +37,7 @@ interface Library {
   id: string;
   overlay: string;
   status: "understood" | "built";
-  items: { plan: Plan; crop: string | null; material: Material | null; error: string | null }[];
+  items: { plan: Plan; crops: string[]; material: Material | null; error: string | null }[];
   timings: Record<string, number>;
 }
 
@@ -55,6 +55,15 @@ function toggle(groupSel: string, attr: string, apply: (v: string) => void) {
 }
 toggle("#shapes", "shape", (v) => preview.setShape(v as Shape));
 toggle("#lights", "light", (v) => preview.setLight(v as LightPass));
+let currentAov: Aov = "beauty";
+toggle("#aovs", "aov", (v) => preview.setAov((currentAov = v as Aov)));
+$("#snapshot").addEventListener("click", () => {
+  const a = document.createElement("a");
+  a.href = preview.snapshot();
+  a.download = `${currentName}_${currentAov}.png`;
+  a.click();
+});
+let currentName = "matterlift";
 
 function absolute(maps: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(maps).map(([k, v]) => [k, API + v]));
@@ -91,6 +100,7 @@ $("#export-fmt").addEventListener("change", updateExportLink);
 
 async function show(mat: Material, updateUrl = true) {
   currentId = mat.id;
+  currentName = mat.plan.name;
   updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
   await preview.load(maps, mat.plan.shading);
@@ -208,7 +218,7 @@ function showUnderstanding(und: Understanding) {
   const pretty = und.plan.name.replace(/_/g, " ");
   describe($("#und-text"), und.matched
     ? ["I heard “", [und.request], "”. I see ", [pretty], ", found by SAM as “", [und.plan.sam_prompt],
-       "”, and I sample the framed square. Muse will paint: ", und.plan.texture_prompt, "."]
+       "”, and I sample the framed area. Muse will paint: ", und.plan.texture_prompt, "."]
     : ["I heard “", [und.request], "”, but SAM found no “", [und.plan.sam_prompt],
        "” in the photo: I will paint ", [pretty], " from the description instead."]);
   $("#und-items").replaceChildren();
@@ -217,13 +227,13 @@ function showUnderstanding(und: Understanding) {
 function showLibrary(lib: Library, onPick: (m: Material) => void) {
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + lib.overlay;
-  const found = lib.items.filter((i) => i.crop).length;
+  const found = lib.items.filter((i) => i.crops.length).length;
   describe($("#und-text"), [`I see `, [`${lib.items.length} materials`], ` in this photo, SAM masked `, [`${found}`],
-    ". Each framed square is the sample Muse turns into a texture."]);
+    ". Each framed area is a sample Muse turns into a texture."]);
   const cards = lib.items.map((item, i) => {
-    const b = el("button", undefined, item.material ? "" : item.crop && !item.error ? "pending" : "failed");
+    const b = el("button", undefined, item.material ? "" : item.crops.length && !item.error ? "pending" : "failed");
     b.type = "button";
-    const src = item.material ? item.material.maps.albedo : item.crop;
+    const src = item.material ? item.material.maps.albedo : item.crops[0];
     let thumb: HTMLElement;
     if (src) {
       const img = el("img");

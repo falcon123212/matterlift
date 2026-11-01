@@ -9,9 +9,9 @@ PALETTE = [(230, 80, 70), (90, 110, 230), (240, 180, 40), (90, 200, 120),
            (200, 90, 220), (60, 200, 220), (250, 130, 30), (160, 160, 160)]
 
 
-def draw(photo: Image.Image, items: list[tuple[str, np.ndarray | None, tuple[int, int, int] | None]],
+def draw(photo: Image.Image, items: list[tuple[str, np.ndarray | None, list[tuple[int, int, int, int]]]],
          max_side: int = 1400) -> Image.Image:
-    """items: (label, mask or None, sampled square (x, y, side) or None), in photo pixels."""
+    """items: (label, mask or None, sampled regions [(x, y, w, h)]), in photo pixels."""
     vis = np.asarray(photo.convert("RGB")).astype(np.float32)
     for i, (_, mask, _) in enumerate(items):
         if mask is not None:
@@ -24,17 +24,19 @@ def draw(photo: Image.Image, items: list[tuple[str, np.ndarray | None, tuple[int
     lw = max(2, round(4 * out.width / 1400))
     fs = max(14, round(out.width / 52))
     font = ImageFont.load_default(size=fs)
-    for i, (label, mask, square) in enumerate(items):
+    for i, (label, mask, regions) in enumerate(items):
         color = PALETTE[i % len(PALETTE)]
-        if square is not None:
-            x, y, s = (v * scale for v in square)
-            d.rectangle([x, y, x + s, y + s], outline=(255, 255, 255), width=lw + 2)
-            d.rectangle([x, y, x + s, y + s], outline=color, width=lw)
-        if mask is not None and mask.any():
+        for r in regions:
+            x, y, w, h = (v * scale for v in r)
+            d.rectangle([x, y, x + w, y + h], outline=(255, 255, 255), width=lw + 2)
+            d.rectangle([x, y, x + w, y + h], outline=color, width=lw)
+        if regions:  # label just above the main sample (below it at the top edge), never over it
+            tx = regions[0][0] * scale
+            above = regions[0][1] * scale - fs * 1.5 - lw
+            ty = above if above >= 0 else (regions[0][1] + regions[0][3]) * scale + lw
+        elif mask is not None and mask.any():
             ys, xs = np.nonzero(mask)
             tx, ty = float(np.median(xs)) * scale, float(np.median(ys)) * scale
-        elif square is not None:
-            tx, ty = (square[0] + 4) * scale, (square[1] + 4) * scale
         else:
             continue
         text = f" {i + 1}  {label.replace('_', ' ')} "

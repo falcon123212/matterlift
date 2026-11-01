@@ -42,11 +42,12 @@ def main():
     t = time.perf_counter()
     und = pipe.understand(args.request, photo)
     print(f"understood in {time.perf_counter() - t:.1f}s: {und.plan.name!r}, SAM '{und.plan.sam_prompt}' "
-          f"matched={und.matched} crop_from={und.crop_from}")
+          f"matched={und.matched} samples={len(und.crops)} from {und.crop_from}")
     shutil.copy(UNDERSTAND_DIR / und.id / "overlay.jpg", out / "sam_understanding.jpg")
 
     t = time.perf_counter()
-    albedo = pipe.albedo_from_crop(und.plan, Image.open(UNDERSTAND_DIR / und.id / "crop.png"))
+    samples = [Image.open(UNDERSTAND_DIR / und.id / f"crop_{k}.png") for k in range(len(und.crops))]
+    albedo = pipe.albedo_from_samples(und.plan, samples)
     albedo.save(out / "sam_muse_albedo.png")
     print(f"muse from crop: {albedo.size} ({time.perf_counter() - t:.1f}s)")
 

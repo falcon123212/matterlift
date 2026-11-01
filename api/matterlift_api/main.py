@@ -75,7 +75,7 @@ async def understand(
 
 @app.get("/understand/{uid}/{name}")
 def get_understanding_image(uid: str, name: str) -> FileResponse:
-    if not _SAFE.match(uid) or name not in ("overlay.jpg", "crop.png", "photo.jpg"):
+    if not _SAFE.match(uid) or not re.fullmatch(r"overlay\.jpg|photo\.jpg|crop_\d\.png", name):
         raise HTTPException(404)
     path = UNDERSTAND_DIR / uid / name
     if not path.exists():
@@ -177,7 +177,7 @@ def get_library(lid: str) -> Library:
 
 @app.get("/libraries/{lid}/{name}")
 def get_library_image(lid: str, name: str) -> FileResponse:
-    if not (_SAFE.match(lid) and re.fullmatch(r"photo\.jpg|overlay\.jpg|crop_\d+\.png", name)):
+    if not (_SAFE.match(lid) and re.fullmatch(r"photo\.jpg|overlay\.jpg|crop_\d+_\d\.png", name)):
         raise HTTPException(404)
     path = LIBRARY_DIR / lid / name
     if not path.exists():
