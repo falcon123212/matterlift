@@ -161,10 +161,23 @@ RustyPaintedSteel_2K-PNG/
   RustyPaintedSteel_2K-PNG.tres               Godot 4 StandardMaterial3D
   RustyPaintedSteel_2K-PNG.mtlx               MaterialX OpenPBR
   RustyPaintedSteel_2K-PNG.usda               USD UsdPreviewSurface
+  RustyPaintedSteel_2K-PNG.glb                glTF 2.0, textures embedded, on a preview sphere
   RustyPaintedSteel.png                       preview sphere
 ```
 
-Verified: Godot 4.7.2 loads the `.tres` with every map resolved, next to the reference package.
+Spark's shading model goes into every format that has it: KHR_materials_clearcoat, _transmission,
+_ior, _sheen, _anisotropy and _diffuse_transmission (for subsurface) in the `.glb`; clearcoat,
+anisotropy, subsurface scattering, rim (for sheen) and specular (for IOR) in the `.tres`; coat,
+transmission, fuzz, subsurface, anisotropy and IOR in the OpenPBR `.mtlx`; clearcoat and IOR in the
+`.usda`.
+
+Verified:
+- the `.glb` passes the Khronos glTF Validator with 0 errors and 0 warnings, including a material
+  with five KHR extensions;
+- Three.js loads it as a MeshPhysicalMaterial with every map and every extension value;
+- Godot 4.7.2 loads the `.glb` (maps, tiling from KHR_texture_transform) and the `.tres`, next to
+  the reference package. Godot's glTF importer ignores clearcoat and anisotropy, so for Godot the
+  `.tres` is the file that carries them.
 
 Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw vs MatterLift
 contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's masks and spheres),

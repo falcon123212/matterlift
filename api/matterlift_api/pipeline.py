@@ -259,7 +259,7 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
     params = pbrforge.MapParams(**mat.plan.model_dump(include=set(pbrforge.MapParams.__dataclass_fields__)))
     maps = pbrforge.derive(albedo, params, size=size, height_guide=guide)
     preview = pio.to_pil(contact.render_sphere(maps, 512))
-    folder = export.export_package(maps, mat.plan.name, d / "export", fmt, preview)
+    folder = export.export_package(maps, mat.plan.name, d / "export", fmt, preview, mat.plan.shading.model_dump())
     return export.zip_package(folder)
 
 
