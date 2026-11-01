@@ -35,6 +35,23 @@ interface Understanding {
   timings: Record<string, number>;
 }
 
+/** Spark's review: what it saw, what it changed, and its verdict on the result. */
+interface Critique {
+  before: string;
+  after: string;
+  chosen: string;
+  score_before: number;
+  score_after: number;
+  issues: string[];
+  remaining: string[];
+  params_changed: Record<string, [number, number]>;
+  albedo_fix: string;
+  colour_matched: boolean;
+  review_before: string;
+  review_after: string | null;
+  seconds: number;
+}
+
 interface Library {
   id: string;
   overlay: string;
@@ -73,6 +90,9 @@ $("#snapshot").addEventListener("click", () => {
   a.click();
 });
 let currentName = "matterlift";
+$("#critique-btn").addEventListener("click", () => {
+  if (currentMaterial) void runCritique(currentMaterial);
+});
 $("#triplanar").addEventListener("click", (e) => {
   const b = e.currentTarget as HTMLButtonElement;
   const on = !b.classList.contains("on");
@@ -117,6 +137,43 @@ function showFidelity(mat: Material, maps: Record<string, string>) {
 
 let currentId: string | null = null;
 
+function showCritique(c: Critique) {
+  $("#critique").hidden = false;
+  const kept = c.chosen === c.after && c.after !== c.before;
+  describe($("#crit-score"), c.after === c.before
+    ? ["Spark scores it ", [`${c.score_before}/10`], c.issues.length ? " and changes nothing." : ": nothing to fix."]
+    : ["Spark scored ", [`${c.score_before}/10`], ", fixed it, then scored ", [`${c.score_after}/10`],
+       kept ? ". Keeping the fixed version." : ". The fix was not better: keeping the original."]);
+  $<HTMLImageElement>("#crit-before").src = API + c.review_before;
+  $("#crit-issues").replaceChildren(...c.issues.map((i) => el("li", i)));
+  const changes = Object.entries(c.params_changed).map(([k, [a, b]]) => `${k.replace(/_/g, " ")} ${a} → ${b}`);
+  if (c.colour_matched) changes.push("colour matched to the photo");
+  if (c.albedo_fix) changes.push(`albedo repainted by Muse: “${c.albedo_fix}”`);
+  $("#crit-changes").textContent = changes.length ? `Changes: ${changes.join(" · ")} (${c.seconds} s)` : "";
+  $("#crit-after-fig").hidden = !c.review_after;
+  if (c.review_after) $<HTMLImageElement>("#crit-after").src = API + c.review_after;
+}
+
+async function runCritique(mat: Material) {
+  const btn = $<HTMLButtonElement>("#critique-btn");
+  btn.disabled = true;
+  const stop = ticking(() => "Spark reviews it under raking light and tiled…");
+  try {
+    const c = await post<Critique>(`/materials/${mat.id}/critique`, new FormData());
+    showCritique(c);
+    if (c.chosen !== mat.id) {
+      const r = await fetch(`${API}/materials/${c.chosen}`);
+      if (r.ok) await show((await r.json()) as Material);
+    }
+    status.textContent = `${mat.plan.name} — Spark: ${c.score_before}/10 → ${c.score_after}/10`;
+  } catch (err) {
+    status.textContent = `Critique failed: ${(err as Error).message}`;
+  } finally {
+    stop();
+    btn.disabled = false;
+  }
+}
+
 function updateExportLink() {
   const link = $<HTMLAnchorElement>("#export-link");
   link.classList.toggle("disabled", !currentId);
@@ -128,8 +185,15 @@ function updateExportLink() {
 $("#export-size").addEventListener("change", updateExportLink);
 $("#export-fmt").addEventListener("change", updateExportLink);
 
+let currentMaterial: Material | null = null;
+
 async function show(mat: Material, updateUrl = true) {
   currentId = mat.id;
+  currentMaterial = mat;
+  $<HTMLButtonElement>("#critique-btn").disabled = false;
+  const prior = mat.scores.critique as Critique | undefined;
+  if (prior) showCritique(prior);
+  else $("#critique").hidden = true;
   currentName = mat.plan.name;
   updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
@@ -341,6 +405,7 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
     return;
   }
   const size = String(data.get("size") ?? "1024");
+  let critiqueAfter: Material | null = null;
   const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   btn.disabled = true;
   let phase = "";
@@ -372,12 +437,14 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
       const mat = await post<Material>("/materials", gen);
       await show(mat);
       status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
+      critiqueAfter = mat;
     } else {
       $("#understanding").hidden = true;
       phase = "Spark plans, Muse paints, pbrforge cleans…";
       const mat = await post<Material>("/materials", data);
       await show(mat);
       status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
+      critiqueAfter = mat;
     }
   } catch (err) {
     status.textContent = `Failed: ${(err as Error).message}`;
@@ -385,6 +452,7 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
     stop();
     btn.disabled = false;
   }
+  if (critiqueAfter && $<HTMLInputElement>("#self-critique").checked) await runCritique(critiqueAfter);
 });
 
 const pickFromLibrary = (m: Material) =>

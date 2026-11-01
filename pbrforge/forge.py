@@ -23,7 +23,8 @@ def fix_albedo(img: np.ndarray, singletons: float = 0.8, fix_grid: bool = False)
     legitimate straight steps that it would smear.
     """
     before = metrics.report(img)
-    out = seamless.crop_period(img)
+    out = seamless.crop_grid(img)  # Muse's grid of copies with visible joins
+    out = seamless.crop_period(out)
     out = _centre_square(out)  # Muse follows the samples' aspect; maps are square
     out = delight.fit_pbr_range(delight.delight(out))
     out = seamless.make_tileable(out)

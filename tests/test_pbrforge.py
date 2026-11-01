@@ -156,3 +156,21 @@ def test_grain_orientation_follows_the_boards():
     img = np.repeat((stripes_x * 0.2 + 0.5)[..., None], 3, -1).astype(np.float32)
     assert maps.grain_along_x(img).mean() > 0.9
     assert maps.grain_along_x(np.swapaxes(img, 0, 1)).mean() < 0.1
+
+
+def test_crop_grid_takes_one_cell_of_a_muse_grid():
+    cell = _noise(200, seed=8)
+    cell[:, :2] *= 0.6  # the visible join Muse leaves between copies
+    cell[:2, :] *= 0.6
+    grid = np.tile(cell, (4, 4, 1))
+    out = seamless.crop_grid(grid)
+    assert out.shape[:2] == (200, 200)
+
+
+def test_crop_grid_leaves_planks_alone():
+    rng = np.random.default_rng(3)
+    boards = [np.clip(_noise(800, seed=10 + i)[:160] * rng.uniform(0.6, 1.2), 0, 1) for i in range(5)]
+    for b in boards:
+        b[:3] *= 0.3  # dark gap between boards
+    planks = np.concatenate(boards, axis=0)
+    assert seamless.crop_grid(planks).shape == planks.shape

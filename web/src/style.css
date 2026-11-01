@@ -93,3 +93,11 @@ a.button.disabled { opacity: 0.4; pointer-events: none; }
 .pair img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; display: block; }
 .pair figcaption { font-size: 11px; color: var(--muted); text-align: center; }
 #fid-text { color: var(--text); margin: 6px 0 0; }
+#critique-btn { width: 100%; }
+#critique figure { margin: 8px 0 0; }
+#critique img { width: 100%; border-radius: 4px; display: block; }
+#critique figcaption { font-size: 11px; color: var(--muted); text-align: center; }
+#crit-score { font-size: 15px; margin: 10px 0 0; }
+#crit-score b { color: var(--accent); }
+#crit-issues { margin: 8px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.45; }
+#crit-changes { color: var(--text); margin: 6px 0 0; }

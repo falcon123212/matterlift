@@ -94,6 +94,20 @@ with Reoriented Normal Mapping. Mean angular error is not the target: a flat nor
 8.0 deg on it, so it rewards smooth faces. Muse painting the normal map directly was tried and is
 worse (r 0.34, wrong neutral colour).
 
+**Spark critique** (`api/matterlift_api/critique.py`, `POST /materials/{id}/critique`, run
+automatically after each generation). Spark reviews the material like a senior material artist: a
+sphere under raking light, the 3x3 tiling and the photo sample. It scores it, lists what is wrong
+and fixes it with the right tool: parameters (relief, roughness, wear, detail) are re-derived at
+once, colour is matched to the photo deterministically, and only faults in the colour texture
+itself (baked shadows, a standout feature, seams) go back to Muse for a repaint. Spark then compares
+before and after side by side and the better one is kept. Live: walnut 4 -> 6, worn parquet 5 -> 7
+(wear and detail raised, no new image), hammered copper 3 -> 6.
+
+Lessons that shaped it: asked to judge a 3x3 tiling, Spark flags the repetition of the tile itself,
+so the prompt says it is expected; two separate scores were too noisy (+-1), one A/B comparison is
+steadier; and the word "tileable" in a repaint makes Muse lay copies side by side with visible
+joins, which pbrforge now detects (evenly spaced joins and near-identical cells) and crops.
+
 **Detail layer** (`pbrforge/detail.py`). What a studio adds on top of a scan: a procedural micro
 relief (wood fibres and pores, stone grit and pits, fabric fuzz, brushed metal with scratches, plaster
 sand), periodic so it tiles, repeated 8 times per texture and computed at the export resolution, so

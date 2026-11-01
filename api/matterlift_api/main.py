@@ -11,10 +11,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 
+from .critique import critique_by_id
 from .library import LIBRARY_DIR, build_library, load_library, understand_library
 from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
                        load_understanding, normalize_photo)
-from .schemas import Library, Material, Understanding
+from .schemas import Critique, Library, Material, Understanding
 
 app = FastAPI(title="MatterLift")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -130,6 +131,20 @@ def get_material(mid: str) -> Material:
     if mat is None:
         raise HTTPException(404)
     return mat
+
+
+@app.post("/materials/{mid}/critique", response_model=Critique)
+async def critique_material(mid: str) -> Critique:
+    """Spark reviews the material under raking light, fixes what it finds, and judges the result."""
+    if not _SAFE.match(mid):
+        raise HTTPException(404)
+    try:
+        result = await run_in_threadpool(critique_by_id, pipeline(), mid)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+    if result is None:
+        raise HTTPException(404)
+    return result
 
 
 @app.get("/materials/{mid}/export")
