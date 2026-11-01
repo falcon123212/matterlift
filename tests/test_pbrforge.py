@@ -91,3 +91,22 @@ def test_fix_albedo_squares_a_wide_image():
     wide = np.concatenate([_noise(256, seed=1), _noise(256, seed=2)], axis=1)
     out, _ = fix_albedo(wide)
     assert out.shape[0] == out.shape[1]
+
+
+def test_colour_match_moves_toward_samples():
+    from pbrforge import color
+
+    orange = np.zeros((128, 128, 3), np.float32) + [0.85, 0.45, 0.15]
+    dusty = [np.zeros((64, 64, 3), np.float32) + [0.55, 0.35, 0.30]]
+    out, rep = color.match_to_samples(orange + _noise(128) * 0.05, dusty)
+    assert rep["delta_e_after"] < rep["delta_e_before"] / 2
+    x = _noise(64)
+    assert np.abs(color.lab_to_srgb(color.srgb_to_lab(x)) - x).max() < 1e-4
+
+
+def test_periodic_component_adds_no_ramp_to_a_uniform_tile():
+    """Regression: zoom padded with zeros and the 'fix' put a gradient over the whole tile."""
+    img = _noise(720, seed=5) * 0.2 + 0.2  # dark, evenly lit, like walnut planks
+    out = seamless.periodic_component(img)
+    rows = metrics.luminance(out).mean(axis=1)
+    assert rows.max() - rows.min() < 0.02

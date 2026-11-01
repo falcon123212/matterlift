@@ -86,12 +86,26 @@ function fmt(v: unknown): string {
 function showScores(mat: Material) {
   const before = mat.scores.before ?? {};
   const after = mat.scores.after ?? {};
-  const rows = ["seam", "blocks", "repetition", "albedo_out_of_range", "period"];
+  const rows = ["seam", "repetition", "albedo_out_of_range", "period"];
   const timing = Object.entries(mat.timings).map(([k, v]) => `${k} ${v}s`).join(" · ");
   $("#scores").innerHTML =
     `<tr><th></th><th>Muse raw</th><th>MatterLift</th></tr>` +
     rows.map((r) => `<tr><td>${r}</td><td>${fmt(before[r])}</td><td>${fmt(after[r])}</td></tr>`).join("") +
     `<tr><td colspan="3" class="muted">${timing}</td></tr>`;
+}
+
+/** Photo sample next to the albedo, with the colour gap (CIE76 Delta E) before and after matching. */
+function showFidelity(mat: Material, maps: Record<string, string>) {
+  const box = $("#fidelity");
+  box.hidden = !maps.photo_sample;
+  if (box.hidden) return;
+  $<HTMLImageElement>("#fid-photo").src = maps.photo_sample;
+  $<HTMLImageElement>("#fid-albedo").src = maps.albedo;
+  const f = mat.scores.fidelity as { delta_e_before?: number; delta_e_after?: number } | undefined;
+  const verdict = (d: number) => (d < 3 ? "same colour" : d < 10 ? "close" : "different colour");
+  $("#fid-text").textContent = f?.delta_e_after !== undefined
+    ? `Colour gap ΔE ${f.delta_e_before} → ${f.delta_e_after} after matching to the photo (${verdict(f.delta_e_after)}).`
+    : "";
 }
 
 let currentId: string | null = null;
@@ -118,6 +132,7 @@ async function show(mat: Material, updateUrl = true) {
     .map(([k, v]) => `<figure><img src="${v}" alt="${k}" loading="lazy" /><figcaption>${k}</figcaption></figure>`)
     .join("");
   showScores(mat);
+  showFidelity(mat, maps);
   if (updateUrl) history.replaceState(null, "", `?id=${mat.id}`);
 }
 
