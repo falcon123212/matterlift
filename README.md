@@ -15,6 +15,32 @@ tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glT
 Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
 Muse Voice Transcribe).
 
+## Why MatterLift
+
+MatterLift is an open-source material and shader extractor: show a photo, say what you want, get a
+material ready for Godot, Blender, Unity or Unreal.
+
+- **The problem.** A unique material takes time (roughly 30 min to 2 h per texture, about a day per
+  iteration round in pre-production), technical-artist know-how and a paid tool. Free libraries
+  give everyone the same materials.
+- **For whom.** Indie developers and modders (over 19,000 games released on Steam in 2025
+  [[1]](https://www.gamingonlinux.com/2025/12/over-19000-games-have-released-on-steam-in-2025-with-nearly-half-seeing-fewer-than-10-reviews)),
+  beginner 3D artists, students; and VFX pre-production teams exploring a look before production.
+- **Why now.** Substance 3D Texturing costs US$249.88 a year and the full Collection US$599.88
+  [[2]](https://blog.adobe.com/en/publish/2025/02/20/substance-3d-innovations-pricing-updates), while an estimated 40% of 2025 Steam
+  releases earned less than $100 [[3]](https://mp1st.com/news/40-of-steam-games-in-2025-earned-less-than-100).
+  Teams are shrinking: 28% of game workers were laid off in the past two years (GDC 2026 State of
+  the Game Industry [[4]](https://gdconf.com/article/gdc-2026-state-of-the-game-industry-reveals-impact-of-layoffs-generative-ai-and-more/)),
+  and open-source Godot grew from 0.9% to 7.1% of the releases GameDiscoverCo tracks, 2020 to 2025
+  [[5]](https://newsletter.gamediscover.co/p/hows-pc-game-engine-usage-changing).
+- **How.** Muse Spark frames the surface and writes the material plan, SAM 3.1 masks it precisely,
+  Muse Image paints the tileable texture, Muse Voice Transcribe takes spoken requests. MatterLift
+  computes the PBR maps, the shaders, the lit preview and the export, and Spark critiques the
+  result itself.
+- **Gain.** Time: one iteration takes about 40 s at 512 px (measured on the live demo) instead of
+  hours. Money: pay-per-use API calls instead of a subscription. Control: materials taken from your
+  own photos, exported in standard formats (glTF, MaterialX, USD, Godot, Blender).
+
 ## 60-second judge path
 
 1. **Ask.** Open the [live demo](https://matterlift.taurus-silver-dev.workers.dev), type
