@@ -268,10 +268,26 @@ mic.addEventListener("click", async () => {
       mic.classList.remove("on");
       mic.setAttribute("aria-pressed", "false");
       const seconds = (performance.now() - recStart) / 1000;
+      let wav: Blob;
       try {
-        setVoice(await toWav(new Blob(chunks, { type: recorder!.mimeType })), seconds);
+        wav = await toWav(new Blob(chunks, { type: recorder!.mimeType }));
       } catch (err) {
         voiceState.textContent = `Could not read the recording: ${(err as Error).message}`;
+        return;
+      }
+      // Transcribe now and put the words in the text box: the user sees what was heard and can fix it.
+      voiceState.textContent = "Muse Voice Transcribe is listening…";
+      try {
+        const body = new FormData();
+        body.append("audio", wav, "voice.wav");
+        const { text } = await post<{ text: string }>("/transcribe", body);
+        const box = $<HTMLTextAreaElement>('textarea[name="text"]');
+        box.value = box.value.trim() ? `${box.value.trim()} ${text}` : text;
+        setVoice(null);
+        voiceState.textContent = `heard (${seconds.toFixed(0)} s) — edit the text if needed`;
+      } catch (err) {
+        setVoice(wav, seconds); // keep it: Generate sends it and the server transcribes then
+        voiceState.textContent = `Transcription failed: ${(err as Error).message}`;
       }
     };
     recorder.start();
