@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from .pipeline import DATA_DIR, Pipeline, load_material
+from .pipeline import DATA_DIR, Pipeline, export_material, load_material
 from .schemas import Material
 
 app = FastAPI(title="MatterLift")
@@ -60,6 +60,19 @@ def get_material(mid: str) -> Material:
     if mat is None:
         raise HTTPException(404)
     return mat
+
+
+@app.get("/materials/{mid}/export")
+async def export(mid: str, size: int = 1024, fmt: str = "png") -> FileResponse:
+    """ambientCG-style zip: Color, NormalGL/DX, Roughness, AO, Displacement (+ Metalness),
+    Godot .tres, MaterialX .mtlx, USD .usda."""
+    mat = load_material(mid) if _SAFE.match(mid) else None
+    if mat is None:
+        raise HTTPException(404)
+    if size not in (512, 1024, 2048, 4096) or fmt not in ("png", "jpg"):
+        raise HTTPException(400, "size in 512/1024/2048/4096, fmt in png/jpg")
+    path = await run_in_threadpool(export_material, mat, size, fmt)
+    return FileResponse(path, media_type="application/zip", filename=path.name)
 
 
 @app.get("/materials/{mid}/maps/{name}.png")

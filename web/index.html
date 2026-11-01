@@ -47,6 +47,21 @@
       </section>
 
       <section class="side">
+        <h2>Export</h2>
+        <div class="export">
+          <select id="export-size" aria-label="Export resolution">
+            <option value="512">512</option>
+            <option value="1024">1K</option>
+            <option value="2048" selected>2K</option>
+            <option value="4096">4K</option>
+          </select>
+          <select id="export-fmt" aria-label="Export format">
+            <option value="png" selected>PNG</option>
+            <option value="jpg">JPG</option>
+          </select>
+          <a id="export-link" class="button disabled" download>Download .zip</a>
+        </div>
+        <p class="muted small">Color, NormalGL/DX, Roughness, AO, Displacement · Godot .tres · MaterialX · USD</p>
         <h2>Tiling 3×3</h2>
         <div id="tiling"></div>
         <h2>Maps</h2>

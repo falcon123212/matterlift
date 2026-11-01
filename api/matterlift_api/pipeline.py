@@ -11,7 +11,7 @@ from PIL import Image
 
 import pbrforge
 from pbrforge import io as pio
-from pbrforge import seamless
+from pbrforge import contact, export, seamless
 from pbrforge.metrics import luminance
 
 from .meta_client import Box, MetaClient
@@ -113,6 +113,7 @@ class Pipeline:
 
         t = time.perf_counter()
         albedo, scores = pbrforge.fix_albedo(pio.from_pil(raw))
+        pio.save(out_dir / "albedo_source.png", albedo)  # native resolution, for exports
         timings["pbrforge_albedo"] = time.perf_counter() - t
 
         t = time.perf_counter()
@@ -139,6 +140,21 @@ class Pipeline:
                        timings={k: round(v, 2) for k, v in timings.items()})
         (out_dir / "material.json").write_text(mat.model_dump_json(indent=2), encoding="utf-8")
         return mat
+
+
+def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DIR) -> Path:
+    """Recompute the maps at `size` from the stored albedo and Muse height, write the
+    ambientCG-style package and return its zip."""
+    d = data_dir / mat.id
+    src = d / "albedo_source.png"
+    albedo = pio.load(src if src.exists() else d / "albedo.png")
+    guide_path = d / "muse_height.png"
+    guide = luminance(pio.load(guide_path)) if guide_path.exists() else None
+    params = pbrforge.MapParams(**mat.plan.model_dump(include=set(pbrforge.MapParams.__dataclass_fields__)))
+    maps = pbrforge.derive(albedo, params, size=size, height_guide=guide)
+    preview = pio.to_pil(contact.render_sphere(maps, 512))
+    folder = export.export_package(maps, mat.plan.name, d / "export", fmt, preview)
+    return export.zip_package(folder)
 
 
 def load_material(mid: str, data_dir: Path = DATA_DIR) -> Material | None:

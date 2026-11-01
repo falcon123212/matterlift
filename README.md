@@ -58,12 +58,34 @@ Benchmark against a reference material (ambientCG Bricks113A, derived from its C
 py -3.12 -m venv .venv && .venv/Scripts/python -m pip install -e .[dev]
 cp .env.example .env   # add META_API_KEY
 .venv/Scripts/python scripts/smoke_meta.py
-.venv/Scripts/python -m uvicorn matterlift_api.main:app --app-dir api --port 8000
+.venv/Scripts/python -m uvicorn matterlift_api.main:app --app-dir api --port 8001
 npm --prefix web install && npm --prefix web run dev   # http://localhost:5173
 ```
 
 API: `POST /materials` (form: `text`, optional `photo`, `audio`, `size`), `GET /materials/{id}`,
-`GET /materials/{id}/maps/{name}.png`.
+`GET /materials/{id}/maps/{name}.png`, `GET /materials/{id}/export?size=2048&fmt=png`.
+
+## Export
+
+Same layout as an ambientCG package (checked against Bricks113A_4K-JPG), recomputed at the
+requested resolution (512 to 4K) from the clean albedo and the Muse height:
+
+```
+RustyPaintedSteel_2K-PNG/
+  RustyPaintedSteel_2K-PNG_Color.png          sRGB albedo
+  RustyPaintedSteel_2K-PNG_NormalGL.png       OpenGL normal (Godot, Blender, Unity)
+  RustyPaintedSteel_2K-PNG_NormalDX.png       DirectX normal (Unreal)
+  RustyPaintedSteel_2K-PNG_Roughness.png
+  RustyPaintedSteel_2K-PNG_AmbientOcclusion.png
+  RustyPaintedSteel_2K-PNG_Displacement.png   16-bit PNG
+  RustyPaintedSteel_2K-PNG_Metalness.png      only when the material has metal
+  RustyPaintedSteel_2K-PNG.tres               Godot 4 StandardMaterial3D
+  RustyPaintedSteel_2K-PNG.mtlx               MaterialX OpenPBR
+  RustyPaintedSteel_2K-PNG.usda               USD UsdPreviewSurface
+  RustyPaintedSteel.png                       preview sphere
+```
+
+Verified: Godot 4.7.2 loads the `.tres` with every map resolved, next to the reference package.
 
 Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw vs MatterLift
 contact sheet), `sam_table.py` (photo chain), `bench_baseline.py` (against a reference material).
