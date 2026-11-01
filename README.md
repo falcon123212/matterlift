@@ -27,7 +27,9 @@ material ready for Godot, Blender, Unity or Unreal.
   [[1]](https://www.gamingonlinux.com/2025/12/over-19000-games-have-released-on-steam-in-2025-with-nearly-half-seeing-fewer-than-10-reviews)),
   beginner 3D artists, students; and VFX pre-production teams exploring a look before production.
 - **Why now.** Substance 3D Texturing costs US$249.88 a year and the full Collection US$599.88
-  [[2]](https://blog.adobe.com/en/publish/2025/02/20/substance-3d-innovations-pricing-updates), while an estimated 40% of 2025 Steam
+  [[2]](https://blog.adobe.com/en/publish/2025/02/20/substance-3d-innovations-pricing-updates); in
+  France the Collection is €57.47 a month incl. VAT, €95.99 a month per seat for teams
+  [[2b]](https://www.adobe.com/fr/products/substance3d/plans.html). Meanwhile an estimated 40% of 2025 Steam
   releases earned less than $100 [[3]](https://mp1st.com/news/40-of-steam-games-in-2025-earned-less-than-100).
   Teams are shrinking: 28% of game workers were laid off in the past two years (GDC 2026 State of
   the Game Industry [[4]](https://gdconf.com/article/gdc-2026-state-of-the-game-industry-reveals-impact-of-layoffs-generative-ai-and-more/)),
