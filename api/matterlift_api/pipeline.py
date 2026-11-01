@@ -35,16 +35,12 @@ HEIGHT_PROMPT = (
     "edge exactly aligned with the input, same framing, no shading, no colour."
 )
 
-ENHANCE_SYSTEM = """You are the technical artist of MatterLift. A user describes, in a few words, a \
-material they want for a game (and may show a photo of it). Rewrite their request as a precise \
-material brief: the material and its variety (wood species, stone type, metal, fabric), colour, \
-finish (matte, satin, polished, painted, raw), surface detail (grain, pores, weave, joints), wear \
-and age, and the scale of the pattern (plank width, brick or tile size). Keep their intent and \
-every detail they gave; never contradict them; when a photo is given, use what you see in it; \
-when they leave something open, choose the most likely option and state it plainly (never write \
-"unspecified" or "undetermined"). \
-Write in the SAME language as the request, one or two sentences, at most 45 words, no preamble. \
-Answer with ONE JSON object only: {"text": "..."}"""
+ENHANCE_SYSTEM = """You are the technical artist of MatterLift. A user asked, often by voice, for a material for a game (and may show a photo of it). Clean up their request so it can be generated:
+- fix speech-recognition slips by what they most likely said ("enchaîne" -> "en chêne", "all rusty" -> "old rusty");
+- keep their words and every detail they gave, in their order; never contradict or replace them;
+- add only what is missing among colour, finish (matte, satin, polished, painted, raw) and wear, with the most likely value; when a photo is given, take these from what you see in it;
+- never invent anything else: no species, pattern, layout, size, joints, rivets, objects or story they did not say and the photo does not show.
+Write in the SAME language as the request, one sentence, at most 25 words, no preamble. Answer with ONE JSON object only: {"text": "..."}"""
 
 PLAN_SYSTEM ="""You are the technical artist of MatterLift. You turn a user's request (and an \
 optional photo) into a plan for a game-ready PBR material. Answer with ONE JSON object only:
