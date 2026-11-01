@@ -11,22 +11,24 @@
 <!-- Hero image goes here: photo -> material on the sphere (picked from the results gallery). -->
 
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
-tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot,
-Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
+tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot
+and Blender (both verified), with glTF and OpenGL/DirectX PNG maps for Unity and Unreal (import not
+tested in those engines yet). Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
 Muse Voice Transcribe).
 
 ## Why MatterLift
 
 MatterLift is an open-source material and shader extractor: show a photo, say what you want, get a
-material ready for Godot, Blender, Unity or Unreal.
+material ready for Godot or Blender (glTF and PNG maps for Unity and Unreal, import not tested yet).
 
-- **The problem.** A unique material takes time (roughly 30 min to 2 h per texture, about a day per
-  iteration round in pre-production), technical-artist know-how and a paid tool. Free libraries
+- **The problem.** A unique material takes time (industry estimate, not measured by us: roughly 30 min
+  to 2 h per texture, about a day per iteration round in pre-production), technical-artist know-how and a paid tool. Free libraries
   give everyone the same materials.
 - **For whom.** Indie developers and modders (over 19,000 games released on Steam in 2025
   [[1]](https://www.gamingonlinux.com/2025/12/over-19000-games-have-released-on-steam-in-2025-with-nearly-half-seeing-fewer-than-10-reviews)),
   beginner 3D artists, students; and VFX pre-production teams exploring a look before production.
-- **Why now.** Substance 3D Texturing costs US$249.88 a year and the full Collection US$599.88
+- **Why now.** Substance 3D Texturing costs US$249.88 a year and the full Collection US$599.88 a year (prepaid annual
+  plans, US prices)
   [[2]](https://blog.adobe.com/en/publish/2025/02/20/substance-3d-innovations-pricing-updates), while an estimated 40% of 2025 Steam
   releases earned less than $100 [[3]](https://mp1st.com/news/40-of-steam-games-in-2025-earned-less-than-100).
   Teams are shrinking: 28% of game workers were laid off in the past two years (GDC 2026 State of
@@ -38,7 +40,7 @@ material ready for Godot, Blender, Unity or Unreal.
   computes the PBR maps, the shaders, the lit preview and the export, and Spark critiques the
   result itself.
 - **Gain.** Time: one iteration takes about 40 s at 512 px (measured on the live demo) instead of
-  hours. Money: pay-per-use API calls instead of a subscription. Control: materials taken from your
+  the estimated hours by hand (our own side-by-side timing: to be measured). Money: pay-per-use API calls instead of a subscription. Control: materials taken from your
   own photos, exported in standard formats (glTF, MaterialX, USD, Godot, Blender).
 
 ## 60-second judge path
@@ -234,7 +236,7 @@ requested resolution (512 to 4K) from the clean albedo and the Muse height:
 ```
 RustyPaintedSteel_2K-PNG/
   RustyPaintedSteel_2K-PNG_Color.png          sRGB albedo
-  RustyPaintedSteel_2K-PNG_NormalGL.png       OpenGL normal (Godot, Blender, Unity)
+  RustyPaintedSteel_2K-PNG_NormalGL.png       OpenGL normal (Godot, Blender; also Unity's convention)
   RustyPaintedSteel_2K-PNG_NormalDX.png       DirectX normal (Unreal)
   RustyPaintedSteel_2K-PNG_Roughness.png
   RustyPaintedSteel_2K-PNG_AmbientOcclusion.png
@@ -299,8 +301,7 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
 
 Concept, product design, UI design and build plan: Silver (falcon123212).
 Implementation written with Claude Code (Anthropic) as a coding assistant, under my direction:
-I chose the pipeline, reviewed the code, ran the tests and validated the materials in the results
-gallery.
+I chose the pipeline, reviewed the code, ran the tests and validated the generated materials (results gallery: coming).
 Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
 Third-party code, data and libraries: see [Built during the hackathon](#built-during-the-hackathon).
 
