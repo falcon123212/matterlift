@@ -1,11 +1,12 @@
 """Thin client for the Meta Model API (OpenAI-compatible, https://api.meta.ai/v1).
 
-Endpoints as observed on 2026-11-01:
+Endpoints (docs: https://dev.meta.ai/docs):
 - Spark: /chat/completions (reasoning model, needs a generous max_completion_tokens)
-- Muse Image: /images/generations and /images/edits (no `mask` field), returns WebP as b64_json
+- Muse Image: /images/generations and /images/edits (no `mask` field); tools off and PNG out for textures
 - SAM 3.1: /responses only. Output text is a list of `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..|>`
   followed by an entropy-coded `<|mask;...|>` we do not decode; boxes are used instead.
-- Voice Transcribe: /audio/transcriptions
+- Voice Transcribe: /asr/transcribe, multipart `request` (JSON settings) + `audio`
+  (WAV, mono 16-bit PCM at 16 or 24 kHz only)
 """
 from __future__ import annotations
 
@@ -14,10 +15,12 @@ import io
 import json
 import os
 import re
+import wave
 from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
+import numpy as np
 from dotenv import load_dotenv
 from PIL import Image
 
@@ -28,7 +31,6 @@ MODEL_SPARK = os.environ.get("META_MODEL_SPARK", "muse-spark-1.3")
 MODEL_IMAGE = os.environ.get("META_MODEL_IMAGE", "muse-image-1.0")
 MODEL_SAM = os.environ.get("META_MODEL_SAM", "sam-3.1")
 MODEL_TRANSCRIBE = os.environ.get("META_MODEL_TRANSCRIBE", "muse-voice-transcribe-1.0")
-TRANSCRIBE_PATH = os.environ.get("META_TRANSCRIBE_PATH", "/audio/transcriptions")
 
 _BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>")
 
@@ -113,17 +115,27 @@ class MetaClient:
         return _extract_json(self.chat(system, user, images))
 
     # --- Muse Image -------------------------------------------------------
-    def generate_image(self, prompt: str, size: str = "1024x1024") -> Image.Image:
+    def _image_options(self, reasoning: str) -> dict:
+        # A texture needs no grounding: web/image search and the shell only add latency.
+        return {"output_format": "png", "reasoning_strength": reasoning,
+                "tool_enablement": {"enable_image_search": False, "enable_web_search": False,
+                                    "enable_shell": False}}
+
+    def generate_image(self, prompt: str, size: str = "1024x1024", reasoning: str = "low") -> Image.Image:
         j = self._post("/images/generations", json={
-            "model": MODEL_IMAGE, "prompt": prompt, "n": 1, "size": size,
+            "model": MODEL_IMAGE, "prompt": prompt, "n": 1, "size": size, **self._image_options(reasoning),
         })
         return _decode_image(j["data"][0]["b64_json"])
 
-    def edit_image(self, image: Image.Image, prompt: str) -> Image.Image:
-        buf = io.BytesIO()
-        image.convert("RGB").save(buf, "PNG")
-        j = self._post("/images/edits", data={"model": MODEL_IMAGE, "prompt": prompt},
-                       files={"image": ("image.png", buf.getvalue(), "image/png")})
+    def edit_image(self, image: Image.Image | list[Image.Image], prompt: str,
+                   reasoning: str = "low") -> Image.Image:
+        """Meta's JSON form of /images/edits (the multipart form cannot carry tool_enablement)."""
+        images = image if isinstance(image, list) else [image]
+        j = self._post("/images/edits", json={
+            "model": MODEL_IMAGE, "prompt": prompt, "n": 1,
+            "images": [{"image_url": image_to_data_url(i, 2048)} for i in images],
+            **self._image_options(reasoning),
+        })
         return _decode_image(j["data"][0]["b64_json"])
 
     # --- SAM 3.1 ----------------------------------------------------------
@@ -146,9 +158,41 @@ class MetaClient:
         return sorted(boxes, key=lambda b: b.area, reverse=True)
 
     # --- Voice ------------------------------------------------------------
-    def transcribe(self, audio: bytes, filename: str = "audio.webm") -> str:
-        # /audio/transcriptions answers 404 on 2026-11-01 (also /responses, /chat, /realtime/*):
-        # the route is configurable until Meta's docs give the right one.
-        j = self._post(TRANSCRIBE_PATH, data={"model": MODEL_TRANSCRIBE},
-                       files={"file": (filename, audio, "application/octet-stream")})
-        return j.get("text", "")
+    def transcribe(self, audio: bytes, keywords: list[str] | None = None,
+                   languages: tuple[str, ...] = ("French", "English")) -> str:
+        """One push-to-talk turn. Any WAV is normalised to what the endpoint accepts."""
+        settings = {"model": MODEL_TRANSCRIBE, "audioEncoding": "WAV", "mode": "PUSH_TO_TALK",
+                    "languageBias": list(languages)}
+        if keywords:
+            settings["keywords"] = keywords
+        j = self._post("/asr/transcribe", files={
+            "request": (None, json.dumps(settings), "application/json"),
+            "audio": ("audio.wav", to_asr_wav(audio), "audio/wav"),
+        })
+        return j.get("transcript", "").strip()
+
+
+def to_asr_wav(data: bytes, rate: int = 24_000) -> bytes:
+    """Any PCM WAV -> mono 16-bit PCM WAV at 24 kHz (the model's native rate)."""
+    with wave.open(io.BytesIO(data)) as w:
+        ch, width, src_rate = w.getnchannels(), w.getsampwidth(), w.getframerate()
+        frames = w.readframes(w.getnframes())
+    if width not in (1, 2, 4):
+        raise ValueError(f"unsupported WAV sample width {width}")
+    dtype = {1: np.uint8, 2: np.int16, 4: np.int32}[width]
+    x = np.frombuffer(frames, dtype=dtype).astype(np.float64)
+    if width == 1:
+        x = (x - 128) / 128
+    else:
+        x /= float(np.iinfo(dtype).max)
+    x = x.reshape(-1, ch).mean(axis=1)
+    if src_rate != rate:
+        n = int(round(len(x) * rate / src_rate))
+        x = np.interp(np.linspace(0, len(x) - 1, n), np.arange(len(x)), x)
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes((np.clip(x, -1, 1) * 32767).astype(np.int16).tobytes())
+    return out.getvalue()
