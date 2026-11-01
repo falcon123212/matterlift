@@ -3,7 +3,8 @@
 <Name>_<res>-<FMT>/
   <Name>_<res>-<FMT>_Color, _NormalGL, _NormalDX, _Roughness, _AmbientOcclusion, _Displacement
   (+ _Metalness when the material has metal), .tres (Godot 4), .mtlx (MaterialX OpenPBR),
-  .usda (USD UsdPreviewSurface), preview .png
+  .usda (USD UsdPreviewSurface), .glb (glTF 2.0, textures embedded, KHR shading extensions),
+  preview .png
 """
 from __future__ import annotations
 
@@ -14,7 +15,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import io
+from . import gltf, io
 
 RES_LABEL = {512: "512", 1024: "1K", 2048: "2K", 4096: "4K"}
 
@@ -38,7 +39,7 @@ def _save(path: Path, arr: np.ndarray, fmt: str, bits16: bool = False) -> str:
     return path.with_suffix(".png").name
 
 
-def _tres(files: dict[str, str], metal: bool) -> str:
+def _tres(files: dict[str, str], metal: bool, shading: dict) -> str:
     ids = [k for k in ("Color", "AmbientOcclusion", "Displacement", "Roughness", "NormalGL", "Metalness") if k in files]
     head = f'[gd_resource type="StandardMaterial3D" load_steps={len(ids) + 1} format=3]\n\n'
     res = "".join(f'[ext_resource type="Texture2D" id="{k}" path="./{files[k]}"]\n' for k in ids)
@@ -57,10 +58,33 @@ heightmap_texture = ExtResource("Displacement")
 """
     if metal:
         body += 'metallic = 1.0\nmetallic_texture = ExtResource("Metalness")\nmetallic_texture_channel = 4\n'
+    body += _tres_shading(shading)
     return head + res + "\n" + body
 
 
-def _mtlx(stem: str, files: dict[str, str], metal: bool) -> str:
+def _f0_specular(ior: float) -> float:
+    """Godot's `metallic_specular`: 0.5 is F0 = 0.04 (ior 1.5); F0 = ((n - 1) / (n + 1))^2."""
+    return min(1.0, ((ior - 1) / (ior + 1)) ** 2 / 0.08)
+
+
+def _tres_shading(sh: dict) -> str:
+    """Spark's shading model in StandardMaterial3D terms (sheen has no direct equivalent: rim)."""
+    out = ""
+    if sh.get("clearcoat", 0) > 0.01:
+        out += (f"clearcoat_enabled = true\nclearcoat = {sh['clearcoat']:.3f}\n"
+                f"clearcoat_roughness = {sh.get('clearcoat_roughness', 0.1):.3f}\n")
+    if sh.get("anisotropy", 0) > 0.01:
+        out += f"anisotropy_enabled = true\nanisotropy = {sh['anisotropy']:.3f}\n"
+    if sh.get("subsurface", 0) > 0.01:
+        out += f"subsurf_scatter_enabled = true\nsubsurf_scatter_strength = {sh['subsurface']:.3f}\n"
+    if sh.get("sheen", 0) > 0.01:
+        out += f"rim_enabled = true\nrim = {sh['sheen']:.3f}\nrim_tint = 0.5\n"
+    if abs(sh.get("ior", 1.5) - 1.5) > 0.01:
+        out += f"metallic_specular = {_f0_specular(sh['ior']):.3f}\n"
+    return out
+
+
+def _mtlx(stem: str, files: dict[str, str], metal: bool, shading: dict) -> str:
     n = stem.replace("-", "_")
 
     def tiled(key: str, typ: str, srgb: bool = False) -> str:
@@ -70,6 +94,16 @@ def _mtlx(stem: str, files: dict[str, str], metal: bool) -> str:
                 f'    <input name="uvtiling" type="vector2" value="1.0, 1.0" />\n  </tiledimage>\n')
 
     metal_in = f'    <input name="base_metalness" type="float" nodename="{n}_Metalness" />\n' if metal else ""
+    openpbr = {"coat_weight": shading.get("clearcoat", 0), "coat_roughness": shading.get("clearcoat_roughness", 0.1),
+               "transmission_weight": shading.get("transmission", 0), "fuzz_weight": shading.get("sheen", 0),
+               "subsurface_weight": shading.get("subsurface", 0),
+               "specular_roughness_anisotropy": shading.get("anisotropy", 0)}
+    if shading.get("clearcoat", 0) <= 0.01:
+        openpbr.pop("coat_roughness")
+    metal_in += "".join(f'    <input name="{k}" type="float" value="{v:.3f}" />\n'
+                        for k, v in openpbr.items() if v > 0.01)
+    if abs(shading.get("ior", 1.5) - 1.5) > 0.01:
+        metal_in += f'    <input name="specular_ior" type="float" value="{shading["ior"]:.3f}" />\n'
     return f"""<?xml version="1.0"?>
 <materialx version="1.39" fileprefix="./">
   <open_pbr_surface name="{n}_OpenPbrSurface" type="surfaceshader">
@@ -93,7 +127,7 @@ def _mtlx(stem: str, files: dict[str, str], metal: bool) -> str:
 """
 
 
-def _usda(stem: str, files: dict[str, str], metal: bool) -> str:
+def _usda(stem: str, files: dict[str, str], metal: bool, shading: dict) -> str:
     n = re.sub(r"[^A-Za-z0-9_]", "_", stem)
 
     def tex(key: str, out: str, cs: str) -> str:
@@ -112,6 +146,10 @@ def _usda(stem: str, files: dict[str, str], metal: bool) -> str:
 '''
     metal_line = (f'            float inputs:metallic.connect = </{n}/Material/Metalness.outputs:r>\n'
                   if metal else "            float inputs:metallic = 0\n")
+    # UsdPreviewSurface knows clearcoat and ior; the other lobes need the .mtlx or the .glb.
+    metal_line += (f"            float inputs:clearcoat = {shading.get('clearcoat', 0):.3f}\n"
+                   f"            float inputs:clearcoatRoughness = {shading.get('clearcoat_roughness', 0.1):.3f}\n"
+                   f"            float inputs:ior = {shading.get('ior', 1.5):.3f}\n")
     return f'''#usda 1.0
 (
     defaultPrim = "{n}"
@@ -147,8 +185,10 @@ def Xform "{n}"
 
 
 def export_package(maps: dict[str, np.ndarray], name: str, out_root: Path, fmt: str = "png",
-                   preview: Image.Image | None = None) -> Path:
-    """Write the package folder and return its path. `maps` come from pbrforge.derive."""
+                   preview: Image.Image | None = None, shading: dict | None = None) -> Path:
+    """Write the package folder and return its path. `maps` come from pbrforge.derive;
+    `shading` is Spark's shading model (clearcoat, transmission, ior, sheen, subsurface, anisotropy)."""
+    shading = shading or {}
     fmt = fmt.lower()
     if fmt not in ("png", "jpg"):
         raise ValueError("fmt must be png or jpg")
@@ -175,9 +215,10 @@ def export_package(maps: dict[str, np.ndarray], name: str, out_root: Path, fmt: 
     if metal:
         files["Metalness"] = _save(d / f"{stem}_Metalness", maps["metallic"], fmt)
 
-    (d / f"{stem}.tres").write_text(_tres(files, metal), encoding="utf-8")
-    (d / f"{stem}.mtlx").write_text(_mtlx(stem, files, metal), encoding="utf-8")
-    (d / f"{stem}.usda").write_text(_usda(stem, files, metal), encoding="utf-8")
+    (d / f"{stem}.tres").write_text(_tres(files, metal, shading), encoding="utf-8")
+    (d / f"{stem}.mtlx").write_text(_mtlx(stem, files, metal, shading), encoding="utf-8")
+    (d / f"{stem}.usda").write_text(_usda(stem, files, metal, shading), encoding="utf-8")
+    gltf.write_glb(d / f"{stem}.glb", maps, stem, shading)  # self-contained: textures inside
     if preview is not None:
         preview.convert("RGB").resize((512, 512), Image.LANCZOS).save(d / f"{stem.split('_')[0]}.png")
     return d
