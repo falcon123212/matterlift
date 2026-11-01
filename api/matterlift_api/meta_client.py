@@ -28,6 +28,7 @@ MODEL_SPARK = os.environ.get("META_MODEL_SPARK", "muse-spark-1.3")
 MODEL_IMAGE = os.environ.get("META_MODEL_IMAGE", "muse-image-1.0")
 MODEL_SAM = os.environ.get("META_MODEL_SAM", "sam-3.1")
 MODEL_TRANSCRIBE = os.environ.get("META_MODEL_TRANSCRIBE", "muse-voice-transcribe-1.0")
+TRANSCRIBE_PATH = os.environ.get("META_TRANSCRIBE_PATH", "/audio/transcriptions")
 
 _BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>")
 
@@ -146,6 +147,8 @@ class MetaClient:
 
     # --- Voice ------------------------------------------------------------
     def transcribe(self, audio: bytes, filename: str = "audio.webm") -> str:
-        j = self._post("/audio/transcriptions", data={"model": MODEL_TRANSCRIBE},
+        # /audio/transcriptions answers 404 on 2026-11-01 (also /responses, /chat, /realtime/*):
+        # the route is configurable until Meta's docs give the right one.
+        j = self._post(TRANSCRIBE_PATH, data={"model": MODEL_TRANSCRIBE},
                        files={"file": (filename, audio, "application/octet-stream")})
         return j.get("text", "")

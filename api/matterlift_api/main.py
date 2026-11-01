@@ -34,17 +34,24 @@ def health() -> dict:
 
 @app.post("/materials", response_model=Material)
 async def create_material(
-    text: str = Form(...),
+    text: str = Form(""),
     size: int = Form(1024),
     photo: UploadFile | None = File(None),
     audio: UploadFile | None = File(None),
 ) -> Material:
+    """Text, voice, or both (the transcript is appended to the text)."""
     if size not in (512, 1024, 2048, 4096):
         raise HTTPException(400, "size must be 512, 1024, 2048 or 4096")
-    request = text
+    request = text.strip()
     if audio is not None:
-        spoken = await run_in_threadpool(pipeline().client.transcribe, await audio.read(), audio.filename or "audio.webm")
-        request = f"{text} {spoken}".strip()
+        try:
+            spoken = await run_in_threadpool(pipeline().client.transcribe, await audio.read(),
+                                             audio.filename or "audio.webm")
+        except RuntimeError as e:
+            raise HTTPException(502, f"transcription failed: {e}") from e
+        request = f"{request} {spoken}".strip()
+    if not request:
+        raise HTTPException(400, "say or type what you want")
     img = None
     if photo is not None:
         img = Image.open(io.BytesIO(await photo.read())).convert("RGB")

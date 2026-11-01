@@ -75,11 +75,67 @@ async function show(mat: Material) {
   history.replaceState(null, "", `?id=${mat.id}`);
 }
 
+// --- Voice: recorded in the browser, transcribed server-side by Muse Voice Transcribe ---
+let recorder: MediaRecorder | null = null;
+let voice: Blob | null = null;
+let recStart = 0;
+let recTick: number | undefined;
+const mic = $<HTMLButtonElement>("#mic");
+const voiceState = $<HTMLSpanElement>("#voice-state");
+const voiceClear = $<HTMLButtonElement>("#voice-clear");
+
+function setVoice(blob: Blob | null, seconds = 0) {
+  voice = blob;
+  voiceState.textContent = blob ? `voice request ready (${seconds.toFixed(0)} s)` : "";
+  voiceClear.hidden = !blob;
+}
+
+mic.addEventListener("click", async () => {
+  if (recorder?.state === "recording") {
+    recorder.stop();
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks: Blob[] = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = (ev) => chunks.push(ev.data);
+    recorder.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop());
+      clearInterval(recTick);
+      mic.textContent = "🎤 Speak";
+      mic.classList.remove("on");
+      mic.setAttribute("aria-pressed", "false");
+      setVoice(new Blob(chunks, { type: recorder!.mimeType }), (performance.now() - recStart) / 1000);
+    };
+    recorder.start();
+    recStart = performance.now();
+    mic.textContent = "■ Stop";
+    mic.classList.add("on");
+    mic.setAttribute("aria-pressed", "true");
+    recTick = window.setInterval(() => {
+      voiceState.textContent = `● recording ${((performance.now() - recStart) / 1000).toFixed(0)} s`;
+    }, 250);
+  } catch (err) {
+    voiceState.textContent = `Microphone unavailable: ${(err as Error).message}`;
+  }
+});
+voiceClear.addEventListener("click", () => setVoice(null));
+
 $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target as HTMLFormElement;
   const data = new FormData(form);
   if (!(data.get("photo") as File)?.size) data.delete("photo");
+  if (recorder?.state === "recording") {
+    status.textContent = "Stop the recording first.";
+    return;
+  }
+  if (voice) data.append("audio", voice, voice.type.includes("ogg") ? "voice.ogg" : "voice.webm");
+  if (!String(data.get("text") ?? "").trim() && !voice) {
+    status.textContent = "Type or say what you want.";
+    return;
+  }
   const btn = form.querySelector("button")!;
   btn.disabled = true;
   const t0 = performance.now();
@@ -91,7 +147,7 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
     if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
     const mat = (await r.json()) as Material;
     await show(mat);
-    status.textContent = `${mat.plan.name} — ${mat.source}, ${mat.size}px`;
+    status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
   } catch (err) {
     status.textContent = `Failed: ${(err as Error).message}`;
   } finally {
