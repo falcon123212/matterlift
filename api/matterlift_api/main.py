@@ -10,8 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from PIL import Image
 
-from .pipeline import DATA_DIR, Pipeline, export_material, load_material
-from .schemas import Material
+from .library import LIBRARY_DIR, build_library, load_library, understand_library
+from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
+                       load_understanding)
+from .schemas import Library, Material, Understanding
 
 app = FastAPI(title="MatterLift")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -37,16 +39,8 @@ def health() -> dict:
     return {"ok": True}
 
 
-@app.post("/materials", response_model=Material)
-async def create_material(
-    text: str = Form(""),
-    size: int = Form(1024),
-    photo: UploadFile | None = File(None),
-    audio: UploadFile | None = File(None),
-) -> Material:
-    """Text, voice, or both (the transcript is appended to the text)."""
-    if size not in (512, 1024, 2048, 4096):
-        raise HTTPException(400, "size must be 512, 1024, 2048 or 4096")
+async def _request_text(text: str, audio: UploadFile | None) -> str:
+    """Typed text, plus the transcript of the voice request when there is one."""
     request = text.strip()
     if audio is not None:
         try:
@@ -54,12 +48,62 @@ async def create_material(
         except (RuntimeError, ValueError, EOFError) as e:  # wave raises on non-WAV input
             raise HTTPException(502, f"transcription failed: {e}") from e
         request = f"{request} {spoken}".strip()
-    if not request:
-        raise HTTPException(400, "say or type what you want")
-    img = None
-    if photo is not None:
-        img = Image.open(io.BytesIO(await photo.read())).convert("RGB")
+    return request
+
+
+async def _photo(photo: UploadFile) -> Image.Image:
     try:
+        return Image.open(io.BytesIO(await photo.read())).convert("RGB")
+    except OSError as e:
+        raise HTTPException(400, "photo is not a readable image") from e
+
+
+@app.post("/understand", response_model=Understanding)
+async def understand(
+    photo: UploadFile = File(...),
+    text: str = Form(""),
+    audio: UploadFile | None = File(None),
+) -> Understanding:
+    """Step 1 with a photo: what Spark understood and where SAM found it, shown before generation."""
+    request = await _request_text(text, audio) or "take the main material of this photo"
+    img = await _photo(photo)
+    try:
+        return await run_in_threadpool(pipeline().understand, request, img)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@app.get("/understand/{uid}/{name}")
+def get_understanding_image(uid: str, name: str) -> FileResponse:
+    if not _SAFE.match(uid) or name not in ("overlay.jpg", "crop.png", "photo.jpg"):
+        raise HTTPException(404)
+    path = UNDERSTAND_DIR / uid / name
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path)
+
+
+@app.post("/materials", response_model=Material)
+async def create_material(
+    text: str = Form(""),
+    size: int = Form(1024),
+    photo: UploadFile | None = File(None),
+    audio: UploadFile | None = File(None),
+    understanding: str = Form(""),
+) -> Material:
+    """Text, voice, or both; or resume from an understanding (step 2 after /understand)."""
+    if size not in (512, 1024, 2048, 4096):
+        raise HTTPException(400, "size must be 512, 1024, 2048 or 4096")
+    try:
+        if understanding:
+            und = load_understanding(understanding) if _SAFE.match(understanding) else None
+            if und is None:
+                raise HTTPException(404, "unknown understanding")
+            return await run_in_threadpool(pipeline().run_understood, und, size)
+        request = await _request_text(text, audio)
+        if not request:
+            raise HTTPException(400, "say or type what you want")
+        img = await _photo(photo) if photo is not None else None
         return await run_in_threadpool(pipeline().run, request, img, size)
     except RuntimeError as e:
         raise HTTPException(502, str(e)) from e
@@ -94,3 +138,48 @@ def get_map(mid: str, name: str) -> FileResponse:
     if not path.exists():
         raise HTTPException(404)
     return FileResponse(path, media_type="image/png")
+
+
+@app.post("/libraries", response_model=Library)
+async def create_library(
+    photo: UploadFile = File(...),
+    text: str = Form(""),
+    audio: UploadFile | None = File(None),
+) -> Library:
+    """Library step 1: Spark lists the materials, SAM masks each one; returns the overlay and
+    samples to show, before /libraries/{id}/build generates them."""
+    request = await _request_text(text, audio)
+    img = await _photo(photo)
+    try:
+        return await run_in_threadpool(understand_library, pipeline(), img, request)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@app.post("/libraries/{lid}/build", response_model=Library)
+async def build(lid: str, size: int = Form(1024)) -> Library:
+    """Library step 2: Muse Image + pbrforge for every sample, in parallel."""
+    lib = load_library(lid) if _SAFE.match(lid) else None
+    if lib is None:
+        raise HTTPException(404)
+    if size not in (512, 1024, 2048):
+        raise HTTPException(400, "size must be 512, 1024 or 2048")
+    return await run_in_threadpool(build_library, pipeline(), lib, size)
+
+
+@app.get("/libraries/{lid}", response_model=Library)
+def get_library(lid: str) -> Library:
+    lib = load_library(lid) if _SAFE.match(lid) else None
+    if lib is None:
+        raise HTTPException(404)
+    return lib
+
+
+@app.get("/libraries/{lid}/{name}")
+def get_library_image(lid: str, name: str) -> FileResponse:
+    if not (_SAFE.match(lid) and re.fullmatch(r"photo\.jpg|overlay\.jpg|crop_\d+\.png", name)):
+        raise HTTPException(404)
+    path = LIBRARY_DIR / lid / name
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path)

@@ -5,5 +5,5 @@ const api = `http://localhost:${process.env.API_PORT ?? "8001"}`;
 
 export default defineConfig({
   base: "./",
-  server: { port: 5173, proxy: { "/materials": api, "/health": api } },
+  server: { port: 5173, proxy: { "/materials": api, "/libraries": api, "/understand": api, "/health": api } },
 });

@@ -37,3 +37,40 @@ class Material(BaseModel):
     maps: dict[str, str]  # name -> URL path
     scores: dict
     timings: dict[str, float]
+
+
+class LibraryItemPlan(MaterialPlan):
+    """One material of a room, as listed by Spark: its plan plus where it is in the photo."""
+    points: list[tuple[float, float]] = Field(default_factory=list, description="[x, y] in 0..1000")
+
+
+class LibraryItem(BaseModel):
+    plan: LibraryItemPlan
+    crop: str | None = None  # URL: the photo sample for this material
+    crop_from: str | None = None
+    sam_box: list[int] | None = None
+    material: Material | None = None
+    error: str | None = None
+
+
+class Library(BaseModel):
+    id: str
+    request: str
+    photo: str  # URL path
+    overlay: str  # URL path: the photo with every material's mask and sample
+    items: list[LibraryItem]
+    status: str = "understood"  # then "built"
+    timings: dict[str, float]
+
+
+class Understanding(BaseModel):
+    """What the tool understood from a photo, shown before generation."""
+    id: str
+    request: str
+    plan: MaterialPlan
+    matched: bool  # SAM found the surface Spark named
+    crop_from: str | None = None  # "mask" or "box"
+    sam_box: list[int] | None = None
+    overlay: str  # URL: photo + mask + sampled square + label
+    crop: str | None = None  # URL: the sample Muse will turn into a texture
+    timings: dict[str, float]
