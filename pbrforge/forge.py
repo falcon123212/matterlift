@@ -5,6 +5,15 @@ import numpy as np
 
 from . import delight, metrics, seamless
 
+SECOND_PASS_SEAM = 1.4
+
+
+def _centre_square(img: np.ndarray) -> np.ndarray:
+    h, w = img.shape[:2]
+    s = min(h, w)
+    y, x = (h - s) // 2, (w - s) // 2
+    return img[y : y + s, x : x + s]
+
 
 def fix_albedo(img: np.ndarray, singletons: float = 0.8, fix_grid: bool = False) -> tuple[np.ndarray, dict]:
     """Return a tileable, delit albedo and the before/after scores.
@@ -15,8 +24,15 @@ def fix_albedo(img: np.ndarray, singletons: float = 0.8, fix_grid: bool = False)
     """
     before = metrics.report(img)
     out = seamless.crop_period(img)
+    out = _centre_square(out)  # Muse follows the samples' aspect; maps are square
     out = delight.fit_pbr_range(delight.delight(out))
     out = seamless.make_tileable(out)
+    if metrics.seam_score(out) > SECOND_PASS_SEAM:
+        # Strong structure (bricks, weave) can defeat one cut; the best band width varies, try two.
+        tries = [seamless.make_tileable(out, band_frac=b) for b in (0.12, 0.18)]
+        best = min(tries, key=metrics.seam_score)
+        if metrics.seam_score(best) < metrics.seam_score(out):
+            out = best
     if fix_grid:
         out = seamless.fix_blocks(out)
     touched = 0.0

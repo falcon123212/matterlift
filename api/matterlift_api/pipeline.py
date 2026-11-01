@@ -8,7 +8,6 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-from scipy import ndimage
 from PIL import Image
 
 import pbrforge
@@ -16,8 +15,9 @@ from pbrforge import io as pio
 from pbrforge import contact, export, seamless
 from pbrforge.metrics import luminance
 
-from . import overlay
-from .meta_client import Box, MetaClient, Segment
+from . import overlay, sampling
+from .meta_client import MetaClient, Segment
+from .sampling import Region
 from .schemas import Material, MaterialPlan, Understanding
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "materials"
@@ -53,57 +53,13 @@ else "",
 Values must be physically plausible for the material."""
 
 
-def _square_crop(img: Image.Image, box: Box, margin: float = 0.08) -> Image.Image:
-    """Largest square inside the box, shrunk by a margin to stay off the object's edges."""
-    w, h = box.x2 - box.x1, box.y2 - box.y1
-    side = int(min(w, h) * (1 - 2 * margin))
-    cx, cy = (box.x1 + box.x2) // 2, (box.y1 + box.y2) // 2
-    return img.crop((cx - side // 2, cy - side // 2, cx + side // 2, cy + side // 2))
-
-
-def largest_square_in_mask(mask: np.ndarray, work: int = 256, margin: float = 0.06) -> tuple[int, int, int] | None:
-    """(x, y, side) of the largest axis-aligned square fully inside the mask, in mask pixels.
-
-    Objects lying on the surface (a bowl on a table) are holes in SAM's mask, so the square avoids
-    them. Solved on a <= `work` px copy (classic DP), then shrunk by a margin off the edges.
-    """
-    h, w = mask.shape
-    k = max(h, w) / work
-    small = np.asarray(Image.fromarray(mask).resize((max(1, round(w / k)), max(1, round(h / k))), Image.NEAREST))
-    if k > 1:  # one reduced pixel of safety so rounding back up never lands on a hole
-        small = ndimage.binary_erosion(small, border_value=0)
-    s = np.zeros(small.shape, dtype=np.int32)
-    best, bx, by = 0, 0, 0
-    for y in range(small.shape[0]):
-        row = small[y]
-        for x in range(small.shape[1]):
-            if not row[x]:
-                continue
-            v = 1 if x == 0 or y == 0 else 1 + min(s[y - 1, x], s[y, x - 1], s[y - 1, x - 1])
-            s[y, x] = v
-            if v > best:
-                best, bx, by = v, x, y
-    if best == 0:
-        return None
-    side = best * k
-    inset = side * margin
-    x0 = (bx - best + 1) * k + inset
-    y0 = (by - best + 1) * k + inset
-    return int(x0), int(y0), int(side - 2 * inset)
-
-
-def sample_square(photo: Image.Image, seg: Segment) -> tuple[Image.Image, str, tuple[int, int, int]]:
-    """The photo sample for a mask: the largest square inside it, else the centre of its box."""
-    square = largest_square_in_mask(seg.mask)
-    if square and square[2] >= 96:
-        how = "mask"
-    else:  # mask too thin for a clean square
-        b = seg.box
-        side = int(min(b.x2 - b.x1, b.y2 - b.y1) * 0.84)
-        square = ((b.x1 + b.x2) // 2 - side // 2, (b.y1 + b.y2) // 2 - side // 2, side)
-        how = "box"
-    x, y, side = square
-    return photo.crop((x, y, x + side, y + side)), how, square
+def take_samples(photo: Image.Image, seg: Segment) -> tuple[list[Image.Image], list[Region], str]:
+    """The photo samples for a mask (see sampling.py); SAM's box centre when the mask has none."""
+    regions = sampling.sample_regions(seg.mask)
+    how = "mask"
+    if not regions:
+        regions, how = [sampling.box_fallback(seg.box, photo.size)], "box"
+    return [sampling.crop(photo, r) for r in regions], regions, how
 
 
 class Pipeline:
@@ -121,10 +77,16 @@ class Pipeline:
     def albedo_from_text(self, plan: MaterialPlan) -> Image.Image:
         return self.client.generate_image(f"{plan.texture_prompt}. {TEXTURE_SUFFIX}")
 
-    def albedo_from_crop(self, plan: MaterialPlan, crop: Image.Image) -> Image.Image:
-        """Muse turns the photo sample into a flat, delit, tileable texture."""
+    def albedo_from_samples(self, plan: MaterialPlan, samples: list[Image.Image]) -> Image.Image:
+        """Muse turns the photo samples (one surface, several areas) into a flat, tileable texture."""
         prompt = f"{plan.texture_prompt}. {TEXTURE_SUFFIX}"
-        return self.client.edit_image(crop, f"Turn this photo sample into a {prompt[0].lower()}{prompt[1:]}")
+        lead = ("Turn this photo sample" if len(samples) == 1 else
+                f"These {len(samples)} photos are samples of the same real surface. Turn them")
+        return self.client.edit_image(
+            samples,
+            f"{lead} into one {prompt[0].lower()}{prompt[1:]} Keep the pattern elements (tiles, bricks, "
+            "planks, grain, weave) as large relative to the frame as they appear in the first sample.",
+        )
 
     def understand(self, request: str, photo: Image.Image) -> Understanding:
         """Spark reads the request and the photo, SAM masks the surface, we pick the sample.
@@ -144,17 +106,19 @@ class Pipeline:
         segments = self.client.segment(photo, plan.sam_prompt or plan.name.replace("_", " "))
         timings["sam_mask"] = time.perf_counter() - t
         seg = segments[0] if segments else None
-        square, how = None, None
+        regions, how, crops = [], None, []
         if seg is not None:
-            crop, how, square = sample_square(photo, seg)
-            crop.save(d / "crop.png")
+            samples, regions, how = take_samples(photo, seg)
+            for k, im in enumerate(samples):
+                im.save(d / f"crop_{k}.png")
+                crops.append(f"/understand/{uid}/crop_{k}.png")
             Image.fromarray(seg.mask).save(d / "mask.png")
-        overlay.draw(photo, [(plan.name, seg.mask if seg else None, square)]).save(d / "overlay.jpg", quality=90)
+        overlay.draw(photo, [(plan.name, seg.mask if seg else None, regions)]).save(d / "overlay.jpg", quality=90)
 
         und = Understanding(id=uid, request=request, plan=plan, matched=seg is not None, crop_from=how,
                             sam_box=[seg.box.x1, seg.box.y1, seg.box.x2, seg.box.y2] if seg else None,
                             overlay=f"/understand/{uid}/overlay.jpg",
-                            crop=f"/understand/{uid}/crop.png" if seg else None,
+                            crops=crops,
                             timings={k: round(v, 2) for k, v in timings.items()})
         (d / "understanding.json").write_text(und.model_dump_json(indent=2), encoding="utf-8")
         return und
@@ -165,9 +129,9 @@ class Pipeline:
         timings = dict(und.timings)
         t = time.perf_counter()
         if und.matched:
-            crop = Image.open(d / "crop.png").convert("RGB")
-            raw, source = self.albedo_from_crop(und.plan, crop), "photo"
-            extra = {"sam_box": und.sam_box, "crop_from": und.crop_from, "crop": crop,
+            samples = [Image.open(d / f"crop_{k}.png").convert("RGB") for k in range(len(und.crops))]
+            raw, source = self.albedo_from_samples(und.plan, samples), "photo"
+            extra = {"sam_box": und.sam_box, "crop_from": und.crop_from, "samples": samples,
                      "mask": np.asarray(Image.open(d / "mask.png")).astype(bool), "understanding": und.id}
         else:
             raw, source = self.albedo_from_text(und.plan), "text"
@@ -206,8 +170,8 @@ class Pipeline:
         out_dir.mkdir(parents=True, exist_ok=True)
         extra = dict(extra)
         raw.save(out_dir / "muse_raw.png")
-        if "crop" in extra:
-            extra.pop("crop").save(out_dir / "photo_crop.png")
+        for k, im in enumerate(extra.pop("samples", [])):
+            im.save(out_dir / f"photo_sample_{k}.png")
         if "mask" in extra:
             Image.fromarray(extra.pop("mask")).save(out_dir / "sam_mask.png")
 

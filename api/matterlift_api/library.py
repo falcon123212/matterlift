@@ -20,7 +20,7 @@ from PIL import Image
 
 from . import overlay
 from .meta_client import Segment
-from .pipeline import PLAN_SYSTEM, Pipeline, sample_square
+from .pipeline import PLAN_SYSTEM, Pipeline, take_samples
 from .schemas import Library, LibraryItem, LibraryItemPlan
 
 LIBRARY_DIR = Path(__file__).resolve().parents[2] / "data" / "libraries"
@@ -82,13 +82,16 @@ def understand_library(pipe: Pipeline, photo: Image.Image, request: str = "",
         if isinstance(seg, Exception) or seg is None:
             err = f"SAM found no '{plan.sam_prompt}'" if seg is None else str(seg)[:300]
             items.append(LibraryItem(plan=plan, error=err))
-            drawn.append((plan.name, None, None))
+            drawn.append((plan.name, None, []))
             continue
-        crop, how, square = sample_square(photo, seg)
-        crop.save(out / f"crop_{i}.png")
-        items.append(LibraryItem(plan=plan, crop=f"/libraries/{lid}/crop_{i}.png", crop_from=how,
+        samples, regions, how = take_samples(photo, seg)
+        crops = []
+        for k, im in enumerate(samples):
+            im.save(out / f"crop_{i}_{k}.png")
+            crops.append(f"/libraries/{lid}/crop_{i}_{k}.png")
+        items.append(LibraryItem(plan=plan, crops=crops, crop_from=how,
                                  sam_box=[seg.box.x1, seg.box.y1, seg.box.x2, seg.box.y2]))
-        drawn.append((plan.name, seg.mask, square))
+        drawn.append((plan.name, seg.mask, regions))
     overlay.draw(photo, drawn).save(out / "overlay.jpg", quality=90)
 
     lib = Library(id=lid, request=request, photo=f"/libraries/{lid}/photo.jpg",
@@ -103,13 +106,13 @@ def build_library(pipe: Pipeline, lib: Library, size: int = 1024, root: Path = L
 
     def build(args) -> LibraryItem:
         i, item = args
-        if item.crop is None or item.material is not None:
+        if not item.crops or item.material is not None:
             return item
         try:
             t0 = time.perf_counter()
-            crop = Image.open(out / f"crop_{i}.png").convert("RGB")
-            raw = pipe.albedo_from_crop(item.plan, crop)
-            extra = {"sam_box": item.sam_box, "crop_from": item.crop_from, "crop": crop, "library": lib.id}
+            samples = [Image.open(out / f"crop_{i}_{k}.png").convert("RGB") for k in range(len(item.crops))]
+            raw = pipe.albedo_from_samples(item.plan, samples)
+            extra = {"sam_box": item.sam_box, "crop_from": item.crop_from, "samples": samples, "library": lib.id}
             mat = pipe.finish(item.plan, f"{lib.request} [{item.plan.name}]".strip(), raw, "photo", extra,
                               size, {"muse_image": time.perf_counter() - t0})
             return item.model_copy(update={"material": mat})

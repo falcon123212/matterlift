@@ -83,3 +83,11 @@ def test_derive_1024_under_4s():
     t = time.perf_counter()
     maps.derive(img)
     assert time.perf_counter() - t < 4.0
+
+
+def test_fix_albedo_squares_a_wide_image():
+    from pbrforge import fix_albedo
+
+    wide = np.concatenate([_noise(256, seed=1), _noise(256, seed=2)], axis=1)
+    out, _ = fix_albedo(wide)
+    assert out.shape[0] == out.shape[1]

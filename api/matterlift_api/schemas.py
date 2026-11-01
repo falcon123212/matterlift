@@ -46,7 +46,7 @@ class LibraryItemPlan(MaterialPlan):
 
 class LibraryItem(BaseModel):
     plan: LibraryItemPlan
-    crop: str | None = None  # URL: the photo sample for this material
+    crops: list[str] = Field(default_factory=list)  # URLs: the photo samples for this material
     crop_from: str | None = None
     sam_box: list[int] | None = None
     material: Material | None = None
@@ -72,5 +72,5 @@ class Understanding(BaseModel):
     crop_from: str | None = None  # "mask" or "box"
     sam_box: list[int] | None = None
     overlay: str  # URL: photo + mask + sampled square + label
-    crop: str | None = None  # URL: the sample Muse will turn into a texture
+    crops: list[str] = Field(default_factory=list)  # URLs: the samples Muse turns into a texture
     timings: dict[str, float]

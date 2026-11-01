@@ -111,21 +111,34 @@ class MetaClient:
 
     # --- Muse Spark -------------------------------------------------------
     def chat(self, system: str, user: str, images: list[Image.Image] | None = None,
-             max_tokens: int = 6000) -> str:
+             max_tokens: int = 6000, json_mode: bool = False) -> str:
         content: list[dict] | str = user
         if images:
             content = [{"type": "text", "text": user}] + [
                 {"type": "image_url", "image_url": {"url": image_to_data_url(i)}} for i in images
             ]
-        j = self._post("/chat/completions", json={
+        body = {
             "model": MODEL_SPARK,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": content}],
             "max_completion_tokens": max_tokens,
-        })
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        j = self._post("/chat/completions", json=body)
         return j["choices"][0]["message"]["content"] or ""
 
-    def chat_json(self, system: str, user: str, images: list[Image.Image] | None = None) -> dict:
-        return _extract_json(self.chat(system, user, images))
+    def chat_json(self, system: str, user: str, images: list[Image.Image] | None = None,
+                  attempts: int = 2) -> dict:
+        """JSON mode, and one retry: a long answer (a room's 8 material plans) can still come back
+        malformed now and then."""
+        for attempt in range(attempts):
+            text = self.chat(system, user, images, json_mode=True)
+            try:
+                return _extract_json(text)
+            except json.JSONDecodeError as e:
+                if attempt == attempts - 1:
+                    raise RuntimeError(f"Spark returned invalid JSON: {e}") from e
+        raise AssertionError("unreachable")
 
     # --- Muse Image -------------------------------------------------------
     def _image_options(self, reasoning: str) -> dict:
@@ -145,7 +158,7 @@ class MetaClient:
         """Meta's JSON form of /images/edits (the multipart form cannot carry tool_enablement)."""
         images = image if isinstance(image, list) else [image]
         j = self._post("/images/edits", json={
-            "model": MODEL_IMAGE, "prompt": prompt, "n": 1,
+            "model": MODEL_IMAGE, "prompt": prompt, "n": 1, "size": "1024x1024",  # square, whatever the samples
             "images": [{"image_url": image_to_data_url(i, 2048)} for i in images],
             **self._image_options(reasoning),
         })
