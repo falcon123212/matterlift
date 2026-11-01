@@ -49,7 +49,22 @@ function showScores(mat: Material) {
     `<tr><td colspan="3" class="muted">${timing}</td></tr>`;
 }
 
+let currentId: string | null = null;
+
+function updateExportLink() {
+  const link = $<HTMLAnchorElement>("#export-link");
+  link.classList.toggle("disabled", !currentId);
+  if (!currentId) return link.removeAttribute("href");
+  const size = $<HTMLSelectElement>("#export-size").value;
+  const fmt = $<HTMLSelectElement>("#export-fmt").value;
+  link.href = `${API}/materials/${currentId}/export?size=${size}&fmt=${fmt}`;
+}
+$("#export-size").addEventListener("change", updateExportLink);
+$("#export-fmt").addEventListener("change", updateExportLink);
+
 async function show(mat: Material) {
+  currentId = mat.id;
+  updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
   await preview.load(maps, mat.plan.shading);
   $("#tiling").style.backgroundImage = `url(${maps.albedo})`;

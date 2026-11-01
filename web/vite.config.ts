@@ -1,7 +1,9 @@
 import { defineConfig } from "vite";
 
-// In dev the API runs on :8000; VITE_API_URL overrides it for a deployed front.
+// In dev the API runs on API_PORT (default 8001); VITE_API_URL overrides it for a deployed front.
+const api = `http://localhost:${process.env.API_PORT ?? "8001"}`;
+
 export default defineConfig({
   base: "./",
-  server: { port: 5173, proxy: { "/materials": "http://localhost:8000", "/health": "http://localhost:8000" } },
+  server: { port: 5173, proxy: { "/materials": api, "/health": api } },
 });
