@@ -19,6 +19,11 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 _pipeline: Pipeline | None = None
 _SAFE = re.compile(r"^[A-Za-z0-9_]+$")
 
+# Biases Muse Voice Transcribe toward material vocabulary (it may otherwise mishear these).
+VOCABULARY = ["albedo", "roughness", "normal map", "PBR", "tileable", "seamless", "moss", "mousse",
+              "rust", "rouille", "oak", "chêne", "walnut", "noyer", "flagstone", "dalle", "grout",
+              "joints", "brick", "brique", "plank", "planche", "weathered", "usé", "patina", "patine"]
+
 
 def pipeline() -> Pipeline:
     global _pipeline
@@ -45,9 +50,8 @@ async def create_material(
     request = text.strip()
     if audio is not None:
         try:
-            spoken = await run_in_threadpool(pipeline().client.transcribe, await audio.read(),
-                                             audio.filename or "audio.webm")
-        except RuntimeError as e:
+            spoken = await run_in_threadpool(pipeline().client.transcribe, await audio.read(), VOCABULARY)
+        except (RuntimeError, ValueError, EOFError) as e:  # wave raises on non-WAV input
             raise HTTPException(502, f"transcription failed: {e}") from e
         request = f"{request} {spoken}".strip()
     if not request:

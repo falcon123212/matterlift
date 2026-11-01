@@ -90,14 +90,18 @@ Verified: Godot 4.7.2 loads the `.tres` with every map resolved, next to the ref
 Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw vs MatterLift
 contact sheet), `sam_table.py` (photo chain), `bench_baseline.py` (against a reference material).
 
-## Meta Model API notes (observed 2026-11-01)
+## Meta Model API notes (docs: https://dev.meta.ai/docs)
 
 - Base URL `https://api.meta.ai/v1`, OpenAI-compatible. Model ids: `muse-spark-1.3`,
   `muse-image-1.0`, `sam-3.1`, `muse-voice-transcribe-1.0`.
 - Spark is a reasoning model: give it `max_completion_tokens` in the thousands or `content` is empty.
-- Muse Image returns 1600x1600 WebP whatever `size` says; `/images/edits` has no `mask` field.
-- Muse Voice Transcribe: listed by `/models`, but `/audio/transcriptions`, `/responses`, `/chat/completions`
-  and `/realtime/*` all answer 404 or model_not_found. The route is set by `META_TRANSCRIBE_PATH`.
+- Muse Image returns 1600x1600 whatever `size` says (it sets the aspect ratio); `/images/edits` has no
+  `mask` field. We ask for PNG and `reasoning_strength: "low"`: twice as fast (~9 s), and it paints a
+  unique 1600 px image, where `"high"` repeats one 800 px tile 2x2 (half the usable resolution).
+  Height maps are as good in low (r 0.60 vs 0.60 against the reference displacement).
+- Muse Voice Transcribe: `POST /v1/asr/transcribe` (not the OpenAI route), multipart `request` (JSON)
+  + `audio`, WAV mono 16-bit at 16/24 kHz only. The browser converts its WebM recording to 24 kHz WAV;
+  the API normalises any WAV and biases recognition with material vocabulary (`keywords`).
 - SAM 3.1 answers on `/responses` only, as text: `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..|>` per
   instance, then an entropy-coded mask we do not decode (boxes are enough for sampling).
 
