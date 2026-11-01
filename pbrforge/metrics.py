@@ -4,6 +4,8 @@ from __future__ import annotations
 import numpy as np
 from scipy import ndimage
 
+from . import filters
+
 
 def luminance(img: np.ndarray) -> np.ndarray:
     if img.ndim == 2:
@@ -43,7 +45,7 @@ def detect_period(img: np.ndarray, min_corr: float = 0.4) -> tuple[int | None, i
     repeats strongly along x (~0.8) and partially along y (~0.5).
     """
     lum = luminance(img).astype(np.float64)
-    lum = lum - ndimage.gaussian_filter(lum, sigma=max(lum.shape) / 32, mode="wrap")
+    lum = lum - filters.blur(lum, max(lum.shape) / 32)
     f = np.fft.rfft2(lum)
     ac = np.fft.irfft2(f * np.conj(f), s=lum.shape)
     ac /= ac[0, 0] + 1e-12
@@ -61,9 +63,9 @@ def detect_period(img: np.ndarray, min_corr: float = 0.4) -> tuple[int | None, i
 def salient_mask(img: np.ndarray, k: float = 3.5) -> np.ndarray:
     """Pixels whose colour stands out from the local surroundings (moss patches, stains, logos)."""
     sigma = max(img.shape[:2]) / 24
-    local = np.stack([ndimage.gaussian_filter(img[..., c], sigma, mode="wrap") for c in range(3)], -1)
+    local = filters.blur(img, sigma)
     dev = np.linalg.norm(img - local, axis=-1)
-    dev = ndimage.gaussian_filter(dev, 2, mode="wrap")
+    dev = filters.blur(dev, 2)
     thresh = np.median(dev) + k * 1.4826 * np.median(np.abs(dev - np.median(dev)))
     mask = dev > thresh
     # Only blobs count as singletons, not scattered speckle.

@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import numpy as np
-from scipy import ndimage
-
+from . import filters
 from .metrics import luminance
 
 
 def delight(img: np.ndarray, sigma_frac: float = 0.125, max_gain: float = 2.0) -> np.ndarray:
     """Flatten low-frequency shading (vignetting, light falloff) while keeping hue and detail."""
     lum = luminance(img)
-    low = ndimage.gaussian_filter(lum, max(img.shape[:2]) * sigma_frac, mode="wrap")
+    low = filters.blur(lum, max(img.shape[:2]) * sigma_frac)
     gain = np.clip(lum.mean() / (low + 1e-4), 1 / max_gain, max_gain)
     return np.clip(img * gain[..., None], 0, 1)
 
