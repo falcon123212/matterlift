@@ -14,6 +14,33 @@ interface Material {
   timings: Record<string, number>;
 }
 
+interface Plan {
+  name: string;
+  texture_prompt: string;
+  sam_prompt: string;
+  roughness: number;
+  metallic: number;
+}
+
+/** Step 1 with a photo: what Spark understood and where SAM found it. */
+interface Understanding {
+  id: string;
+  request: string;
+  plan: Plan;
+  matched: boolean;
+  overlay: string;
+  crop: string | null;
+  timings: Record<string, number>;
+}
+
+interface Library {
+  id: string;
+  overlay: string;
+  status: "understood" | "built";
+  items: { plan: Plan; crop: string | null; material: Material | null; error: string | null }[];
+  timings: Record<string, number>;
+}
+
 const $ = <T extends HTMLElement>(sel: string) => document.querySelector(sel) as T;
 const preview = new Preview($("#canvas-wrap"));
 const status = $<HTMLParagraphElement>("#status");
@@ -62,7 +89,7 @@ function updateExportLink() {
 $("#export-size").addEventListener("change", updateExportLink);
 $("#export-fmt").addEventListener("change", updateExportLink);
 
-async function show(mat: Material) {
+async function show(mat: Material, updateUrl = true) {
   currentId = mat.id;
   updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
@@ -72,7 +99,7 @@ async function show(mat: Material) {
     .map(([k, v]) => `<figure><img src="${v}" alt="${k}" loading="lazy" /><figcaption>${k}</figcaption></figure>`)
     .join("");
   showScores(mat);
-  history.replaceState(null, "", `?id=${mat.id}`);
+  if (updateUrl) history.replaceState(null, "", `?id=${mat.id}`);
 }
 
 // --- Voice: recorded in the browser, transcribed server-side by Muse Voice Transcribe ---
@@ -156,42 +183,165 @@ mic.addEventListener("click", async () => {
 });
 voiceClear.addEventListener("click", () => setVoice(null));
 
+// --- Understanding panel: shown as soon as Spark and SAM answer, before Muse paints ---
+const photoInput = $<HTMLInputElement>('input[name="photo"]');
+const libraryMode = $<HTMLInputElement>("#library-mode");
+photoInput.addEventListener("change", () => {
+  libraryMode.disabled = !photoInput.files?.length;
+  if (libraryMode.disabled) libraryMode.checked = false;
+});
+
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: string) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (cls) node.className = cls;
+  return node;
+}
+
+function describe(target: HTMLElement, parts: (string | [string])[]) {
+  target.replaceChildren(...parts.map((p) => (Array.isArray(p) ? el("b", p[0]) : document.createTextNode(p))));
+}
+
+function showUnderstanding(und: Understanding) {
+  $("#understanding").hidden = false;
+  $<HTMLImageElement>("#und-overlay").src = API + und.overlay;
+  const pretty = und.plan.name.replace(/_/g, " ");
+  describe($("#und-text"), und.matched
+    ? ["I heard “", [und.request], "”. I see ", [pretty], ", found by SAM as “", [und.plan.sam_prompt],
+       "”, and I sample the framed square. Muse will paint: ", und.plan.texture_prompt, "."]
+    : ["I heard “", [und.request], "”, but SAM found no “", [und.plan.sam_prompt],
+       "” in the photo: I will paint ", [pretty], " from the description instead."]);
+  $("#und-items").replaceChildren();
+}
+
+function showLibrary(lib: Library, onPick: (m: Material) => void) {
+  $("#understanding").hidden = false;
+  $<HTMLImageElement>("#und-overlay").src = API + lib.overlay;
+  const found = lib.items.filter((i) => i.crop).length;
+  describe($("#und-text"), [`I see `, [`${lib.items.length} materials`], ` in this photo, SAM masked `, [`${found}`],
+    ". Each framed square is the sample Muse turns into a texture."]);
+  const cards = lib.items.map((item, i) => {
+    const b = el("button", undefined, item.material ? "" : item.crop && !item.error ? "pending" : "failed");
+    b.type = "button";
+    const src = item.material ? item.material.maps.albedo : item.crop;
+    let thumb: HTMLElement;
+    if (src) {
+      const img = el("img");
+      img.src = API + src;
+      img.alt = item.plan.name;
+      thumb = img;
+    } else {
+      thumb = el("div", "not found", "missing");
+    }
+    b.append(thumb, el("span", `${i + 1} ${item.plan.name.replace(/_/g, " ")}`));
+    if (item.error) b.title = item.error;
+    if (item.material) {
+      b.addEventListener("click", () => {
+        $("#und-items").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        onPick(item.material!);
+      });
+    }
+    return b;
+  });
+  $("#und-items").replaceChildren(...cards);
+}
+
+async function post<T>(path: string, body: FormData): Promise<T> {
+  const r = await fetch(`${API}${path}`, { method: "POST", body });
+  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  return (await r.json()) as T;
+}
+
+function ticking(label: () => string) {
+  const t0 = performance.now();
+  const update = () => (status.textContent = `${label()} ${((performance.now() - t0) / 1000).toFixed(0)} s`);
+  update();
+  const h = setInterval(update, 500);
+  return () => clearInterval(h);
+}
+
 $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target as HTMLFormElement;
   const data = new FormData(form);
-  if (!(data.get("photo") as File)?.size) data.delete("photo");
+  const hasPhoto = !!(data.get("photo") as File)?.size;
+  if (!hasPhoto) data.delete("photo");
+  data.delete("library");
   if (recorder?.state === "recording") {
     status.textContent = "Stop the recording first.";
     return;
   }
   if (voice) data.append("audio", voice, "voice.wav");
-  if (!String(data.get("text") ?? "").trim() && !voice) {
-    status.textContent = "Type or say what you want.";
+  if (!hasPhoto && !String(data.get("text") ?? "").trim() && !voice) {
+    status.textContent = "Type or say what you want, or add a photo.";
     return;
   }
-  const btn = form.querySelector("button")!;
+  const size = String(data.get("size") ?? "1024");
+  const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
   btn.disabled = true;
-  const t0 = performance.now();
-  const tick = setInterval(() => {
-    status.textContent = `Spark plans, Muse paints, pbrforge cleans… ${((performance.now() - t0) / 1000).toFixed(0)} s`;
-  }, 500);
+  let phase = "";
+  const stop = ticking(() => phase);
   try {
-    const r = await fetch(`${API}/materials`, { method: "POST", body: data });
-    if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
-    const mat = (await r.json()) as Material;
-    await show(mat);
-    status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
+    if (hasPhoto && libraryMode.checked) {
+      phase = "Spark lists the materials, SAM masks each one…";
+      let lib = await post<Library>("/libraries", data);
+      history.replaceState(null, "", `?lib=${lib.id}`);
+      const pick = pickFromLibrary;
+      showLibrary(lib, pick);
+      phase = `Understood in ${(lib.timings.spark_list + lib.timings.sam_masks).toFixed(0)} s. Muse paints every material…`;
+      const build = new FormData();
+      build.append("size", size);
+      lib = await post<Library>(`/libraries/${lib.id}/build`, build);
+      showLibrary(lib, pick);
+      const first = lib.items.find((i) => i.material)?.material;
+      if (first) await pick(first);
+      $("#und-items").querySelector("button:not(.failed):not(.pending)")?.classList.add("on");
+      status.textContent = `${lib.items.filter((i) => i.material).length}/${lib.items.length} materials ready — click one to preview it`;
+    } else if (hasPhoto) {
+      phase = "Spark reads your request, SAM finds the surface…";
+      const und = await post<Understanding>("/understand", data);
+      showUnderstanding(und);
+      phase = `Understood: ${und.plan.name.replace(/_/g, " ")}. Muse paints, pbrforge cleans…`;
+      const gen = new FormData();
+      gen.append("understanding", und.id);
+      gen.append("size", size);
+      const mat = await post<Material>("/materials", gen);
+      await show(mat);
+      status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
+    } else {
+      $("#understanding").hidden = true;
+      phase = "Spark plans, Muse paints, pbrforge cleans…";
+      const mat = await post<Material>("/materials", data);
+      await show(mat);
+      status.textContent = `${mat.plan.name} — “${mat.request}” (${mat.source}, ${mat.size}px)`;
+    }
   } catch (err) {
     status.textContent = `Failed: ${(err as Error).message}`;
   } finally {
-    clearInterval(tick);
+    stop();
     btn.disabled = false;
   }
 });
 
+const pickFromLibrary = (m: Material) =>
+  show(m, false).then(() => (status.textContent = `${m.plan.name} — from the library`));
+
+const libId = new URLSearchParams(location.search).get("lib");
+if (libId) {
+  fetch(`${API}/libraries/${libId}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then(async (lib: Library) => {
+      showLibrary(lib, pickFromLibrary);
+      const first = lib.items.find((i) => i.material)?.material;
+      if (first) await pickFromLibrary(first);
+      $("#und-items").querySelector("button:not(.failed):not(.pending)")?.classList.add("on");
+      if (lib.status !== "built") status.textContent = "This library is still being built.";
+    })
+    .catch(() => (status.textContent = `Library ${libId} not found`));
+}
+
 const id = new URLSearchParams(location.search).get("id");
-if (id) {
+if (id && !libId) {
   fetch(`${API}/materials/${id}`)
     .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
     .then((m: Material) => show(m).then(() => (status.textContent = `${m.plan.name} — ${m.request}`)))

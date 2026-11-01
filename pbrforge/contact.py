@@ -52,7 +52,13 @@ def render_sphere(maps: dict[str, np.ndarray], size: int = 512, tiles: float = 3
     spec = ndh ** shininess * (1 - rough) ** 2
     f0 = 0.04 * (1 - metal)[..., None] + albedo * metal[..., None]
     diffuse = albedo * (1 - metal)[..., None]
-    color = diffuse * (ndl[..., None] * 1.1 + 0.18 * ao[..., None]) + f0 * spec[..., None] * 3
+    # Cheap sky reflection (bright above, dark below), blurred by roughness: without it bare metal,
+    # which has no diffuse term, renders black.
+    refl_y = 2 * (pn @ view)[..., None] * pn[..., 1:2] - view[1]
+    sky = 0.25 + 0.75 * np.clip(refl_y * 0.5 + 0.5, 0, 1)
+    env = (sky * (1 - 0.6 * rough[..., None]) + 0.35 * rough[..., None]) * ao[..., None]
+    color = (diffuse * (ndl[..., None] * 1.1 + 0.18 * ao[..., None]) + f0 * spec[..., None] * 3
+             + f0 * env * 0.9)
     color = color ** (1 / 1.4)
     bg = np.full_like(color, 0.08)
     return np.where(inside[..., None], np.clip(color, 0, 1), bg).astype(np.float32)

@@ -11,6 +11,19 @@ All code in this repository was written from 2026-11-01 onward, for the Meta hac
 
 ## How it works
 
+With a photo, MatterLift works in two steps so you see what it understood before it paints:
+
+1. **Understand** (~13 s for one material, ~30 s for a room): Spark reads the request and the
+   photo, SAM 3.1 masks the surface, and the UI shows the photo with the mask, the square that
+   will be sampled and Spark's description.
+2. **Generate** (~25 s per material, in parallel for a room): Muse Image and pbrforge.
+
+**Library mode**: one photo of a room gives every material in it. Spark lists up to 8 materials
+with two points on each; SAM masks each from its noun phrase (one concept per request, all in
+parallel), Spark's points pick the right instance; then every sample is generated in parallel.
+On a kitchen photo: 7 of 8 materials in 81 s. (Point prompts can segment 16 objects in one SAM
+pass, but a point selects an object, one brick rather than the wall, so concept prompts win.)
+
 ```
 photo + voice/text
   -> Muse Voice Transcribe   (voice -> text)
@@ -62,8 +75,13 @@ cp .env.example .env   # add META_API_KEY
 npm --prefix web install && npm --prefix web run dev   # http://localhost:5173
 ```
 
-API: `POST /materials` (form: `text`, optional `photo`, `audio`, `size`), `GET /materials/{id}`,
-`GET /materials/{id}/maps/{name}.png`, `GET /materials/{id}/export?size=2048&fmt=png`.
+API:
+- `POST /understand` (form: `photo`, optional `text`, `audio`): step 1, returns the plan, overlay and sample.
+- `POST /materials` (form: `understanding` id, or `text`/`audio` with optional `photo`; `size`): a material.
+- `POST /libraries` (form: `photo`, optional `text`, `audio`): library step 1; then
+  `POST /libraries/{id}/build` (form: `size`) generates every material.
+- `GET /materials/{id}`, `/materials/{id}/maps/{name}.png`, `/materials/{id}/export?size=2048&fmt=png`,
+  `GET /libraries/{id}`. The UI reopens them with `?id=` or `?lib=`.
 
 ## Export
 
@@ -88,7 +106,8 @@ RustyPaintedSteel_2K-PNG/
 Verified: Godot 4.7.2 loads the `.tres` with every map resolved, next to the reference package.
 
 Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw vs MatterLift
-contact sheet), `sam_table.py` (photo chain), `bench_baseline.py` (against a reference material).
+contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's masks and spheres),
+`bench_baseline.py` (against a reference material).
 
 ## Meta Model API notes (docs: https://dev.meta.ai/docs)
 

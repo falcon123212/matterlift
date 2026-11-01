@@ -1,4 +1,5 @@
-"""photo + request -> Spark (plan + target) -> SAM 3.1 (box) -> crop -> Muse Image -> pbrforge -> maps."""
+"""photo + request -> Spark (plan) -> SAM 3.1 (mask) -> sample -> [understanding shown to the user]
+-> Muse Image -> pbrforge -> Muse height -> maps."""
 from __future__ import annotations
 
 import json
@@ -15,10 +16,12 @@ from pbrforge import io as pio
 from pbrforge import contact, export, seamless
 from pbrforge.metrics import luminance
 
-from .meta_client import Box, MetaClient
-from .schemas import Material, MaterialPlan
+from . import overlay
+from .meta_client import Box, MetaClient, Segment
+from .schemas import Material, MaterialPlan, Understanding
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "materials"
+UNDERSTAND_DIR = DATA_DIR.parent / "understand"
 
 TEXTURE_SUFFIX = (
     "Seamless tileable PBR albedo texture, orthographic top-down view, the material fills the "
@@ -89,6 +92,20 @@ def largest_square_in_mask(mask: np.ndarray, work: int = 256, margin: float = 0.
     return int(x0), int(y0), int(side - 2 * inset)
 
 
+def sample_square(photo: Image.Image, seg: Segment) -> tuple[Image.Image, str, tuple[int, int, int]]:
+    """The photo sample for a mask: the largest square inside it, else the centre of its box."""
+    square = largest_square_in_mask(seg.mask)
+    if square and square[2] >= 96:
+        how = "mask"
+    else:  # mask too thin for a clean square
+        b = seg.box
+        side = int(min(b.x2 - b.x1, b.y2 - b.y1) * 0.84)
+        square = ((b.x1 + b.x2) // 2 - side // 2, (b.y1 + b.y2) // 2 - side // 2, side)
+        how = "box"
+    x, y, side = square
+    return photo.crop((x, y, x + side, y + side)), how, square
+
+
 class Pipeline:
     def __init__(self, client: MetaClient | None = None, data_dir: Path = DATA_DIR):
         self.client = client or MetaClient()
@@ -101,28 +118,62 @@ class Pipeline:
         raw = self.client.chat_json(PLAN_SYSTEM, user, [photo] if photo is not None else None)
         return MaterialPlan.model_validate(raw)
 
-    def albedo(self, plan: MaterialPlan, photo: Image.Image | None) -> tuple[Image.Image, str, dict]:
+    def albedo_from_text(self, plan: MaterialPlan) -> Image.Image:
+        return self.client.generate_image(f"{plan.texture_prompt}. {TEXTURE_SUFFIX}")
+
+    def albedo_from_crop(self, plan: MaterialPlan, crop: Image.Image) -> Image.Image:
+        """Muse turns the photo sample into a flat, delit, tileable texture."""
         prompt = f"{plan.texture_prompt}. {TEXTURE_SUFFIX}"
-        if photo is None:
-            return self.client.generate_image(prompt), "text", {}
+        return self.client.edit_image(crop, f"Turn this photo sample into a {prompt[0].lower()}{prompt[1:]}")
+
+    def understand(self, request: str, photo: Image.Image) -> Understanding:
+        """Spark reads the request and the photo, SAM masks the surface, we pick the sample.
+        Saved so generation can resume from it; shown to the user before Muse runs."""
+        uid = uuid.uuid4().hex[:10]
+        d = UNDERSTAND_DIR / uid
+        d.mkdir(parents=True, exist_ok=True)
+        photo = photo.convert("RGB")
+        photo.save(d / "photo.jpg", quality=92)
+        timings: dict[str, float] = {}
+
+        t = time.perf_counter()
+        plan = self.plan(request, photo)
+        timings["spark_plan"] = time.perf_counter() - t
+
+        t = time.perf_counter()
         segments = self.client.segment(photo, plan.sam_prompt or plan.name.replace("_", " "))
-        if not segments:
-            return self.client.generate_image(prompt), "text", {"sam": "no match, fell back to text"}
-        seg = segments[0]
-        square = largest_square_in_mask(seg.mask)
-        if square and square[2] >= 96:
-            x, y, side = square
-            crop = photo.crop((x, y, x + side, y + side))
-            how = "mask"
-        else:  # mask too thin for a clean square: centre of the box
-            crop = _square_crop(photo, seg.box)
-            how = "box"
-        edited = self.client.edit_image(
-            crop, f"Turn this photo sample into a {prompt[0].lower()}{prompt[1:]}"
-        )
-        b = seg.box
-        return edited, "photo", {"sam_box": [b.x1, b.y1, b.x2, b.y2], "crop_from": how,
-                                 "crop": crop, "mask": seg.mask}
+        timings["sam_mask"] = time.perf_counter() - t
+        seg = segments[0] if segments else None
+        square, how = None, None
+        if seg is not None:
+            crop, how, square = sample_square(photo, seg)
+            crop.save(d / "crop.png")
+            Image.fromarray(seg.mask).save(d / "mask.png")
+        overlay.draw(photo, [(plan.name, seg.mask if seg else None, square)]).save(d / "overlay.jpg", quality=90)
+
+        und = Understanding(id=uid, request=request, plan=plan, matched=seg is not None, crop_from=how,
+                            sam_box=[seg.box.x1, seg.box.y1, seg.box.x2, seg.box.y2] if seg else None,
+                            overlay=f"/understand/{uid}/overlay.jpg",
+                            crop=f"/understand/{uid}/crop.png" if seg else None,
+                            timings={k: round(v, 2) for k, v in timings.items()})
+        (d / "understanding.json").write_text(und.model_dump_json(indent=2), encoding="utf-8")
+        return und
+
+    def run_understood(self, und: Understanding, size: int = 1024) -> Material:
+        """Generation step after `understand`: no second Spark or SAM call."""
+        d = UNDERSTAND_DIR / und.id
+        timings = dict(und.timings)
+        t = time.perf_counter()
+        if und.matched:
+            crop = Image.open(d / "crop.png").convert("RGB")
+            raw, source = self.albedo_from_crop(und.plan, crop), "photo"
+            extra = {"sam_box": und.sam_box, "crop_from": und.crop_from, "crop": crop,
+                     "mask": np.asarray(Image.open(d / "mask.png")).astype(bool), "understanding": und.id}
+        else:
+            raw, source = self.albedo_from_text(und.plan), "text"
+            extra = {"sam": "no match, fell back to text", "understanding": und.id}
+        timings["muse_image"] = time.perf_counter() - t
+        return self.finish(und.plan, und.request, raw, source, extra, size, timings)
 
     def height_guide(self, albedo: np.ndarray) -> np.ndarray | None:
         """Muse Image paints the height map from the clean albedo; aligned with it, and far closer
@@ -136,18 +187,24 @@ class Pipeline:
         return seamless.periodic_component(g)  # match the albedo's wrap
 
     def run(self, request: str, photo: Image.Image | None = None, size: int = 1024) -> Material:
+        if photo is not None:
+            return self.run_understood(self.understand(request, photo), size)
+        timings: dict[str, float] = {}
+        t = time.perf_counter()
+        plan = self.plan(request, None)
+        timings["spark_plan"] = time.perf_counter() - t
+        t = time.perf_counter()
+        raw = self.albedo_from_text(plan)
+        timings["muse_image"] = time.perf_counter() - t
+        return self.finish(plan, request, raw, "text", {}, size, timings)
+
+    def finish(self, plan: MaterialPlan, request: str, raw: Image.Image, source: str, extra: dict,
+               size: int, timings: dict[str, float]) -> Material:
+        """Muse albedo -> pbrforge clean-up -> Muse height -> maps, saved as a material."""
         mid = uuid.uuid4().hex[:10]
         out_dir = self.data_dir / mid
         out_dir.mkdir(parents=True, exist_ok=True)
-        timings: dict[str, float] = {}
-
-        t = time.perf_counter()
-        plan = self.plan(request, photo)
-        timings["spark_plan"] = time.perf_counter() - t
-
-        t = time.perf_counter()
-        raw, source, extra = self.albedo(plan, photo)
-        timings["muse_image"] = time.perf_counter() - t
+        extra = dict(extra)
         raw.save(out_dir / "muse_raw.png")
         if "crop" in extra:
             extra.pop("crop").save(out_dir / "photo_crop.png")
@@ -198,6 +255,11 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
     preview = pio.to_pil(contact.render_sphere(maps, 512))
     folder = export.export_package(maps, mat.plan.name, d / "export", fmt, preview)
     return export.zip_package(folder)
+
+
+def load_understanding(uid: str) -> Understanding | None:
+    p = UNDERSTAND_DIR / uid / "understanding.json"
+    return Understanding.model_validate(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else None
 
 
 def load_material(mid: str, data_dir: Path = DATA_DIR) -> Material | None:

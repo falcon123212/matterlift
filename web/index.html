@@ -23,6 +23,10 @@
         <label>Photo of the real surface (optional)
           <input type="file" name="photo" accept="image/*" />
         </label>
+        <label class="check">
+          <input type="checkbox" name="library" id="library-mode" disabled />
+          Every material in this photo (library)
+        </label>
         <label>Resolution
           <select name="size">
             <option>512</option>
@@ -52,6 +56,12 @@
       </section>
 
       <section class="side">
+        <div id="understanding" hidden>
+          <h2>What MatterLift understood</h2>
+          <img id="und-overlay" alt="The photo with the surface SAM masked and the square sampled from it" />
+          <p id="und-text" class="small"></p>
+          <div id="und-items"></div>
+        </div>
         <h2>Export</h2>
         <div class="export">
           <select id="export-size" aria-label="Export resolution">

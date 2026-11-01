@@ -153,12 +153,35 @@ class MetaClient:
 
     # --- SAM 3.1 ----------------------------------------------------------
     def segment(self, image: Image.Image, prompt: str, max_side: int = 1024) -> list[Segment]:
-        """Every instance SAM finds for `prompt`, largest mask first, in original image pixels."""
+        """Every instance SAM finds for the concept `prompt` (one noun phrase), largest mask first,
+        in original image pixels."""
+        return self._sam(image, prompt, max_side)
+
+    def segment_points(self, image: Image.Image, points: dict[int, list[tuple[float, float]]],
+                       max_side: int = 1024) -> dict[int, Segment]:
+        """Several objects in one pass (max 16): {object id: positive points in original pixels}.
+        Returns {object id: Segment}; an object SAM could not segment is missing."""
+        if not points or len(points) > 16:
+            raise ValueError("SAM takes 1 to 16 prompted objects")
+        sent = image.copy()
+        if max(sent.size) > max_side:
+            sent.thumbnail((max_side, max_side), Image.LANCZOS)
+        sx, sy = sent.width / image.width, sent.height / image.height
+        w, h = sent.size
+        objects = []
+        for oid, pts in points.items():
+            tokens = [f"<|point;x={min(w - 1, max(0, int(x * sx)))};y={min(h - 1, max(0, int(y * sy)))};w={w};h={h}|>"
+                      for x, y in pts]
+            objects.append(f"{oid}{''.join(tokens)}")
+        segs = self._sam(image, "<0f>" + ",".join(objects), max_side)
+        return {s.id: s for s in segs}
+
+    def _sam(self, image: Image.Image, text_prompt: str, max_side: int) -> list[Segment]:
         j = self._post("/responses", json={
             "model": MODEL_SAM,
             "metadata": {"mask_encoding": "one_bit"},
             "input": [{"role": "user", "content": [
-                {"type": "input_text", "text": prompt},
+                {"type": "input_text", "text": text_prompt},
                 {"type": "input_image", "image_url": image_to_data_url(image, max_side)},
             ]}],
         })
