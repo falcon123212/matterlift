@@ -27,6 +27,10 @@
           <input type="checkbox" name="library" id="library-mode" disabled />
           Every material in this photo (library)
         </label>
+        <label class="check">
+          <input type="checkbox" id="self-critique" checked />
+          Spark self-critique after generating
+        </label>
         <label>Resolution
           <select name="size">
             <option>512</option>
@@ -71,6 +75,17 @@
           <img id="und-overlay" alt="The photo with the surface SAM masked and the square sampled from it" />
           <p id="und-text" class="small"></p>
           <div id="und-items"></div>
+        </div>
+        <div id="critique-box">
+          <h2>Spark critique</h2>
+          <button type="button" id="critique-btn" disabled>Ask Spark to critique this material</button>
+          <div id="critique" hidden>
+            <p id="crit-score"></p>
+            <figure><img id="crit-before" alt="What Spark reviewed: sphere under raking light, tiling, photo sample" /><figcaption>reviewed</figcaption></figure>
+            <ul id="crit-issues"></ul>
+            <p id="crit-changes" class="small"></p>
+            <figure id="crit-after-fig"><img id="crit-after" alt="The revised material, reviewed again" /><figcaption>after the fixes</figcaption></figure>
+          </div>
         </div>
         <div id="fidelity" hidden>
           <h2>Photo vs material</h2>

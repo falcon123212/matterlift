@@ -23,6 +23,50 @@ def crop_period(img: np.ndarray, min_frac: float = 0.45) -> np.ndarray:
     return img[:side, :side]
 
 
+def _grid_axis(img: np.ndarray, min_corr: float = 0.6) -> tuple[int, int] | None:
+    """(offset, period) when Muse laid copies of one tile side by side along X: evenly spaced
+    straight steps *and* near-identical content one period apart. Planks also have evenly spaced
+    lines, but each board differs, so their correlation stays low and they are left alone."""
+    lum = metrics.luminance(img)
+    w = lum.shape[1]
+    steps = np.abs(np.diff(lum, axis=1)).mean(axis=0)
+    strong = np.where(steps > 2.5 * np.median(steps))[0]
+    if len(strong) < 2:
+        return None
+    # Merge adjacent columns into lines, keep their positions.
+    lines = [int(strong[0])]
+    for x in strong[1:]:
+        if x - lines[-1] > 3:
+            lines.append(int(x))
+    if len(lines) < 2:
+        return None
+    gaps = np.diff(lines)
+    period = int(np.median(gaps))
+    if period < w * 0.15 or np.any(np.abs(gaps - period) > max(4, 0.03 * period)):
+        return None
+    a = lum[:, lines[0] + 1 : lines[0] + 1 + period]
+    b = lum[:, lines[0] + 1 + period : lines[0] + 1 + 2 * period]
+    if b.shape[1] < period // 2:
+        return None
+    a, b = a[:, : b.shape[1]] - a.mean(), b - b.mean()
+    corr = float((a * b).sum() / (np.sqrt((a * a).sum() * (b * b).sum()) + 1e-9))
+    return (lines[0] + 1, period) if corr >= min_corr else None
+
+
+def crop_grid(img: np.ndarray) -> np.ndarray:
+    """Keep one cell when Muse returned a grid of copies with visible joins (it does this when
+    asked for a "tileable" edit). Cropped between two joins, square."""
+    gx = _grid_axis(img)
+    gy = _grid_axis(np.swapaxes(img, 0, 1))
+    if gx is None and gy is None:
+        return img
+    h, w = img.shape[:2]
+    ox, px = gx or (0, w)
+    oy, py = gy or (0, h)
+    side = min(px, py, w - ox, h - oy)
+    return img[oy : oy + side, ox : ox + side]
+
+
 def periodic_component(img: np.ndarray, blur_frac: float = 1 / 48) -> np.ndarray:
     """Moisan's periodic + smooth decomposition: subtract the smooth field that causes the
     edge mismatch (lighting gradients, colour drift), leaving detail untouched.

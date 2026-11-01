@@ -190,30 +190,39 @@ class Pipeline:
 
     def finish(self, plan: MaterialPlan, request: str, raw: Image.Image, source: str, extra: dict,
                size: int, timings: dict[str, float]) -> Material:
-        """Muse albedo -> pbrforge clean-up -> Muse height -> maps, saved as a material."""
-        mid = uuid.uuid4().hex[:10]
-        out_dir = self.data_dir / mid
-        out_dir.mkdir(parents=True, exist_ok=True)
+        """Muse albedo -> pbrforge clean-up -> colour match -> Muse height -> maps, saved."""
         extra = dict(extra)
-        raw.save(out_dir / "muse_raw.png")
         samples = extra.pop("samples", [])
-        for k, im in enumerate(samples):
-            im.save(out_dir / f"photo_sample_{k}.png")
-        if "mask" in extra:
-            Image.fromarray(extra.pop("mask")).save(out_dir / "sam_mask.png")
-
         t = time.perf_counter()
         albedo, scores = pbrforge.fix_albedo(pio.from_pil(raw))
         if samples and source == "photo":  # Muse repaints: bring the colours back to the real surface
             albedo, fidelity = color.match_to_samples(albedo, [pio.from_pil(s) for s in samples])
             albedo = delight.fit_pbr_range(albedo)
             scores["fidelity"] = fidelity
-        pio.save(out_dir / "albedo_source.png", albedo)  # native resolution, for exports
         timings["pbrforge_albedo"] = time.perf_counter() - t
 
         t = time.perf_counter()
         guide = self.height_guide(albedo)
         timings["muse_height"] = time.perf_counter() - t
+        return self.save_material(plan, request, source, albedo, guide, {**scores, **extra}, samples, size,
+                                  timings, raw=raw)
+
+    def save_material(self, plan: MaterialPlan, request: str, source: str, albedo: np.ndarray,
+                      guide: np.ndarray | None, scores: dict, samples: list[Image.Image], size: int,
+                      timings: dict[str, float], raw: Image.Image | None = None) -> Material:
+        """Derive the maps from a clean albedo (and Muse height) and save everything as a new
+        material. Also the path for a critique that only changes parameters."""
+        mid = uuid.uuid4().hex[:10]
+        out_dir = self.data_dir / mid
+        out_dir.mkdir(parents=True, exist_ok=True)
+        scores = dict(scores)
+        if raw is not None:
+            raw.save(out_dir / "muse_raw.png")
+        for k, im in enumerate(samples):
+            im.save(out_dir / f"photo_sample_{k}.png")
+        if "mask" in scores:
+            Image.fromarray(scores.pop("mask")).save(out_dir / "sam_mask.png")
+        pio.save(out_dir / "albedo_source.png", albedo)  # native resolution, for exports
         if guide is not None:
             pio.save(out_dir / "muse_height.png", guide)
 
@@ -226,15 +235,15 @@ class Pipeline:
         for name, arr in maps.items():
             pio.save(out_dir / f"{name}.png", arr)
             urls[name] = f"/materials/{mid}/maps/{name}.png"
-        urls["muse_raw"] = f"/materials/{mid}/maps/muse_raw.png"
+        if raw is not None:
+            urls["muse_raw"] = f"/materials/{mid}/maps/muse_raw.png"
         if samples:
             urls["photo_sample"] = f"/materials/{mid}/maps/photo_sample_0.png"
         if guide is not None:
             urls["muse_height"] = f"/materials/{mid}/maps/muse_height.png"
 
-        mat = Material(id=mid, plan=plan, request=request, source=source, size=size,
-                       maps=urls, scores={**scores, **extra},
-                       timings={k: round(v, 2) for k, v in timings.items()})
+        mat = Material(id=mid, plan=plan, request=request, source=source, size=size, maps=urls,
+                       scores=scores, timings={k: round(v, 2) for k, v in timings.items()})
         (out_dir / "material.json").write_text(mat.model_dump_json(indent=2), encoding="utf-8")
         return mat
 

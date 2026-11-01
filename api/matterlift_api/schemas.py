@@ -113,3 +113,20 @@ class Understanding(BaseModel):
     overlay: str  # URL: photo + mask + sampled square + label
     crops: list[str] = Field(default_factory=list)  # URLs: the samples Muse turns into a texture
     timings: dict[str, float]
+
+
+class Critique(BaseModel):
+    """Spark's review of a material, the fixes it made, and its verdict on the result."""
+    before: str  # material ids
+    after: str
+    chosen: str  # the better-scored of the two
+    score_before: int
+    score_after: int
+    issues: list[str]
+    remaining: list[str] = Field(default_factory=list)
+    params_changed: dict[str, list[float]]  # name -> [old, new]
+    albedo_fix: str
+    colour_matched: bool = False
+    review_before: str  # URLs of the review sheets Spark looked at
+    review_after: str | None
+    seconds: float
