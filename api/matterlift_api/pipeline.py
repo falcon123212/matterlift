@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 
 import numpy as np
+from scipy import ndimage
 from PIL import Image
 
 import pbrforge
@@ -57,6 +58,37 @@ def _square_crop(img: Image.Image, box: Box, margin: float = 0.08) -> Image.Imag
     return img.crop((cx - side // 2, cy - side // 2, cx + side // 2, cy + side // 2))
 
 
+def largest_square_in_mask(mask: np.ndarray, work: int = 256, margin: float = 0.06) -> tuple[int, int, int] | None:
+    """(x, y, side) of the largest axis-aligned square fully inside the mask, in mask pixels.
+
+    Objects lying on the surface (a bowl on a table) are holes in SAM's mask, so the square avoids
+    them. Solved on a <= `work` px copy (classic DP), then shrunk by a margin off the edges.
+    """
+    h, w = mask.shape
+    k = max(h, w) / work
+    small = np.asarray(Image.fromarray(mask).resize((max(1, round(w / k)), max(1, round(h / k))), Image.NEAREST))
+    if k > 1:  # one reduced pixel of safety so rounding back up never lands on a hole
+        small = ndimage.binary_erosion(small, border_value=0)
+    s = np.zeros(small.shape, dtype=np.int32)
+    best, bx, by = 0, 0, 0
+    for y in range(small.shape[0]):
+        row = small[y]
+        for x in range(small.shape[1]):
+            if not row[x]:
+                continue
+            v = 1 if x == 0 or y == 0 else 1 + min(s[y - 1, x], s[y, x - 1], s[y - 1, x - 1])
+            s[y, x] = v
+            if v > best:
+                best, bx, by = v, x, y
+    if best == 0:
+        return None
+    side = best * k
+    inset = side * margin
+    x0 = (bx - best + 1) * k + inset
+    y0 = (by - best + 1) * k + inset
+    return int(x0), int(y0), int(side - 2 * inset)
+
+
 class Pipeline:
     def __init__(self, client: MetaClient | None = None, data_dir: Path = DATA_DIR):
         self.client = client or MetaClient()
@@ -73,15 +105,24 @@ class Pipeline:
         prompt = f"{plan.texture_prompt}. {TEXTURE_SUFFIX}"
         if photo is None:
             return self.client.generate_image(prompt), "text", {}
-        boxes = self.client.segment_boxes(photo, plan.sam_prompt or plan.name.replace("_", " "))
-        if not boxes:
+        segments = self.client.segment(photo, plan.sam_prompt or plan.name.replace("_", " "))
+        if not segments:
             return self.client.generate_image(prompt), "text", {"sam": "no match, fell back to text"}
-        crop = _square_crop(photo, boxes[0])
+        seg = segments[0]
+        square = largest_square_in_mask(seg.mask)
+        if square and square[2] >= 96:
+            x, y, side = square
+            crop = photo.crop((x, y, x + side, y + side))
+            how = "mask"
+        else:  # mask too thin for a clean square: centre of the box
+            crop = _square_crop(photo, seg.box)
+            how = "box"
         edited = self.client.edit_image(
             crop, f"Turn this photo sample into a {prompt[0].lower()}{prompt[1:]}"
         )
-        b = boxes[0]
-        return edited, "photo", {"sam_box": [b.x1, b.y1, b.x2, b.y2], "crop": crop}
+        b = seg.box
+        return edited, "photo", {"sam_box": [b.x1, b.y1, b.x2, b.y2], "crop_from": how,
+                                 "crop": crop, "mask": seg.mask}
 
     def height_guide(self, albedo: np.ndarray) -> np.ndarray | None:
         """Muse Image paints the height map from the clean albedo; aligned with it, and far closer
@@ -110,6 +151,8 @@ class Pipeline:
         raw.save(out_dir / "muse_raw.png")
         if "crop" in extra:
             extra.pop("crop").save(out_dir / "photo_crop.png")
+        if "mask" in extra:
+            Image.fromarray(extra.pop("mask")).save(out_dir / "sam_mask.png")
 
         t = time.perf_counter()
         albedo, scores = pbrforge.fix_albedo(pio.from_pil(raw))

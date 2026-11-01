@@ -15,8 +15,8 @@ All code in this repository was written from 2026-11-01 onward, for the Meta hac
 photo + voice/text
   -> Muse Voice Transcribe   (voice -> text)
   -> Muse Spark              (reads request + photo: material plan as JSON, what SAM should look for)
-  -> SAM 3.1                 (finds the surface in the photo: box)
-  -> crop                    (square sample inside the box)
+  -> SAM 3.1                 (masks the surface in the photo)
+  -> crop                    (largest square inside the mask: objects lying on it are avoided)
   -> Muse Image              (sample -> flat, delit, top-down albedo; or text -> albedo without a photo)
   -> pbrforge                (period crop, seamless wrap, delight, singleton taming)
   -> Muse Image              (albedo -> height map, aligned with it)
@@ -27,7 +27,7 @@ photo + voice/text
 | Model | Role |
 |---|---|
 | Muse Spark | Plans the material (roughness, metal, relief, shading model), names the surface for SAM |
-| SAM 3.1 | Locates the surface in the photo |
+| SAM 3.1 | Masks the surface in the photo, so the sample avoids what lies on it |
 | Muse Image | Paints the albedo from the photo sample or the text; paints the height map from the albedo |
 | Muse Voice Transcribe | Spoken requests |
 
@@ -102,8 +102,9 @@ contact sheet), `sam_table.py` (photo chain), `bench_baseline.py` (against a ref
 - Muse Voice Transcribe: `POST /v1/asr/transcribe` (not the OpenAI route), multipart `request` (JSON)
   + `audio`, WAV mono 16-bit at 16/24 kHz only. The browser converts its WebM recording to 24 kHz WAV;
   the API normalises any WAV and biases recognition with material vocabulary (`keywords`).
-- SAM 3.1 answers on `/responses` only, as text: `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..|>` per
-  instance, then an entropy-coded mask we do not decode (boxes are enough for sampling).
+- SAM 3.1 answers on `/responses` only, as text: a box token and a mask token per instance. We
+  request `metadata.mask_encoding: "one_bit"` and decode it in `api/matterlift_api/sam_mask.py`, a
+  Python port of Meta's `@meta-sam/parser` decoder (adaptive binary range coder, 12-bit context).
 
 ## License
 
