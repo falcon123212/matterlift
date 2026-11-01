@@ -8,16 +8,16 @@ import uuid
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 import pbrforge
 from pbrforge import io as pio
 from pbrforge import contact, export, seamless
 from pbrforge.metrics import luminance
 
-from . import overlay, sampling
-from .meta_client import MetaClient, Segment
-from .sampling import Region
+from . import overlay
+from .locate import locate
+from .meta_client import MetaClient
 from .schemas import Material, MaterialPlan, Understanding
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "materials"
@@ -41,8 +41,12 @@ optional photo) into a plan for a game-ready PBR material. Answer with ONE JSON 
  "name": short snake_case name,
  "texture_prompt": what the albedo should show, material only, as a painter would describe the \
 surface seen straight on (colour, pattern, wear, scale); never mention lighting or 3D objects,
- "sam_prompt": if a photo is given, a 1-3 word noun phrase naming the surface to sample in it, \
-else "",
+ "sam_prompt": if a photo is given, a 1-3 word noun phrase naming the surface to sample in it \
+(the object it covers works best: "table", "floor", "brick wall"), else "",
+ "sam_alternatives": if a photo is given, two other short noun phrases for the same surface, \
+else [],
+ "points": if a photo is given, two [x, y] points in 0..1000 image coordinates (0,0 top-left) on \
+clean, flat, unoccluded areas of that surface, far from its edges and from objects on it, else [],
  "roughness": 0..1, "roughness_variation": 0..0.5, "metallic": 0..1,
  "metal_on_desaturated": true only for rusty or painted metal where grey areas are bare metal,
  "height_strength": 0.3..1.5, "normal_strength": 0.3..2 (rough stone 1.5, brick 1, wood 0.6, fabric 0.5, metal 0.4),
@@ -53,29 +57,49 @@ else "",
 Values must be physically plausible for the material."""
 
 
-def take_samples(photo: Image.Image, seg: Segment) -> tuple[list[Image.Image], list[Region], str]:
-    """The photo samples for a mask (see sampling.py); SAM's box centre when the mask has none."""
-    regions = sampling.sample_regions(seg.mask)
-    how = "mask"
-    if not regions:
-        regions, how = [sampling.box_fallback(seg.box, photo.size)], "box"
-    return [sampling.crop(photo, r) for r in regions], regions, how
+MAX_PHOTO_SIDE = 2048
+
+
+def normalize_photo(img: Image.Image) -> Image.Image:
+    """Upright (phone photos carry their rotation in EXIF), RGB, at most MAX_PHOTO_SIDE px.
+    SAM's coordinates and Spark's points are only consistent on the upright image."""
+    img = ImageOps.exif_transpose(img).convert("RGB")
+    if max(img.size) > MAX_PHOTO_SIDE:
+        img.thumbnail((MAX_PHOTO_SIDE, MAX_PHOTO_SIDE), Image.LANCZOS)
+    return img
 
 
 class Pipeline:
-    def __init__(self, client: MetaClient | None = None, data_dir: Path = DATA_DIR):
+    def __init__(self, client: MetaClient | None = None, data_dir: Path = DATA_DIR,
+                 understand_dir: Path = UNDERSTAND_DIR):
         self.client = client or MetaClient()
         self.data_dir = data_dir
+        self.understand_dir = understand_dir
 
     def plan(self, request: str, photo: Image.Image | None) -> MaterialPlan:
         user = f"Request: {request}"
         if photo is not None:
             user += "\nThe photo shows the real surface to sample."
         raw = self.client.chat_json(PLAN_SYSTEM, user, [photo] if photo is not None else None)
-        return MaterialPlan.model_validate(raw)
+        plan = MaterialPlan.lenient(raw)
+        if not plan.texture_prompt:  # the one field Muse cannot do without
+            plan = plan.model_copy(update={"texture_prompt": request})
+        return plan
 
     def albedo_from_text(self, plan: MaterialPlan) -> Image.Image:
         return self.client.generate_image(f"{plan.texture_prompt}. {TEXTURE_SUFFIX}")
+
+    def albedo_with_fallback(self, plan: MaterialPlan, samples: list[Image.Image]) -> tuple[Image.Image, str, dict]:
+        """From the photo samples when there are some; from the description if there are none or
+        the edit fails, so a material always comes out."""
+        if samples:
+            try:
+                return self.albedo_from_samples(plan, samples), "photo", {}
+            except RuntimeError as e:
+                note = {"muse_edit_failed": str(e)[:200]}
+        else:
+            note = {}
+        return self.albedo_from_text(plan), "text", note
 
     def albedo_from_samples(self, plan: MaterialPlan, samples: list[Image.Image]) -> Image.Image:
         """Muse turns the photo samples (one surface, several areas) into a flat, tileable texture."""
@@ -92,9 +116,9 @@ class Pipeline:
         """Spark reads the request and the photo, SAM masks the surface, we pick the sample.
         Saved so generation can resume from it; shown to the user before Muse runs."""
         uid = uuid.uuid4().hex[:10]
-        d = UNDERSTAND_DIR / uid
+        d = self.understand_dir / uid
         d.mkdir(parents=True, exist_ok=True)
-        photo = photo.convert("RGB")
+        photo = normalize_photo(photo)
         photo.save(d / "photo.jpg", quality=92)
         timings: dict[str, float] = {}
 
@@ -103,40 +127,38 @@ class Pipeline:
         timings["spark_plan"] = time.perf_counter() - t
 
         t = time.perf_counter()
-        segments = self.client.segment(photo, plan.sam_prompt or plan.name.replace("_", " "))
+        loc = locate(self.client, photo, plan)
         timings["sam_mask"] = time.perf_counter() - t
-        seg = segments[0] if segments else None
-        regions, how, crops = [], None, []
-        if seg is not None:
-            samples, regions, how = take_samples(photo, seg)
-            for k, im in enumerate(samples):
-                im.save(d / f"crop_{k}.png")
-                crops.append(f"/understand/{uid}/crop_{k}.png")
-            Image.fromarray(seg.mask).save(d / "mask.png")
-        overlay.draw(photo, [(plan.name, seg.mask if seg else None, regions)]).save(d / "overlay.jpg", quality=90)
+        crops = []
+        for k, im in enumerate(loc.samples):
+            im.save(d / f"crop_{k}.png")
+            crops.append(f"/understand/{uid}/crop_{k}.png")
+        if loc.seg is not None:
+            Image.fromarray(loc.seg.mask).save(d / "mask.png")
+        overlay.draw(photo, [(plan.name, loc.seg.mask if loc.seg else None, loc.regions)]).save(
+            d / "overlay.jpg", quality=90)
 
-        und = Understanding(id=uid, request=request, plan=plan, matched=seg is not None, crop_from=how,
-                            sam_box=[seg.box.x1, seg.box.y1, seg.box.x2, seg.box.y2] if seg else None,
-                            overlay=f"/understand/{uid}/overlay.jpg",
-                            crops=crops,
+        b = loc.seg.box if loc.seg else None
+        und = Understanding(id=uid, request=request, plan=plan, matched=loc.found, crop_from=loc.how,
+                            found_by=loc.found_by, sam_box=[b.x1, b.y1, b.x2, b.y2] if b else None,
+                            overlay=f"/understand/{uid}/overlay.jpg", crops=crops,
                             timings={k: round(v, 2) for k, v in timings.items()})
         (d / "understanding.json").write_text(und.model_dump_json(indent=2), encoding="utf-8")
         return und
 
     def run_understood(self, und: Understanding, size: int = 1024) -> Material:
         """Generation step after `understand`: no second Spark or SAM call."""
-        d = UNDERSTAND_DIR / und.id
+        d = self.understand_dir / und.id
         timings = dict(und.timings)
         t = time.perf_counter()
-        if und.matched:
-            samples = [Image.open(d / f"crop_{k}.png").convert("RGB") for k in range(len(und.crops))]
-            raw, source = self.albedo_from_samples(und.plan, samples), "photo"
-            extra = {"sam_box": und.sam_box, "crop_from": und.crop_from, "samples": samples,
-                     "mask": np.asarray(Image.open(d / "mask.png")).astype(bool), "understanding": und.id}
-        else:
-            raw, source = self.albedo_from_text(und.plan), "text"
-            extra = {"sam": "no match, fell back to text", "understanding": und.id}
+        samples = [Image.open(d / f"crop_{k}.png").convert("RGB") for k in range(len(und.crops))]
+        raw, source, note = self.albedo_with_fallback(und.plan, samples)
         timings["muse_image"] = time.perf_counter() - t
+        extra = {"sam_box": und.sam_box, "crop_from": und.crop_from, "found_by": und.found_by,
+                 "samples": samples, "understanding": und.id, **note}
+        mask = d / "mask.png"
+        if mask.exists():
+            extra["mask"] = np.asarray(Image.open(mask)).astype(bool)
         return self.finish(und.plan, und.request, raw, source, extra, size, timings)
 
     def height_guide(self, albedo: np.ndarray) -> np.ndarray | None:
@@ -221,8 +243,8 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
     return export.zip_package(folder)
 
 
-def load_understanding(uid: str) -> Understanding | None:
-    p = UNDERSTAND_DIR / uid / "understanding.json"
+def load_understanding(uid: str, root: Path = UNDERSTAND_DIR) -> Understanding | None:
+    p = root / uid / "understanding.json"
     return Understanding.model_validate(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else None
 
 
