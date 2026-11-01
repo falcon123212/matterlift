@@ -1,0 +1,22 @@
+[project]
+name = "matterlift"
+version = "0.1.0"
+description = "Point at anything. Say what you want. Get a game-ready material."
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+  "numpy", "scipy", "pillow",
+  "fastapi", "uvicorn[standard]", "python-multipart",
+  "openai", "httpx", "python-dotenv", "pydantic",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["pbrforge", "matterlift_api"]
+package-dir = { "pbrforge" = "pbrforge", "matterlift_api" = "api/matterlift_api" }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "api"]
