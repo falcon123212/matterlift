@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MatterLift</title>
+  </head>
+  <body>
+    <header>
+      <h1>MatterLift</h1>
+      <p class="tagline">Point at anything. Say what you want. Get a game-ready material.</p>
+    </header>
+    <main>
+      <form id="request">
+        <label>What do you want?
+          <textarea name="text" rows="3" required placeholder="old oak planks, worn and slightly scratched"></textarea>
+        </label>
+        <label>Photo of the real surface (optional)
+          <input type="file" name="photo" accept="image/*" />
+        </label>
+        <label>Resolution
+          <select name="size">
+            <option>512</option>
+            <option selected>1024</option>
+            <option>2048</option>
+          </select>
+        </label>
+        <button type="submit">Lift the material</button>
+        <p id="status" role="status"></p>
+      </form>
+
+      <section class="viewer">
+        <div id="canvas-wrap"></div>
+        <div class="controls">
+          <div class="group" id="shapes">
+            <button data-shape="sphere" class="on">Sphere</button>
+            <button data-shape="cube">Cube</button>
+            <button data-shape="plane">Plane</button>
+          </div>
+          <div class="group" id="lights">
+            <button data-light="hdri" class="on">HDRI</button>
+            <button data-light="key">Key</button>
+            <button data-light="raking">Raking</button>
+            <button data-light="back">Back</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="side">
+        <h2>Tiling 3×3</h2>
+        <div id="tiling"></div>
+        <h2>Maps</h2>
+        <div id="maps"></div>
+        <h2>Scores</h2>
+        <table id="scores"></table>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
