@@ -24,4 +24,6 @@ def fit_pbr_range(img: np.ndarray, lo: float = 32 / 255, hi: float = 235 / 255) 
     new_lo, new_hi = max(p_lo, lo), min(p_hi, hi)
     scale = (new_hi - new_lo) / max(p_hi - p_lo, 1e-4)
     target = np.clip((lum - p_lo) * scale + new_lo, lo * 0.9, hi)
-    return np.clip(img * (target / (lum + 1e-4))[..., None], 0, 1)
+    # Near-black pixels (gaps, cracks) would get an exploding gain and a garish hue.
+    gain = np.clip(target / np.maximum(lum, 0.03), 0.5, 2.0)
+    return np.clip(img * gain[..., None], 0, 1)
