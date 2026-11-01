@@ -85,7 +85,20 @@ Benchmark against a reference material (ambientCG Bricks113A, derived from its C
 |---|---|---|
 | height vs reference displacement (r) | -0.24 | **0.71** |
 | AO vs reference AO (r) | -0.07 | **0.65** |
-| normal mean angular error | 19.4 deg | **7.5 deg** (flat normal: 8.0) |
+| normal structure (r of X/Y components) | 0.12 | **0.50** (true displacement: 0.97) |
+| normal fine detail vs reference | 0.34 (faces read smooth) | **0.80** |
+
+Normals are built like a studio would: macro relief from Muse's height, micro detail (pores,
+chisel marks, grain) from the albedo's fine band, which is exactly aligned with the colour, blended
+with Reoriented Normal Mapping. Mean angular error is not the target: a flat normal map scores
+8.0 deg on it, so it rewards smooth faces. Muse painting the normal map directly was tried and is
+worse (r 0.34, wrong neutral colour).
+
+**Colour fidelity.** Muse repaints the sample, so colours drift (a dusty terracotta comes back bright
+orange). The albedo is matched to the delit photo samples in CIELAB, hue fully and lightness at 60%
+(a sample in shadow says little about the true value). Delta E between mean colours, kitchen
+materials: oak 10.7 -> 1.7, floor 37.1 -> 7.4, brick 13.9 -> 4.5. The UI shows sample and albedo
+side by side with that score.
 
 ## Run it
 

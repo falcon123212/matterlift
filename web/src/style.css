@@ -88,3 +88,8 @@ a.button.disabled { opacity: 0.4; pointer-events: none; }
 #und-items button.pending img { filter: saturate(0.6) brightness(0.8); }
 #und-items button.pending span::after { content: " …"; }
 #und-items .missing { aspect-ratio: 1; display: grid; place-items: center; font-size: 10px; color: var(--muted); border: 1px dashed var(--line); border-radius: 4px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pair figure { margin: 0; }
+.pair img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 4px; display: block; }
+.pair figcaption { font-size: 11px; color: var(--muted); text-align: center; }
+#fid-text { color: var(--text); margin: 6px 0 0; }

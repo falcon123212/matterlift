@@ -35,11 +35,13 @@ def periodic_component(img: np.ndarray, blur_frac: float = 1 / 48) -> np.ndarray
     # Blur at 1/8 resolution (fast; borders clamp, not wrap) and bring back to full size.
     f = int(np.clip(sigma / 4, 1, 8))
     zoom = (1 / f, 1 / f, 1) if img.ndim == 3 else (1 / f, 1 / f)
-    small = ndimage.zoom(img, zoom, order=1)
+    # mode="nearest" matters: zoom's default pads with zeros, which made the last row and column
+    # black and the smooth field then "fixed" that fake mismatch with a ramp over the whole tile.
+    small = ndimage.zoom(img, zoom, order=1, mode="nearest")
     small = ndimage.gaussian_filter(small, (sigma / f, sigma / f, 0) if img.ndim == 3 else sigma / f,
                                     mode="nearest")
     back = tuple(t / s for t, s in zip(img.shape, small.shape))
-    blurred = ndimage.zoom(small, back, order=1)[:h, :w]
+    blurred = ndimage.zoom(small, back, order=1, mode="nearest")[:h, :w]
     chans = [blurred] if img.ndim == 2 else [blurred[..., c] for c in range(img.shape[2])]
     q = np.arange(h)[:, None]
     r = np.arange(w)[None, :]
@@ -78,17 +80,53 @@ def _min_cut(err: np.ndarray) -> np.ndarray:
     return path
 
 
-def _wrap_x(img: np.ndarray, band: int, feather: float) -> np.ndarray:
-    """Make the left/right wrap seamless, shrinking the width by `band` (Efros-Freeman quilting).
+def _path_cost(err: np.ndarray) -> float:
+    """Mean error along the best vertical cut through err (H, B)."""
+    cost = err[0].copy()
+    for y in range(1, err.shape[0]):
+        left = np.r_[np.inf, cost[:-1]]
+        right = np.r_[cost[1:], np.inf]
+        cost = err[y] + np.minimum(np.minimum(left, cost), right)
+    return float(cost.min() / err.shape[0])
 
-    The new tile is img[:, :T] with T = W - band. Its first `band` columns are a mix of
-    A = img[:, :band] (continues into the tile) and B = img[:, T:] (the natural continuation
-    of column T-1, so the wrap T-1 -> 0 is seamless). The boundary between B (left of the cut)
-    and A (right of it) follows the path of least colour difference.
+
+def _cut_costs(img: np.ndarray, band: int, ts: list[int]) -> list[float]:
+    out = []
+    for t in ts:
+        d = img[:, :band] - img[:, t : t + band]
+        out.append(_path_cost((d**2).sum(axis=-1) if d.ndim == 3 else d**2))
+    return out
+
+
+def best_tile_size(img: np.ndarray, band: int, min_frac: float = 0.6, size_penalty: float = 0.6) -> int:
+    """The square tile size T whose two wrap cuts are least visible.
+
+    The cut blends the first `band` columns with columns T..T+band; with a fixed T = N - band they
+    can be unrelated (a light board against a dark one) and even the best cut shows. Searching T
+    finds where the image nearly repeats itself (plank joints lining up), at a small cost in size.
+    One T for both axes keeps the tile square.
     """
-    w = img.shape[1]
-    t = w - band
-    a, b = img[:, :band], img[:, t:]
+    n = min(img.shape[:2])
+    f = max(1, n // 192)
+    small = img[:n:f, :n:f]
+    sb = max(2, band // f)
+    t_max = small.shape[1] - sb
+    ts = list(range(int(small.shape[1] * min_frac), t_max + 1, max(1, small.shape[1] // 160)))
+    cx = _cut_costs(small, sb, ts)
+    cy = _cut_costs(np.swapaxes(small, 0, 1), sb, ts)
+    scores = [(a + b) * (1 + size_penalty * (1 - t / t_max)) for a, b, t in zip(cx, cy, ts)]
+    return min(n - band, ts[int(np.argmin(scores))] * f)
+
+
+def _wrap_x(img: np.ndarray, band: int, feather: float, t: int) -> np.ndarray:
+    """Make the left/right wrap seamless (Efros-Freeman quilting).
+
+    The new tile is img[:, :T]. Its first `band` columns are a mix of A = img[:, :band]
+    (continues into the tile) and B = img[:, T:T+band] (the natural continuation of column T-1,
+    so the wrap T-1 -> 0 is seamless). The boundary between B (left of the cut) and A (right of
+    it) follows the path of least colour difference; T is chosen where that path is cheapest.
+    """
+    a, b = img[:, :band], img[:, t : t + band]
     err = ((a - b) ** 2).sum(axis=-1) if img.ndim == 3 else (a - b) ** 2
     err = ndimage.gaussian_filter(err, 1.0)
     path = _min_cut(err)
@@ -106,8 +144,10 @@ def _wrap_x(img: np.ndarray, band: int, feather: float) -> np.ndarray:
 def make_tileable(img: np.ndarray, band_frac: float = 0.08, feather: float = 1.5) -> np.ndarray:
     """Low-frequency mismatch goes first (periodic component), then structure (minimum cut)."""
     band = max(8, int(min(img.shape[:2]) * band_frac))
-    out = _wrap_x(periodic_component(img), band, feather)
-    out = np.swapaxes(_wrap_x(np.swapaxes(out, 0, 1), band, feather), 0, 1)
+    img = periodic_component(img)
+    t = best_tile_size(img, band)
+    out = _wrap_x(img[: t + band, : t + band], band, feather, t)
+    out = np.swapaxes(_wrap_x(np.swapaxes(out, 0, 1), band, feather, t), 0, 1)
     return np.ascontiguousarray(out)
 
 

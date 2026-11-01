@@ -12,7 +12,7 @@ from PIL import Image, ImageOps
 
 import pbrforge
 from pbrforge import io as pio
-from pbrforge import contact, export, seamless
+from pbrforge import color, contact, delight, export, seamless
 from pbrforge.metrics import luminance
 
 from . import overlay
@@ -192,13 +192,18 @@ class Pipeline:
         out_dir.mkdir(parents=True, exist_ok=True)
         extra = dict(extra)
         raw.save(out_dir / "muse_raw.png")
-        for k, im in enumerate(extra.pop("samples", [])):
+        samples = extra.pop("samples", [])
+        for k, im in enumerate(samples):
             im.save(out_dir / f"photo_sample_{k}.png")
         if "mask" in extra:
             Image.fromarray(extra.pop("mask")).save(out_dir / "sam_mask.png")
 
         t = time.perf_counter()
         albedo, scores = pbrforge.fix_albedo(pio.from_pil(raw))
+        if samples and source == "photo":  # Muse repaints: bring the colours back to the real surface
+            albedo, fidelity = color.match_to_samples(albedo, [pio.from_pil(s) for s in samples])
+            albedo = delight.fit_pbr_range(albedo)
+            scores["fidelity"] = fidelity
         pio.save(out_dir / "albedo_source.png", albedo)  # native resolution, for exports
         timings["pbrforge_albedo"] = time.perf_counter() - t
 
@@ -218,6 +223,8 @@ class Pipeline:
             pio.save(out_dir / f"{name}.png", arr)
             urls[name] = f"/materials/{mid}/maps/{name}.png"
         urls["muse_raw"] = f"/materials/{mid}/maps/muse_raw.png"
+        if samples:
+            urls["photo_sample"] = f"/materials/{mid}/maps/photo_sample_0.png"
         if guide is not None:
             urls["muse_height"] = f"/materials/{mid}/maps/muse_height.png"
 

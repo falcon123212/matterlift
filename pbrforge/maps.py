@@ -22,7 +22,7 @@ class MapParams:
     metallic: float = 0.0
     metal_on_desaturated: bool = False  # rusty metal: bare metal where colour is grey
     height_strength: float = 1.0
-    normal_strength: float = 1.0  # calibrated on Bricks113A (ambientCG) against its NormalGL
+    normal_strength: float = 1.0  # times MACRO_GAIN; calibrated on Bricks113A against its NormalGL
     detail: float = 1.0  # scales the fine bands
     directx_normal: bool = False
 
@@ -82,6 +82,46 @@ def normal(h: np.ndarray, strength: float = 1.0, directx: bool = False) -> np.nd
     return (n * 0.5 + 0.5).astype(np.float32)
 
 
+# Calibrated on Bricks113A against its NormalGL (scripts/bench_baseline.py): the macro relief alone
+# matched the reference's structure (r=0.52) but had a third of its fine detail, so faces read
+# smooth. Micro detail from the albedo brings it to 80% for nearly the same structure (r=0.50).
+MACRO_GAIN = 1.6
+MICRO_STRENGTH = 0.08
+
+
+def micro_height(albedo: np.ndarray, polarity: int) -> np.ndarray:
+    """Fine relief from the albedo's high band: pores, chisel marks, grain. Exactly aligned with
+    the colour, unlike any painted height. Signed, about -1..1."""
+    lum = luminance(albedo).astype(np.float32)
+    if polarity < 0:
+        lum = 1 - lum
+    band = lum - filters.blur(lum, 6 * lum.shape[0] / 1024)
+    return band / (np.percentile(np.abs(band), 99.5) + 1e-6)
+
+
+def blend_normals(base: np.ndarray, detail: np.ndarray) -> np.ndarray:
+    """Reoriented Normal Mapping (Barré-Brisebois & Hill): the detail normal is rotated onto the
+    base one instead of added, so detail follows the slopes of the macro relief."""
+    t = base * 2 - 1
+    t[..., 2] += 1
+    u = detail * 2 - 1
+    u[..., :2] *= -1
+    r = t * (t * u).sum(-1, keepdims=True) / t[..., 2:3] - u
+    r /= np.linalg.norm(r, axis=-1, keepdims=True)
+    return (r * 0.5 + 0.5).astype(np.float32)
+
+
+def studio_normal(h: np.ndarray, albedo: np.ndarray, strength: float = 1.0, detail: float = 1.0,
+                  directx: bool = False) -> np.ndarray:
+    """Macro normal from the height, micro normal from the albedo, blended with RNM."""
+    base = normal(h, strength * MACRO_GAIN)
+    micro = normal(micro_height(albedo, joint_polarity(albedo)), MICRO_STRENGTH * detail)
+    n = blend_normals(base, micro)
+    if directx:
+        n[..., 1] = 1 - n[..., 1]
+    return n
+
+
 def ambient_occlusion(h: np.ndarray, strength: float = 1.2) -> np.ndarray:
     """Cavity AO: how far below its neighbourhood each texel sits, over a few radii."""
     scale = h.shape[0] / 1024
@@ -125,7 +165,7 @@ def derive(albedo: np.ndarray, p: MapParams | None = None, size: int | None = No
     return {
         "albedo": albedo,
         "height": h,
-        "normal": normal(h, p.normal_strength, p.directx_normal),
+        "normal": studio_normal(h, albedo, p.normal_strength, p.detail, p.directx_normal),
         "ao": ao,
         "roughness": rough,
         "metallic": metal,

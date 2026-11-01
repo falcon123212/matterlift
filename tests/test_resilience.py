@@ -166,3 +166,11 @@ def test_network_failure_becomes_runtime_error(monkeypatch):
     c = _client_with(handler, monkeypatch)
     with pytest.raises(RuntimeError, match="ConnectError"):
         c._post("/x")
+
+
+def test_photo_material_reports_colour_fidelity(tmp_path, photo):
+    client = FakeClient(found={"table": (100, 100, 700, 500)})
+    mat = _pipe(tmp_path, client).run("take this wood", photo, 256)
+    fid = mat.scores["fidelity"]
+    assert fid["delta_e_after"] <= fid["delta_e_before"]
+    assert "photo_sample" in mat.maps
