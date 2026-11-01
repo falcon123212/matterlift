@@ -4,6 +4,8 @@ A port of decodeRaster from Meta's @meta-sam/parser 0.1.0 (dist/mask-codec.js): 
 base85 payload holding an adaptive binary range code, each pixel coded in a 12-bit context made of
 its already-decoded neighbours. The raster covers the record's box: H rows x W columns.
 Docs: https://dev.meta.ai/docs/sam/reading-segmentation
+
+Port of @meta-sam/parser, SAM License: this file is distributed under LICENSE-SAM, not MIT.
 """
 from __future__ import annotations
 
