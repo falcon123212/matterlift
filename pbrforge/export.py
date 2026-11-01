@@ -15,7 +15,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from . import gltf, io
+from . import gltf, io, shaders
+from .maps import MapParams
 
 RES_LABEL = {512: "512", 1024: "1K", 2048: "2K", 4096: "4K"}
 
@@ -185,7 +186,8 @@ def Xform "{n}"
 
 
 def export_package(maps: dict[str, np.ndarray], name: str, out_root: Path, fmt: str = "png",
-                   preview: Image.Image | None = None, shading: dict | None = None) -> Path:
+                   preview: Image.Image | None = None, shading: dict | None = None,
+                   shader_layers: tuple[dict, "MapParams"] | None = None) -> Path:
     """Write the package folder and return its path. `maps` come from pbrforge.derive;
     `shading` is Spark's shading model (clearcoat, transmission, ior, sheen, subsurface, anisotropy)."""
     shading = shading or {}
@@ -219,6 +221,10 @@ def export_package(maps: dict[str, np.ndarray], name: str, out_root: Path, fmt: 
     (d / f"{stem}.mtlx").write_text(_mtlx(stem, files, metal, shading), encoding="utf-8")
     (d / f"{stem}.usda").write_text(_usda(stem, files, metal, shading), encoding="utf-8")
     gltf.write_glb(d / f"{stem}.glb", maps, stem, shading)  # self-contained: textures inside
+    if shader_layers is not None:  # live-control shaders (Godot, Blender) with their own layers
+        lay, params = shader_layers
+        (d / "shader").mkdir()
+        shaders.write_all(d / "shader", stem, lay, params, shading)
     if preview is not None:
         preview.convert("RGB").resize((512, 512), Image.LANCZOS).save(d / f"{stem.split('_')[0]}.png")
     return d

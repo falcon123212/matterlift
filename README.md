@@ -174,6 +174,11 @@ RustyPaintedSteel_2K-PNG/
   RustyPaintedSteel_2K-PNG.mtlx               MaterialX OpenPBR
   RustyPaintedSteel_2K-PNG.usda               USD UsdPreviewSurface
   RustyPaintedSteel_2K-PNG.glb                glTF 2.0, textures embedded, on a preview sphere
+  shader/                                      live controls instead of baked ones:
+    RustyPaintedSteel_2K-PNG.gdshader          Godot 4 shader: tiling, relief, detail, wear, triplanar sliders
+    RustyPaintedSteel_2K-PNG_shader.tres       ShaderMaterial with its textures assigned
+    RustyPaintedSteel_2K-PNG_blender.py        Blender 4/5: builds the node tree, Value nodes are the controls
+    *_ShaderColor/Normal/ORM, _WearMask, _DetailNormal, _DetailHeight   clean layers they recombine
   RustyPaintedSteel.png                       preview sphere
 ```
 
@@ -183,7 +188,16 @@ anisotropy, subsurface scattering, rim (for sheen) and specular (for IOR) in the
 transmission, fuzz, subsurface, anisotropy and IOR in the OpenPBR `.mtlx`; clearcoat and IOR in the
 `.usda`.
 
+The `shader/` folder keeps the studio controls live: the base maps without detail or wear, one
+detail tile and a wear/grain mask (edges, cavities, grain direction), recombined by a Godot shader and
+a Blender node tree with the same maths as pbrforge, so the defaults match the baked textures and
+tiling, relief, detail and wear stay sliders.
+
 Verified:
+- the Godot shader compiles in Godot 4.7.2 and renders as the baked `.tres` at its defaults, with
+  wear, detail and triplanar on a cube changing as expected;
+- the Blender script runs in Blender 5.0 (31 nodes, colour mixes on their colour sockets) and
+  renders in Cycles;
 - the `.glb` passes the Khronos glTF Validator with 0 errors and 0 warnings, including a material
   with five KHR extensions;
 - Three.js loads it as a MeshPhysicalMaterial with every map and every extension value;
