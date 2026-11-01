@@ -62,6 +62,15 @@ async def _request_text(text: str, audio: UploadFile | None) -> str:
     return request
 
 
+@app.post("/transcribe")
+async def transcribe(audio: UploadFile = File(...)) -> dict:
+    """Voice request -> text, right after recording, so the user sees and can edit what was heard."""
+    text = await _request_text("", audio)
+    if not text:
+        raise HTTPException(422, "nothing was heard in the recording")
+    return {"text": text}
+
+
 async def _photo(photo: UploadFile) -> Image.Image:
     data = await photo.read()
     if len(data) > MAX_UPLOAD:
