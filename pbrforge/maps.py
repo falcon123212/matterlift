@@ -157,6 +157,18 @@ def metallic(albedo: np.ndarray, p: MapParams) -> np.ndarray:
 DETAIL_GAIN = 0.35  # detail normal strength at detail_strength = 1
 
 
+def grain_along_x(albedo: np.ndarray) -> np.ndarray:
+    """0..1 per pixel, 1 where the grain runs along X (structure tensor: grain along X means the
+    luminance changes mostly along Y). Smoothed over about a board width."""
+    lum = luminance(albedo)
+    gx = np.roll(lum, -1, axis=1) - np.roll(lum, 1, axis=1)
+    gy = np.roll(lum, -1, axis=0) - np.roll(lum, 1, axis=0)
+    sigma = albedo.shape[0] / 64
+    jxx, jyy = filters.blur(gx * gx, sigma), filters.blur(gy * gy, sigma)
+    w = jyy / (jxx + jyy + 1e-9)
+    return np.clip((w - 0.5) * 3 + 0.5, 0, 1).astype(np.float32)  # sharpen toward 0 or 1
+
+
 def edge_wear(h: np.ndarray, ao: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """(edges, cavities) masks, 0..1: convex rims that rub and wear, recesses where dirt settles."""
     scale = h.shape[0] / 1024
@@ -197,6 +209,10 @@ def derive(albedo: np.ndarray, p: MapParams | None = None, size: int | None = No
     n = studio_normal(h, albedo, p.normal_strength, p.detail)
     if p.detail_kind in detail.KINDS and p.detail_kind != "none" and p.detail_strength > 0:
         dh = detail.detail_tiled(p.detail_kind, albedo.shape[0], p.detail_repeats)
+        if p.detail_kind in detail.ORIENTED:
+            # Fibres follow the grain: blend the detail and its transpose by the local orientation.
+            along_x = grain_along_x(albedo)
+            dh = along_x * dh + (1 - along_x) * dh.T
         k = detail.KIND_GAIN[p.detail_kind] * p.detail_strength
         n = blend_normals(n, normal(dh * 0.5 + 0.5, DETAIL_GAIN * k))
         rough = np.clip(rough + dh * 0.05 * k, 0.02, 1).astype(np.float32)

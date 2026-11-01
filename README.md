@@ -98,7 +98,8 @@ worse (r 0.34, wrong neutral colour).
 relief (wood fibres and pores, stone grit and pits, fabric fuzz, brushed metal with scratches, plaster
 sand), periodic so it tiles, repeated 8 times per texture and computed at the export resolution, so
 a 4K export gets real 4K micro detail although Muse paints 1600 px. Blended into the normal with RNM
-and into roughness. Plus edge wear: convex rims lighter and smoother, recesses darker and rougher.
+and into roughness. Wood fibres and metal brushing follow the local grain (structure tensor on the
+albedo), so a parquet's vertical and horizontal boards each get fibres along their length. Plus edge wear: convex rims lighter and smoother, recesses darker and rougher.
 Spark picks `detail_kind`, `detail_strength` and `wear` from the request ("vieux parquet très usé"
 -> wood, 0.6, wear 0.85); the kind is inferred from the name when it does not say.
 
