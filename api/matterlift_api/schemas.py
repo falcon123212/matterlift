@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any
+
+from pydantic import BaseModel, Field, ValidationError
 
 
 class Shading(BaseModel):
@@ -18,6 +20,8 @@ class MaterialPlan(BaseModel):
     name: str = "material"
     texture_prompt: str = Field("", description="What Muse Image should paint, material only")
     sam_prompt: str = Field("", description="Short noun phrase for SAM to find the source surface")
+    sam_alternatives: list[str] = Field(default_factory=list, description="Other names SAM may know it by")
+    points: list[tuple[float, float]] = Field(default_factory=list, description="[x, y] in 0..1000 on the surface")
     roughness: float = 0.7
     roughness_variation: float = 0.25
     metallic: float = 0.0
@@ -26,6 +30,31 @@ class MaterialPlan(BaseModel):
     normal_strength: float = 1.0
     detail: float = 1.0
     shading: Shading = Shading()
+
+    @classmethod
+    def lenient(cls, raw: Any) -> "MaterialPlan":
+        """Spark's plan, keeping every field that validates: a wrong type or a missing field falls
+        back to its default instead of rejecting the whole plan; numbers are clamped to range."""
+        data = dict(raw) if isinstance(raw, dict) else {}
+        for _ in range(len(data) + 1):
+            try:
+                plan = cls.model_validate(data)
+                break
+            except ValidationError as e:
+                bad = {err["loc"][0] for err in e.errors() if err["loc"]}
+                if not bad & data.keys():
+                    plan = cls()
+                    break
+                for key in bad:
+                    data.pop(key, None)
+        else:
+            plan = cls()
+        clamp = {"roughness": (0.02, 1), "roughness_variation": (0, 0.5), "metallic": (0, 1),
+                 "height_strength": (0.1, 2), "normal_strength": (0.1, 3), "detail": (0.25, 3)}
+        fixed = {k: min(hi, max(lo, getattr(plan, k))) for k, (lo, hi) in clamp.items()}
+        fixed["points"] = [(min(1000, max(0, x)), min(1000, max(0, y))) for x, y in plan.points][:3]
+        fixed["name"] = plan.name.strip().replace(" ", "_")[:48] or "material"
+        return plan.model_copy(update=fixed)
 
 
 class Material(BaseModel):
@@ -39,15 +68,14 @@ class Material(BaseModel):
     timings: dict[str, float]
 
 
-class LibraryItemPlan(MaterialPlan):
-    """One material of a room, as listed by Spark: its plan plus where it is in the photo."""
-    points: list[tuple[float, float]] = Field(default_factory=list, description="[x, y] in 0..1000")
+LibraryItemPlan = MaterialPlan  # a room's material: same plan, its points place it in the photo
 
 
 class LibraryItem(BaseModel):
     plan: LibraryItemPlan
     crops: list[str] = Field(default_factory=list)  # URLs: the photo samples for this material
     crop_from: str | None = None
+    found_by: str | None = None
     sam_box: list[int] | None = None
     material: Material | None = None
     error: str | None = None
@@ -68,8 +96,10 @@ class Understanding(BaseModel):
     id: str
     request: str
     plan: MaterialPlan
-    matched: bool  # SAM found the surface Spark named
-    crop_from: str | None = None  # "mask" or "box"
+    matched: bool  # we have photo samples (by SAM's mask, or around Spark's points)
+    crop_from: str | None = None  # "mask", "box" or "points"
+    found_by: str | None = None  # which prompt located the surface, e.g. 'SAM "rush seat"'
+
     sam_box: list[int] | None = None
     overlay: str  # URL: photo + mask + sampled square + label
     crops: list[str] = Field(default_factory=list)  # URLs: the samples Muse turns into a texture

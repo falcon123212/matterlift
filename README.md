@@ -18,6 +18,20 @@ With a photo, MatterLift works in two steps so you see what it understood before
    will be sampled and Spark's description.
 2. **Generate** (~25 s per material, in parallel for a room): Muse Image and pbrforge.
 
+**Nothing fails alone.** Each step falls back to the next instead of stopping the run
+(`api/matterlift_api/locate.py`, tested offline with failure injection in `tests/test_resilience.py`):
+
+| If… | then… |
+|---|---|
+| the photo is a phone shot | EXIF rotation applied, resized to 2048 px; a non-image gets a clear 400 |
+| Spark's plan has a wrong type or value | that field takes its default, numbers are clamped; invalid JSON is retried once |
+| SAM finds nothing for Spark's name | Spark's alternative names, then Spark's points as a SAM prompt, then a sample around the points |
+| the surface still cannot be located | the material is painted from Spark's description (and the UI says so) |
+| Muse fails on the samples | Muse paints from the description |
+| Muse fails on the height map | height from luminance |
+| the Meta API answers 429/5xx or drops | up to two retries with backoff |
+| anything else goes wrong | a readable error message, never a bare 500; one failed material never sinks a library |
+
 **Samples** (`api/matterlift_api/sampling.py`): the largest rectangle inside the mask (aspect up to
 3:1, so a countertop strip still gives a clean sample), then up to two more away from it (a floor
 half hidden by furniture is better described by several samples). Muse gets all of them and is

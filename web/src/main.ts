@@ -28,6 +28,8 @@ interface Understanding {
   request: string;
   plan: Plan;
   matched: boolean;
+  crop_from: "mask" | "box" | "points" | null;
+  found_by: string | null;
   overlay: string;
   crops: string[];
   timings: Record<string, number>;
@@ -37,7 +39,14 @@ interface Library {
   id: string;
   overlay: string;
   status: "understood" | "built";
-  items: { plan: Plan; crops: string[]; material: Material | null; error: string | null }[];
+  items: {
+    plan: Plan;
+    crops: string[];
+    crop_from: string | null;
+    found_by: string | null;
+    material: Material | null;
+    error: string | null;
+  }[];
   timings: Record<string, number>;
 }
 
@@ -216,22 +225,31 @@ function showUnderstanding(und: Understanding) {
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + und.overlay;
   const pretty = und.plan.name.replace(/_/g, " ");
-  describe($("#und-text"), und.matched
-    ? ["I heard “", [und.request], "”. I see ", [pretty], ", found by SAM as “", [und.plan.sam_prompt],
-       "”, and I sample the framed area. Muse will paint: ", und.plan.texture_prompt, "."]
-    : ["I heard “", [und.request], "”, but SAM found no “", [und.plan.sam_prompt],
-       "” in the photo: I will paint ", [pretty], " from the description instead."]);
+  const heard: (string | [string])[] = ["I heard “", [und.request], "”. I see ", [pretty]];
+  const paint: (string | [string])[] = [". Muse will paint: ", und.plan.texture_prompt, "."];
+  if (und.crop_from === "mask" || und.crop_from === "box") {
+    describe($("#und-text"), [...heard, ", found by ", [und.found_by ?? "SAM"], ", and I sample the framed area", ...paint]);
+  } else if (und.crop_from === "points") {
+    describe($("#und-text"), [...heard, ". SAM could not outline it, so I sample around the spot Spark pointed at",
+      ...paint]);
+  } else {
+    describe($("#und-text"), [...heard, ", but could not find it in the photo: I paint it from the description",
+      ...paint]);
+  }
   $("#und-items").replaceChildren();
 }
 
 function showLibrary(lib: Library, onPick: (m: Material) => void) {
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + lib.overlay;
-  const found = lib.items.filter((i) => i.crops.length).length;
-  describe($("#und-text"), [`I see `, [`${lib.items.length} materials`], ` in this photo, SAM masked `, [`${found}`],
-    ". Each framed area is a sample Muse turns into a texture."]);
+  const sampled = lib.items.filter((i) => i.crops.length).length;
+  const fromText = lib.items.length - sampled;
+  describe($("#und-text"), [`I see `, [`${lib.items.length} materials`], ` in this photo and sampled `, [`${sampled}`],
+    ". Each framed area is a sample Muse turns into a texture",
+    fromText ? `; ${fromText} not found in the photo will be painted from their description.` : "."]);
   const cards = lib.items.map((item, i) => {
-    const b = el("button", undefined, item.material ? "" : item.crops.length && !item.error ? "pending" : "failed");
+    const failed = !item.material && lib.status === "built";
+    const b = el("button", undefined, item.material ? "" : failed ? "failed" : "pending");
     b.type = "button";
     const src = item.material ? item.material.maps.albedo : item.crops[0];
     let thumb: HTMLElement;
@@ -241,7 +259,7 @@ function showLibrary(lib: Library, onPick: (m: Material) => void) {
       img.alt = item.plan.name;
       thumb = img;
     } else {
-      thumb = el("div", "not found", "missing");
+      thumb = el("div", failed ? "failed" : "from text", "missing");
     }
     b.append(thumb, el("span", `${i + 1} ${item.plan.name.replace(/_/g, " ")}`));
     if (item.error) b.title = item.error;
@@ -257,8 +275,22 @@ function showLibrary(lib: Library, onPick: (m: Material) => void) {
 }
 
 async function post<T>(path: string, body: FormData): Promise<T> {
-  const r = await fetch(`${API}${path}`, { method: "POST", body });
-  if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
+  let r: Response;
+  try {
+    r = await fetch(`${API}${path}`, { method: "POST", body });
+  } catch {
+    throw new Error("the MatterLift server is not reachable");
+  }
+  if (!r.ok) {
+    const text = await r.text();
+    let detail = text;
+    try {
+      detail = JSON.parse(text).detail ?? text;
+    } catch {
+      /* not JSON: keep the text */
+    }
+    throw new Error(`${detail} (${r.status})`);
+  }
   return (await r.json()) as T;
 }
 

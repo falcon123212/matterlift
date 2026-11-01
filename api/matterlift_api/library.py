@@ -19,8 +19,8 @@ from pathlib import Path
 from PIL import Image
 
 from . import overlay
-from .meta_client import Segment
-from .pipeline import PLAN_SYSTEM, Pipeline, take_samples
+from .locate import Located, locate
+from .pipeline import PLAN_SYSTEM, Pipeline, normalize_photo
 from .schemas import Library, LibraryItem, LibraryItemPlan
 
 LIBRARY_DIR = Path(__file__).resolve().parents[2] / "data" / "libraries"
@@ -32,18 +32,9 @@ LIBRARY_SYSTEM = PLAN_SYSTEM.replace(
     "into plans for game-ready PBR materials. The photo shows a room or a scene: list the distinct "
     f"surface materials worth turning into textures (walls, floors, furniture tops, metal, fabric), "
     f"at most {MAX_MATERIALS}, largest first, each one once. Answer with ONE JSON object only:\n"
-    '{"materials": [{\n "points": two [x, y] points in 0..1000 image coordinates (0,0 top-left) on '
-    "clean, flat, unoccluded areas of that surface, far from its edges and from objects on it,",
+    '{"materials": [{',
 ).replace("\n}\nValues must be physically plausible",
           "\n}]}\nsam_prompt is required for every material. Values must be physically plausible")
-
-
-def _pick(segments: list[Segment], points: list[tuple[int, int]]) -> Segment | None:
-    """The instance under Spark's points, else the largest."""
-    for s in segments:
-        if any(0 <= y < s.mask.shape[0] and 0 <= x < s.mask.shape[1] and s.mask[y, x] for x, y in points):
-            return s
-    return segments[0] if segments else None
 
 
 def _try(fn, arg):
@@ -58,40 +49,37 @@ def understand_library(pipe: Pipeline, photo: Image.Image, request: str = "",
     lid = uuid.uuid4().hex[:10]
     out = root / lid
     out.mkdir(parents=True, exist_ok=True)
-    photo = photo.convert("RGB")
+    photo = normalize_photo(photo)
     photo.save(out / "photo.jpg", quality=92)
     timings: dict[str, float] = {}
 
     t = time.perf_counter()
     user = "List the materials in this photo." + (f" The user asks: {request}" if request else "")
     raw = pipe.client.chat_json(LIBRARY_SYSTEM, user, [photo])
-    plans = [LibraryItemPlan.model_validate(m) for m in raw.get("materials", [])][:MAX_MATERIALS]
+    listed = raw.get("materials", []) if isinstance(raw, dict) else []
+    plans = [LibraryItemPlan.lenient(m) for m in listed if isinstance(m, dict)][:MAX_MATERIALS]
+    if not plans:
+        raise RuntimeError("Spark listed no material in this photo")
     timings["spark_list"] = time.perf_counter() - t
-
-    def segment(plan: LibraryItemPlan) -> Segment | None:
-        pts = [(int(x * photo.width / 1000), int(y * photo.height / 1000)) for x, y in plan.points]
-        return _pick(pipe.client.segment(photo, plan.sam_prompt or plan.name.replace("_", " ")), pts)
 
     t = time.perf_counter()
     with ThreadPoolExecutor(WORKERS) as ex:
-        segments = list(ex.map(lambda p: _try(segment, p), plans))
+        located = list(ex.map(lambda p: _try(lambda q: locate(pipe.client, photo, q), p), plans))
     timings["sam_masks"] = time.perf_counter() - t
 
     items, drawn = [], []
-    for i, (plan, seg) in enumerate(zip(plans, segments)):
-        if isinstance(seg, Exception) or seg is None:
-            err = f"SAM found no '{plan.sam_prompt}'" if seg is None else str(seg)[:300]
-            items.append(LibraryItem(plan=plan, error=err))
-            drawn.append((plan.name, None, []))
-            continue
-        samples, regions, how = take_samples(photo, seg)
+    for i, (plan, loc) in enumerate(zip(plans, located)):
+        if isinstance(loc, Exception):
+            loc = Located(tried=[f"error: {str(loc)[:120]}"])
         crops = []
-        for k, im in enumerate(samples):
+        for k, im in enumerate(loc.samples):
             im.save(out / f"crop_{i}_{k}.png")
             crops.append(f"/libraries/{lid}/crop_{i}_{k}.png")
-        items.append(LibraryItem(plan=plan, crops=crops, crop_from=how,
-                                 sam_box=[seg.box.x1, seg.box.y1, seg.box.x2, seg.box.y2]))
-        drawn.append((plan.name, seg.mask, regions))
+        b = loc.seg.box if loc.seg else None
+        note = None if loc.found else f"not found in the photo ({', '.join(loc.tried)}): painted from its description"
+        items.append(LibraryItem(plan=plan, crops=crops, crop_from=loc.how, found_by=loc.found_by,
+                                 sam_box=[b.x1, b.y1, b.x2, b.y2] if b else None, error=note))
+        drawn.append((plan.name, loc.seg.mask if loc.seg else None, loc.regions))
     overlay.draw(photo, drawn).save(out / "overlay.jpg", quality=90)
 
     lib = Library(id=lid, request=request, photo=f"/libraries/{lid}/photo.jpg",
@@ -106,18 +94,19 @@ def build_library(pipe: Pipeline, lib: Library, size: int = 1024, root: Path = L
 
     def build(args) -> LibraryItem:
         i, item = args
-        if not item.crops or item.material is not None:
+        if item.material is not None:
             return item
         try:
             t0 = time.perf_counter()
             samples = [Image.open(out / f"crop_{i}_{k}.png").convert("RGB") for k in range(len(item.crops))]
-            raw = pipe.albedo_from_samples(item.plan, samples)
-            extra = {"sam_box": item.sam_box, "crop_from": item.crop_from, "samples": samples, "library": lib.id}
-            mat = pipe.finish(item.plan, f"{lib.request} [{item.plan.name}]".strip(), raw, "photo", extra,
+            raw, source, note = pipe.albedo_with_fallback(item.plan, samples)
+            extra = {"sam_box": item.sam_box, "crop_from": item.crop_from, "found_by": item.found_by,
+                     "samples": samples, "library": lib.id, **note}
+            mat = pipe.finish(item.plan, f"{lib.request} [{item.plan.name}]".strip(), raw, source, extra,
                               size, {"muse_image": time.perf_counter() - t0})
             return item.model_copy(update={"material": mat})
         except Exception as e:
-            return item.model_copy(update={"error": str(e)[:300]})
+            return item.model_copy(update={"error": f"generation failed: {str(e)[:250]}"})
 
     t = time.perf_counter()
     with ThreadPoolExecutor(WORKERS) as ex:

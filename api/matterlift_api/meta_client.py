@@ -15,6 +15,7 @@ import io
 import json
 import os
 import re
+import time
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +34,9 @@ MODEL_SPARK = os.environ.get("META_MODEL_SPARK", "muse-spark-1.3")
 MODEL_IMAGE = os.environ.get("META_MODEL_IMAGE", "muse-image-1.0")
 MODEL_SAM = os.environ.get("META_MODEL_SAM", "sam-3.1")
 MODEL_TRANSCRIBE = os.environ.get("META_MODEL_TRANSCRIBE", "muse-voice-transcribe-1.0")
+
+_RETRYABLE = {408, 409, 425, 429, 500, 502, 503, 504}
+_BACKOFF = (1.5, 4.0, 8.0)
 
 # One SAM record: object id, box (with the frame size SAM saw), one_bit mask over the box.
 _RECORD_RE = re.compile(
@@ -98,11 +102,26 @@ class MetaClient:
             base_url=BASE_URL, headers={"Authorization": f"Bearer {key}"}, timeout=timeout
         )
 
-    def _post(self, path: str, **kw) -> dict:
-        r = self.http.post(path, **kw)
-        if r.status_code >= 400:
-            raise RuntimeError(f"{path} {r.status_code}: {r.text[:500]}")
-        return r.json()
+    def _post(self, path: str, retries: int = 2, **kw) -> dict:
+        """POST with retries on what is worth retrying (rate limit, 5xx, network); every failure
+        surfaces as RuntimeError so callers can fall back."""
+        for attempt in range(retries + 1):
+            last = attempt == retries
+            try:
+                r = self.http.post(path, **kw)
+            except httpx.HTTPError as e:
+                if last:
+                    raise RuntimeError(f"{path}: {type(e).__name__} {e}") from e
+            else:
+                if r.status_code < 400:
+                    try:
+                        return r.json()
+                    except ValueError as e:
+                        raise RuntimeError(f"{path}: response is not JSON") from e
+                if r.status_code not in _RETRYABLE or last:
+                    raise RuntimeError(f"{path} {r.status_code}: {r.text[:500]}")
+            time.sleep(_BACKOFF[attempt])
+        raise AssertionError("unreachable")
 
     def models(self) -> list[str]:
         r = self.http.get("/models")

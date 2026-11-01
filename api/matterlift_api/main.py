@@ -2,24 +2,34 @@
 from __future__ import annotations
 
 import io
+import logging
 import re
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
 
 from .library import LIBRARY_DIR, build_library, load_library, understand_library
 from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
-                       load_understanding)
+                       load_understanding, normalize_photo)
 from .schemas import Library, Material, Understanding
 
 app = FastAPI(title="MatterLift")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+log = logging.getLogger("matterlift")
+
+
+@app.exception_handler(Exception)
+async def any_error(request: Request, exc: Exception) -> JSONResponse:
+    """Last resort: a readable message instead of a bare 500 page."""
+    log.exception("unhandled error on %s", request.url.path)
+    return JSONResponse(status_code=502, content={"detail": f"{type(exc).__name__}: {str(exc)[:300]}"})
 
 _pipeline: Pipeline | None = None
 _SAFE = re.compile(r"^[A-Za-z0-9_]+$")
+MAX_UPLOAD = 30_000_000
 
 # Biases Muse Voice Transcribe toward material vocabulary (it may otherwise mishear these).
 VOCABULARY = ["albedo", "roughness", "normal map", "PBR", "tileable", "seamless", "moss", "mousse",
@@ -52,10 +62,15 @@ async def _request_text(text: str, audio: UploadFile | None) -> str:
 
 
 async def _photo(photo: UploadFile) -> Image.Image:
+    data = await photo.read()
+    if len(data) > MAX_UPLOAD:
+        raise HTTPException(413, f"photo is over {MAX_UPLOAD // 1_000_000} MB")
     try:
-        return Image.open(io.BytesIO(await photo.read())).convert("RGB")
-    except OSError as e:
-        raise HTTPException(400, "photo is not a readable image") from e
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception as e:  # not an image, truncated, HEIC without a decoder, decompression bomb
+        raise HTTPException(400, f"photo is not a readable image (JPEG, PNG or WebP): {type(e).__name__}") from e
+    return normalize_photo(img)
 
 
 @app.post("/understand", response_model=Understanding)
