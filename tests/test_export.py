@@ -63,3 +63,36 @@ def test_usda_carries_clearcoat_and_ior(tmp_path):
     d = export.export_package(m, "glass", tmp_path, "png", shading={"clearcoat": 0.5, "ior": 1.9})
     usda = (d / f"{d.name}.usda").read_text()
     assert "inputs:clearcoat = 0.500" in usda and "inputs:ior = 1.900" in usda
+
+
+def test_package_has_live_shaders(tmp_path):
+    from pbrforge import shaders
+
+    albedo = _noise(128)
+    p = maps.MapParams(detail_kind="wood", detail_strength=0.6, wear=0.5)
+    m = maps.derive(albedo, p)
+    d = export.export_package(m, "old oak", tmp_path, "png", shading={"clearcoat": 0.4},
+                              shader_layers=(shaders.layers(albedo, p, 128, None), p))
+    sh = d / "shader"
+    gd = (sh / f"{d.name}.gdshader").read_text()
+    assert "shader_type spatial;" in gd and "uniform float wear : hint_range(0.0, 1.0) = 0.5;" in gd
+    assert "uniform float clearcoat_amount : hint_range(0.0, 1.0) = 0.4;" in gd
+    tres = (sh / f"{d.name}_shader.tres").read_text()
+    assert 'type="ShaderMaterial"' in tres and tres.count("shader_parameter/") == 5
+    for line in tres.splitlines():
+        if line.startswith("[ext_resource") and "Texture2D" in line:
+            assert (sh / line.split('path="./')[1].split('"')[0]).exists()
+    script = (sh / f"{d.name}_blender.py").read_text()
+    compile(script, "blender.py", "exec")  # valid Python
+    assert 'value(nodes, "Wear"' in script and "'wear': 0.5" in script
+
+
+def test_shader_layers_are_clean_base_maps():
+    from pbrforge import shaders
+
+    albedo = _noise(128)
+    worn = maps.MapParams(detail_kind="stone", detail_strength=1, wear=1)
+    lay = shaders.layers(albedo, worn, 128, None)
+    clean = maps.derive(albedo, maps.MapParams())
+    assert np.allclose(lay["albedo"], clean["albedo"])  # no wear baked in the shader's base
+    assert lay["wear_mask"].shape == (128, 128, 3) and lay["detail_height"].shape == (512, 512)
