@@ -149,3 +149,10 @@ def test_detail_layer_keeps_normals_unit_length():
     m = maps.derive(_noise(256), maps.MapParams(detail_kind="stone", detail_strength=1))
     n = m["normal"] * 2 - 1
     assert np.allclose(np.linalg.norm(n, axis=-1), 1, atol=0.02)
+
+
+def test_grain_orientation_follows_the_boards():
+    stripes_x = np.tile(np.sin(np.arange(256) / 3.0)[:, None], (1, 256))  # grain along X
+    img = np.repeat((stripes_x * 0.2 + 0.5)[..., None], 3, -1).astype(np.float32)
+    assert maps.grain_along_x(img).mean() > 0.9
+    assert maps.grain_along_x(np.swapaxes(img, 0, 1)).mean() < 0.1

@@ -30,6 +30,7 @@ _HINTS = {
 
 
 # Relative strength per kind: woven or brushed detail reads strong, keep it lighter.
+ORIENTED = ("wood", "metal")  # fibres and brushing have a direction
 KIND_GAIN = {"wood": 1.0, "stone": 1.0, "fabric": 0.5, "metal": 0.6, "plaster": 0.8, "none": 0.0}
 
 
