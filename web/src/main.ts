@@ -552,3 +552,42 @@ if (id && !libId) {
     .then((m: Material) => show(m).then(() => (status.textContent = `${m.plan.name} — ${m.request}`)))
     .catch(() => (status.textContent = `Material ${id} not found`));
 }
+
+// --- Tutorial: a popup on arrival, reopened with "?"; examples fill the request box ---
+const EXAMPLES = ["old oak planks", "rusty painted steel", "mossy flagstone", "vieille brique rouge"];
+const tutorial = $<HTMLDialogElement>("#tutorial");
+const tutHide = $<HTMLInputElement>("#tut-hide");
+const TUT_KEY = "matterlift.tutorial.hidden";
+
+function storage(write?: boolean): boolean {
+  try {
+    if (write !== undefined) localStorage.setItem(TUT_KEY, write ? "1" : "");
+    return localStorage.getItem(TUT_KEY) === "1";
+  } catch {
+    return false; // private window or blocked storage: the popup simply shows again
+  }
+}
+
+document.querySelectorAll<HTMLDivElement>(".examples").forEach((box) => {
+  for (const text of EXAMPLES) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = text;
+    b.addEventListener("click", () => {
+      const area = $<HTMLTextAreaElement>('textarea[name="text"]');
+      area.value = text;
+      if (box.hasAttribute("data-close")) tutorial.close();
+      area.focus();
+    });
+    box.append(b);
+  }
+});
+tutorial.addEventListener("close", () => storage(tutHide.checked));
+tutorial.addEventListener("click", (ev) => {
+  if (ev.target === tutorial) tutorial.close(); // click on the backdrop
+});
+$<HTMLButtonElement>("#help").addEventListener("click", () => {
+  tutHide.checked = storage();
+  tutorial.showModal();
+});
+if (!storage()) tutorial.showModal();

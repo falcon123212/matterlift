@@ -7,14 +7,39 @@
   </head>
   <body>
     <header>
-      <h1>MatterLift</h1>
-      <p class="tagline">Point at anything. Say what you want. Get a game-ready material.</p>
+      <div>
+        <h1>MatterLift</h1>
+        <p class="tagline">Point at anything. Say what you want. Get a game-ready material.</p>
+      </div>
+      <button type="button" id="help" class="help" aria-label="How to use MatterLift" title="How to use MatterLift">?</button>
     </header>
+
+    <dialog id="tutorial" aria-labelledby="tut-title">
+      <h2 id="tut-title">How to use MatterLift</h2>
+      <ol class="steps">
+        <li><b>Ask.</b> Type the material you want, or press <b>🎤 Speak</b>. <b>✨ Enrich</b> makes the
+          request precise (colour, finish, wear). Add a photo to copy a real surface.</li>
+        <li><b>Check.</b> With a photo, MatterLift first shows what it understood: the surface SAM masked
+          and the square it sampled. Then turn the sphere under <b>Raking</b> light and look for seams in
+          <b>Tiling 3×3</b>.</li>
+        <li><b>Export.</b> <b>Download .zip</b>: PBR maps, a glTF <code>.glb</code>, Godot, Blender,
+          MaterialX and USD files.</li>
+      </ol>
+      <p class="muted small">A material takes about 40 s at 512 px. The first one after a pause takes a
+        few seconds more while the server wakes up.</p>
+      <p class="try">Try one:</p>
+      <div class="examples" data-close></div>
+      <form method="dialog" class="tut-foot">
+        <label class="check"><input type="checkbox" id="tut-hide" /> Don't show this again</label>
+        <button value="close" class="primary">Start</button>
+      </form>
+    </dialog>
     <main>
       <form id="request">
         <label>What do you want? Type it, say it, or both
           <textarea name="text" rows="3" placeholder="old oak planks, worn and slightly scratched"></textarea>
         </label>
+        <div class="examples" aria-label="Example requests"></div>
         <div class="voice">
           <button type="button" id="mic" aria-pressed="false">🎤 Speak</button>
           <span id="voice-state" class="muted small"></span>
@@ -26,11 +51,11 @@
           <input type="file" name="photo" accept="image/*" />
         </label>
         <label class="check">
-          <input type="checkbox" name="library" id="library-mode" disabled />
+          <input type="checkbox" name="library" id="library-mode" disabled title="Needs a photo: one material per surface Spark finds in it" />
           Every material in this photo (library)
         </label>
         <label class="check">
-          <input type="checkbox" id="self-critique" checked />
+          <input type="checkbox" id="self-critique" checked title="Spark reviews the result under raking light and fixes what it finds" />
           Spark self-critique after generating
         </label>
         <label>Resolution
@@ -55,16 +80,16 @@
           <div class="group" id="lights">
             <button data-light="hdri" class="on">HDRI</button>
             <button data-light="key">Key</button>
-            <button data-light="raking">Raking</button>
+            <button data-light="raking" title="Grazing light: shows the relief and any seam">Raking</button>
             <button data-light="back">Back</button>
           </div>
           <div class="group" id="aovs" role="group" aria-label="Render pass (AOV)">
             <button data-aov="beauty" class="on">Beauty</button>
-            <button data-aov="depth">Depth</button>
-            <button data-aov="normal">Normal</button>
-            <button data-aov="albedo">Albedo</button>
-            <button data-aov="roughness">Rough</button>
-            <button data-aov="ao">AO</button>
+            <button data-aov="depth" title="Distance to the camera">Depth</button>
+            <button data-aov="normal" title="The normal map that fakes the relief">Normal</button>
+            <button data-aov="albedo" title="Colour only, without light">Albedo</button>
+            <button data-aov="roughness" title="Dark is glossy, light is matte">Rough</button>
+            <button data-aov="ao" title="Ambient occlusion: the crevices light hardly reaches">AO</button>
           </div>
           <button type="button" id="triplanar" aria-pressed="false" title="Project the maps along the world axes: no UVs, no stretching">Triplanar</button>
           <button type="button" id="snapshot">Save PNG</button>
