@@ -249,6 +249,14 @@ class MetaClient:
         return j.get("transcript", "").strip()
 
 
+def audio_level(data: bytes) -> tuple[float, float]:
+    """Duration in seconds and peak level (0..1) of a WAV, to tell a silent recording from a mumbled one."""
+    with wave.open(io.BytesIO(to_asr_wav(data))) as w:
+        rate, frames = w.getframerate(), w.readframes(w.getnframes())
+    x = np.frombuffer(frames, dtype=np.int16)
+    return len(x) / rate, float(np.abs(x).max(initial=0)) / 32767
+
+
 def to_asr_wav(data: bytes, rate: int = 24_000) -> bytes:
     """Any PCM WAV -> mono 16-bit PCM WAV at 24 kHz (the model's native rate)."""
     with wave.open(io.BytesIO(data)) as w:
