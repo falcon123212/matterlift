@@ -7,22 +7,33 @@ from scipy import ndimage
 from . import metrics
 
 
-def crop_period(img: np.ndarray) -> np.ndarray:
-    """Keep one period when the source repeats itself, as a square tile."""
+def crop_period(img: np.ndarray, min_frac: float = 0.45) -> np.ndarray:
+    """Keep one period when the source repeats itself, as a square tile.
+
+    Only long periods count: a short one (planks, bricks, grain) is the pattern itself.
+    """
     period = metrics.detect_period(img)
     if period is None:
         return img
     h, w = img.shape[:2]
-    px, py = period
+    px, py = (p if p and p >= min_frac * n else None for p, n in zip(period, (w, h)))
+    if px is None and py is None:
+        return img
     side = min(px or w, py or h)
     return img[:side, :side]
 
 
-def periodic_component(img: np.ndarray) -> np.ndarray:
+def periodic_component(img: np.ndarray, blur_frac: float = 1 / 48) -> np.ndarray:
     """Moisan's periodic + smooth decomposition: subtract the smooth field that causes the
-    edge mismatch (lighting gradients, colour drift), leaving detail untouched."""
-    chans = [img] if img.ndim == 2 else [img[..., c] for c in range(img.shape[2])]
+    edge mismatch (lighting gradients, colour drift), leaving detail untouched.
+
+    The smooth field is solved on a blurred copy so a feature lying on the border (a dark plank
+    gap along row 0) is not mistaken for a mismatch and smeared over the whole tile.
+    """
     h, w = img.shape[:2]
+    sigma = max(h, w) * blur_frac
+    blurred = ndimage.gaussian_filter(img, (sigma, sigma, 0) if img.ndim == 3 else sigma, mode="nearest")
+    chans = [blurred] if img.ndim == 2 else [blurred[..., c] for c in range(img.shape[2])]
     q = np.arange(h)[:, None]
     r = np.arange(w)[None, :]
     denom = 2 * np.cos(2 * np.pi * q / h) + 2 * np.cos(2 * np.pi * r / w) - 4
@@ -37,9 +48,9 @@ def periodic_component(img: np.ndarray) -> np.ndarray:
         v[:, -1] += u[:, 0] - u[:, -1]
         s_hat = np.fft.fft2(v) / denom
         s_hat[0, 0] = 0
-        out.append(u - np.real(np.fft.ifft2(s_hat)))
-    p = out[0] if img.ndim == 2 else np.stack(out, -1)
-    return np.clip(p, 0, 1).astype(np.float32)
+        out.append(np.real(np.fft.ifft2(s_hat)))
+    smooth = out[0] if img.ndim == 2 else np.stack(out, -1)
+    return np.clip(img - smooth, 0, 1).astype(np.float32)
 
 
 def _min_cut(err: np.ndarray) -> np.ndarray:
