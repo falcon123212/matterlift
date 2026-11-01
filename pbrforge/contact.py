@@ -19,7 +19,7 @@ def render_sphere(maps: dict[str, np.ndarray], size: int = 512, tiles: float = 3
     """Sphere lit by a low key light (raking, to reveal relief) plus a soft ambient term."""
     # Poor man's mipmap: about one texel per pixel at the equator, so the sphere does not alias.
     texel = max(64, int(size * 1.2 / tiles))
-    maps = {k: io.resize(v, texel) for k, v in maps.items() if k in
+    maps = {k: io.resize(v, texel).clip(0, 1) for k, v in maps.items() if k in
             ("albedo", "normal", "ao", "roughness", "metallic")}
     r = np.linspace(-1, 1, size)
     x, y = np.meshgrid(r, -r)
