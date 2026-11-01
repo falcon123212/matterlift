@@ -5,5 +5,6 @@ const api = `http://localhost:${process.env.API_PORT ?? "8001"}`;
 
 export default defineConfig({
   base: "./",
+  build: { outDir: "dist" }, // served by the Cloudflare Worker (wrangler.jsonc: assets.directory)
   server: { port: 5173, proxy: { "/materials": api, "/libraries": api, "/understand": api, "/health": api } },
 });

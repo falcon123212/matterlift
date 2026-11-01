@@ -9,3 +9,5 @@ samples/gate/
 samples/out/
 .pytest_cache/
 .claude/settings.local.json
+.wrangler/
+web/.wrangler/

@@ -1,0 +1,7 @@
+{
+  "name": "matterlift",
+  "compatibility_date": "2026-10-13",
+  "assets": {
+    "directory": "./dist"
+  }
+}
