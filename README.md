@@ -96,6 +96,8 @@ contact sheet), `sam_table.py` (photo chain), `bench_baseline.py` (against a ref
   `muse-image-1.0`, `sam-3.1`, `muse-voice-transcribe-1.0`.
 - Spark is a reasoning model: give it `max_completion_tokens` in the thousands or `content` is empty.
 - Muse Image returns 1600x1600 WebP whatever `size` says; `/images/edits` has no `mask` field.
+- Muse Voice Transcribe: listed by `/models`, but `/audio/transcriptions`, `/responses`, `/chat/completions`
+  and `/realtime/*` all answer 404 or model_not_found. The route is set by `META_TRANSCRIBE_PATH`.
 - SAM 3.1 answers on `/responses` only, as text: `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..|>` per
   instance, then an entropy-coded mask we do not decode (boxes are enough for sampling).
 

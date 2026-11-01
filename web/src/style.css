@@ -47,6 +47,9 @@ button.on { background: var(--accent); color: #1a1408; }
 .controls { display: flex; gap: 16px; justify-content: center; padding-top: 10px; flex-wrap: wrap; }
 .group { display: flex; gap: 4px; }
 
+.voice { display: flex; gap: 8px; align-items: center; margin: -4px 0 12px; flex-wrap: wrap; }
+button.link { background: none; color: var(--muted); padding: 0; text-decoration: underline; }
+
 .export { display: flex; gap: 6px; align-items: center; }
 .export select { width: auto; margin: 0; padding: 6px; }
 a.button {

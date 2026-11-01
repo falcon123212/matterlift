@@ -12,9 +12,14 @@
     </header>
     <main>
       <form id="request">
-        <label>What do you want?
-          <textarea name="text" rows="3" required placeholder="old oak planks, worn and slightly scratched"></textarea>
+        <label>What do you want? Type it, say it, or both
+          <textarea name="text" rows="3" placeholder="old oak planks, worn and slightly scratched"></textarea>
         </label>
+        <div class="voice">
+          <button type="button" id="mic" aria-pressed="false">🎤 Speak</button>
+          <span id="voice-state" class="muted small"></span>
+          <button type="button" id="voice-clear" class="link" hidden>remove</button>
+        </div>
         <label>Photo of the real surface (optional)
           <input type="file" name="photo" accept="image/*" />
         </label>
@@ -25,7 +30,7 @@
             <option>2048</option>
           </select>
         </label>
-        <button type="submit">Lift the material</button>
+        <button type="submit">Generate</button>
         <p id="status" role="status"></p>
       </form>
 
