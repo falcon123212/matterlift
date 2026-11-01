@@ -3,8 +3,8 @@
 Endpoints (docs: https://dev.meta.ai/docs):
 - Spark: /chat/completions (reasoning model, needs a generous max_completion_tokens)
 - Muse Image: /images/generations and /images/edits (no `mask` field); tools off and PNG out for textures
-- SAM 3.1: /responses only. Output text is a list of `<|box;x1=..;y1=..;x2=..;y2=..;w=..;h=..|>`
-  followed by an entropy-coded `<|mask;...|>` we do not decode; boxes are used instead.
+- SAM 3.1: /responses only. Output text: per instance a box token and a mask token; we request
+  one_bit masks (metadata.mask_encoding) and decode them in sam_mask.py.
 - Voice Transcribe: /asr/transcribe, multipart `request` (JSON settings) + `audio`
   (WAV, mono 16-bit PCM at 16 or 24 kHz only)
 """
@@ -24,6 +24,8 @@ import numpy as np
 from dotenv import load_dotenv
 from PIL import Image
 
+from .sam_mask import decode_one_bit
+
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 BASE_URL = os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/")
@@ -32,7 +34,11 @@ MODEL_IMAGE = os.environ.get("META_MODEL_IMAGE", "muse-image-1.0")
 MODEL_SAM = os.environ.get("META_MODEL_SAM", "sam-3.1")
 MODEL_TRANSCRIBE = os.environ.get("META_MODEL_TRANSCRIBE", "muse-voice-transcribe-1.0")
 
-_BOX_RE = re.compile(r"<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)\|>")
+# One SAM record: object id, box (with the frame size SAM saw), one_bit mask over the box.
+_RECORD_RE = re.compile(
+    r"(\d+)<\|box;x1=(\d+);y1=(\d+);x2=(\d+);y2=(\d+);w=(\d+);h=(\d+)(?:;c=[\d.]+)?\|>"
+    r"<\|mask;x=0;y=0(?:;c=[\d.]+)?;data=(\d+),(\d+),([^|]*)\|>"
+)
 
 
 @dataclass
@@ -48,6 +54,13 @@ class Box:
 
     def scaled(self, sx: float, sy: float) -> "Box":
         return Box(round(self.x1 * sx), round(self.y1 * sy), round(self.x2 * sx), round(self.y2 * sy))
+
+
+@dataclass
+class Segment:
+    id: int
+    box: Box
+    mask: np.ndarray  # bool, original image size
 
 
 def image_to_data_url(img: Image.Image, max_side: int = 1024) -> str:
@@ -139,10 +152,11 @@ class MetaClient:
         return _decode_image(j["data"][0]["b64_json"])
 
     # --- SAM 3.1 ----------------------------------------------------------
-    def segment_boxes(self, image: Image.Image, prompt: str, max_side: int = 1024) -> list[Box]:
-        """Boxes in the original image's pixel coordinates, largest first."""
+    def segment(self, image: Image.Image, prompt: str, max_side: int = 1024) -> list[Segment]:
+        """Every instance SAM finds for `prompt`, largest mask first, in original image pixels."""
         j = self._post("/responses", json={
             "model": MODEL_SAM,
+            "metadata": {"mask_encoding": "one_bit"},
             "input": [{"role": "user", "content": [
                 {"type": "input_text", "text": prompt},
                 {"type": "input_image", "image_url": image_to_data_url(image, max_side)},
@@ -151,11 +165,19 @@ class MetaClient:
         text = "".join(
             c.get("text", "") for o in j.get("output", []) for c in o.get("content", [])
         )
-        boxes = []
-        for x1, y1, x2, y2, w, h in _BOX_RE.findall(text):
-            b = Box(int(x1), int(y1), int(x2), int(y2))
-            boxes.append(b.scaled(image.width / int(w), image.height / int(h)))
-        return sorted(boxes, key=lambda b: b.area, reverse=True)
+        segments = []
+        for oid, x1, y1, x2, y2, w, h, mh, mw, payload in _RECORD_RE.findall(text):
+            box = Box(int(x1), int(y1), int(x2), int(y2))
+            raster = decode_one_bit(payload, int(mh), int(mw))
+            full = np.zeros((int(h), int(w)), dtype=bool)  # mask in the frame SAM saw
+            full[box.y1 : box.y1 + raster.shape[0], box.x1 : box.x1 + raster.shape[1]] = raster
+            if full.shape != (image.height, image.width):
+                full = np.asarray(Image.fromarray(full).resize(image.size, Image.NEAREST))
+            segments.append(Segment(int(oid), box.scaled(image.width / int(w), image.height / int(h)), full))
+        return sorted(segments, key=lambda s: int(s.mask.sum()), reverse=True)
+
+    def segment_boxes(self, image: Image.Image, prompt: str, max_side: int = 1024) -> list[Box]:
+        return [s.box for s in self.segment(image, prompt, max_side)]
 
     # --- Voice ------------------------------------------------------------
     def transcribe(self, audio: bytes, keywords: list[str] | None = None,
