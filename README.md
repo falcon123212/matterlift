@@ -2,9 +2,16 @@
 
 **Point at anything. Say what you want. Get a game-ready material.**
 
-The open-source alternative to Substance Sampler: show a real object, say what you want, get a
-tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM) ready for Godot,
-Blender, Unity or Unreal.
+From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
+tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot,
+Blender, Unity or Unreal. Open source, built on Meta's models.
+
+MatterLift does not scan the surface the way photogrammetry tools do: Muse Image repaints the photo
+sample as a clean, flat, tileable texture, then pbrforge matches its colours back to the photo and
+derives the maps. The result is faithful in character and colour (Delta E shown in the UI), not a
+pixel-exact capture.
+
+Repository: https://github.com/falcon123212/matterlift
 
 All code in this repository was written from 2026-11-01 onward, for the Meta hackathon
 (Build for Your World, Indie Developer track). The Git history is the proof.
@@ -128,10 +135,15 @@ side by side with that score.
 
 ## Run it
 
+Python 3.11+ and Node 20+. A Meta Model API key goes in `.env` (never committed).
+
 ```bash
-py -3.12 -m venv .venv && .venv/Scripts/python -m pip install -e .[dev]
-cp .env.example .env   # add META_API_KEY
-.venv/Scripts/python scripts/smoke_meta.py
+git clone https://github.com/falcon123212/matterlift && cd matterlift
+python -m venv .venv
+.venv/Scripts/python -m pip install -e .[dev]   # macOS/Linux: .venv/bin/python
+cp .env.example .env                              # then set META_API_KEY
+.venv/Scripts/python scripts/smoke_meta.py        # every Meta model answers
+.venv/Scripts/python -m pytest -q                 # offline tests, no API calls
 .venv/Scripts/python -m uvicorn matterlift_api.main:app --app-dir api --port 8001
 npm --prefix web install && npm --prefix web run dev   # http://localhost:5173
 ```
