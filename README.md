@@ -13,6 +13,8 @@ pixel-exact capture.
 
 Repository: https://github.com/falcon123212/matterlift
 
+Try it: https://matterlift.taurus-silver-dev.workers.dev (page on Cloudflare Workers, API on Modal)
+
 All code in this repository was written from 2026-11-01 onward, for the Meta hackathon
 (Build for Your World, Indie Developer track). The Git history is the proof.
 
@@ -156,6 +158,16 @@ API:
   `POST /libraries/{id}/build` (form: `size`) generates every material.
 - `GET /materials/{id}`, `/materials/{id}/maps/{name}.png`, `/materials/{id}/export?size=2048&fmt=png`,
   `GET /libraries/{id}`. The UI reopens them with `?id=` or `?lib=`.
+
+## Deploy
+
+- API on Modal: `modal deploy deploy/modal_app.py`. The Meta key is read from the local `.env` at
+  deploy time and stored as a Modal secret, never in the image; materials live on a Modal Volume.
+- Page on Cloudflare Workers (static assets, `web/wrangler.jsonc`):
+
+```bash
+cd web && VITE_API_URL=https://<your-modal-url> npm run build && npx wrangler deploy
+```
 
 ## Export
 
