@@ -295,6 +295,15 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
   request `metadata.mask_encoding: "one_bit"` and decode it in `api/matterlift_api/sam_mask.py`, a
   Python port of Meta's `@meta-sam/parser` decoder (adaptive binary range coder, 12-bit context).
 
+## Credits
+
+Concept, product design, UI design and build plan: Silver (falcon123212).
+Implementation written with Claude Code (Anthropic) as a coding assistant, under my direction:
+I chose the pipeline, reviewed the code, ran the tests and validated the materials in the results
+gallery.
+Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
+Third-party code, data and libraries: see [Built during the hackathon](#built-during-the-hackathon).
+
 ## License
 
 MIT (see `LICENSE`), except `api/matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
