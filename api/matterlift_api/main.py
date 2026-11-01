@@ -71,6 +71,19 @@ async def transcribe(audio: UploadFile = File(...)) -> dict:
     return {"text": text}
 
 
+@app.post("/enhance")
+async def enhance(text: str = Form(...), photo: UploadFile | None = File(None)) -> dict:
+    """Spark turns a short request into a precise material brief (same language), with the photo
+    when there is one. The page shows it in the text box, editable, before generating."""
+    if not text.strip():
+        raise HTTPException(400, "nothing to enrich")
+    img = await _photo(photo) if photo is not None else None
+    try:
+        return {"text": await run_in_threadpool(pipeline().enhance, text.strip(), img), "original": text.strip()}
+    except RuntimeError as e:
+        raise HTTPException(502, str(e)) from e
+
+
 async def _photo(photo: UploadFile) -> Image.Image:
     data = await photo.read()
     if len(data) > MAX_UPLOAD:

@@ -284,11 +284,13 @@ mic.addEventListener("click", async () => {
         const box = $<HTMLTextAreaElement>('textarea[name="text"]');
         box.value = box.value.trim() ? `${box.value.trim()} ${text}` : text;
         setVoice(null);
-        voiceState.textContent = `heard (${seconds.toFixed(0)} s) — edit the text if needed`;
+        voiceState.textContent = `heard (${seconds.toFixed(0)} s)`;
       } catch (err) {
         setVoice(wav, seconds); // keep it: Generate sends it and the server transcribes then
         voiceState.textContent = `Transcription failed: ${(err as Error).message}`;
+        return;
       }
+      await enrich(); // a spoken request is short: Spark fleshes it out right away
     };
     recorder.start();
     recStart = performance.now();
@@ -303,6 +305,44 @@ mic.addEventListener("click", async () => {
   }
 });
 voiceClear.addEventListener("click", () => setVoice(null));
+
+// --- Spark fleshes out a short request into a precise material brief, shown and editable ---
+const enrichBtn = $<HTMLButtonElement>("#enrich");
+const enrichUndo = $<HTMLButtonElement>("#enrich-undo");
+let beforeEnrich: string | null = null;
+
+async function enrich() {
+  const box = $<HTMLTextAreaElement>('textarea[name="text"]');
+  const text = box.value.trim();
+  if (!text) {
+    voiceState.textContent = "Type or say something first.";
+    return;
+  }
+  const body = new FormData();
+  body.append("text", text);
+  const photo = $<HTMLInputElement>('input[name="photo"]').files?.[0];
+  if (photo) body.append("photo", photo); // Spark describes what it sees in it
+  enrichBtn.disabled = true;
+  voiceState.textContent = "Spark is fleshing out your request…";
+  try {
+    const r = await post<{ text: string; original: string }>("/enhance", body);
+    beforeEnrich = r.original;
+    box.value = r.text;
+    enrichUndo.hidden = false;
+    voiceState.textContent = "Spark enriched it — edit it or undo";
+  } catch (err) {
+    voiceState.textContent = `Spark could not enrich it: ${(err as Error).message}`;
+  } finally {
+    enrichBtn.disabled = false;
+  }
+}
+
+enrichBtn.addEventListener("click", () => void enrich());
+enrichUndo.addEventListener("click", () => {
+  if (beforeEnrich !== null) $<HTMLTextAreaElement>('textarea[name="text"]').value = beforeEnrich;
+  enrichUndo.hidden = true;
+  voiceState.textContent = "";
+});
 
 // --- Understanding panel: shown as soon as Spark and SAM answer, before Muse paints ---
 const photoInput = $<HTMLInputElement>('input[name="photo"]');
