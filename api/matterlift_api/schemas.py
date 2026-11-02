@@ -22,6 +22,8 @@ class Shading(BaseModel):
 class MaterialPlan(BaseModel):
     name: str = "material"
     texture_prompt: str = Field("", description="What Muse Image should paint, material only")
+    subject: str = Field("", description="With a photo: the object or surface whose material is taken")
+    subject_reason: str = Field("", description="Why that one: what the request or the framing points at")
     sam_prompt: str = Field("", description="Short noun phrase for SAM to find the source surface")
     sam_alternatives: list[str] = Field(default_factory=list, description="Other names SAM may know it by")
     points: list[tuple[float, float]] = Field(default_factory=list, description="[x, y] in 0..1000 on the surface")

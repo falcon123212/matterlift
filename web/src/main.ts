@@ -14,9 +14,14 @@ interface Material {
   timings: Record<string, number>;
 }
 
+// what the API stores as the request when a photo comes with no words (pipeline.SUBJECT_REQUEST)
+const SUBJECT_REQUEST = "the material of the photo's subject";
+
 interface Plan {
   name: string;
   texture_prompt: string;
+  subject?: string;
+  subject_reason?: string;
   sam_prompt: string;
   roughness: number;
   metallic: number;
@@ -553,7 +558,11 @@ function showUnderstanding(und: Understanding) {
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + und.overlay;
   const pretty = und.plan.name.replace(/_/g, " ");
-  const heard: (string | [string])[] = ["I heard “", [und.request], "”. I see ", [pretty]];
+  // no words: Spark read the photo's framing to find its subject, and says why
+  const heard: (string | [string])[] = und.request === SUBJECT_REQUEST
+    ? ["No request, so I take the photo's subject: ", [und.plan.subject || pretty]]
+    : ["I heard “", [und.request], "”. I see ", [pretty]];
+  if (und.plan.subject_reason) heard.push(` (${und.plan.subject_reason.replace(/\.$/, "")})`);
   const paint: (string | [string])[] = [". Muse will paint: ", und.plan.texture_prompt, "."];
   if (und.crop_from === "mask" || und.crop_from === "box") {
     describe($("#und-text"), [...heard, ", found by ", [und.found_by ?? "SAM"], ", and I sample the framed area", ...paint]);

@@ -9,7 +9,7 @@ from PIL import Image
 from matterlift_api import meta_client
 from matterlift_api.library import build_library, understand_library
 from matterlift_api.meta_client import Box, MetaClient, Segment
-from matterlift_api.pipeline import Pipeline, normalize_photo
+from matterlift_api.pipeline import SUBJECT_REQUEST, Pipeline, normalize_photo
 
 PLAN = {"name": "oak_table", "texture_prompt": "warm oak planks", "sam_prompt": "table",
         "sam_alternatives": ["wooden tabletop"], "points": [[500, 500], [550, 520]], "roughness": 0.6}
@@ -367,3 +367,44 @@ def test_chat_json_retries_an_empty_answer_with_a_larger_budget():
     client._complete = lambda *a, **k: ("", "length")
     with pytest.raises(RuntimeError, match="answer was empty, stop: length"):
         client.chat_json("s", "u")
+
+
+class _Recorder(FakeClient):
+    """Keeps what Spark was asked, to check the prompt."""
+
+    def chat_json(self, system, user, images=None):
+        self.asked = user
+        return super().chat_json(system, user, images)
+
+
+@pytest.mark.parametrize("request_text, words", [(SUBJECT_REQUEST, False), ("le papier froissé", True)])
+def test_spark_reads_the_framing_when_the_request_names_no_surface(tmp_path, request_text, words):
+    """No words: Spark is told the user framed the photo on what they want, and that the table under
+    it is context (a receipt on a glass table once gave glass). Named surface: it wins."""
+    client = _Recorder(plan={**PLAN, "subject": "crumpled receipt",
+                             "subject_reason": "centred and in focus; the glass table is what it lies on"})
+    und = Pipeline(client, tmp_path / "m", tmp_path / "u").understand(request_text, Image.new("RGB", (64, 64)))
+    assert "composition" in client.asked and "context, not the subject" in client.asked
+    assert ("le papier froissé" in client.asked) == words
+    assert ("Request: none" in client.asked) == (not words)
+    assert und.plan.subject == "crumpled receipt" and "glass table" in und.plan.subject_reason
+
+
+def test_photo_without_words_asks_for_the_subject(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from matterlift_api import main
+
+    class Stub:
+        client = None
+
+        def understand(self, request, img):
+            self.request = request
+            raise RuntimeError("stop here")
+
+    stub = Stub()
+    monkeypatch.setattr(main, "_pipeline", stub)
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 32)).save(buf, "PNG")
+    r = TestClient(main.app).post("/understand", files={"photo": ("p.png", buf.getvalue(), "image/png")})
+    assert r.status_code == 502 and stub.request == SUBJECT_REQUEST

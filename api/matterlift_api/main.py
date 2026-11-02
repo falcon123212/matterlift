@@ -19,7 +19,7 @@ from .critique import critique_by_id
 from .meta_client import audio_level
 from .library import (LIBRARY_DIR, build_library, clean_points, load_library, point_item, remove_item,
                       understand_library)
-from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
+from .pipeline import (DATA_DIR, SUBJECT_REQUEST, UNDERSTAND_DIR, Pipeline, export_material, load_material,
                        load_understanding, normalize_photo)
 from .schemas import Critique, Library, Material, Understanding
 
@@ -116,7 +116,7 @@ async def understand(
     audio: UploadFile | None = File(None),
 ) -> Understanding:
     """Step 1 with a photo: what Spark understood and where SAM found it, shown before generation."""
-    request = await _request_text(text, audio) or "take the main material of this photo"
+    request = await _request_text(text, audio) or SUBJECT_REQUEST  # no words: the photo's framing says
     img = await _photo(photo)
     try:
         return await run_in_threadpool(pipeline().understand, request, img)

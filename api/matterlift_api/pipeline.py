@@ -48,6 +48,9 @@ optional photo) into a plan for a game-ready PBR material. Answer with ONE JSON 
  "name": short snake_case name,
  "texture_prompt": what the albedo should show, material only, as a painter would describe the \
 surface seen straight on (colour, pattern, wear, scale); never mention lighting or 3D objects,
+ "subject": if a photo is given, the object or surface whose material you take, in a few words, else "",
+ "subject_reason": if a photo is given, one short sentence on why that one (what the request or the \
+photo's framing points at), else "",
  "sam_prompt": if a photo is given, a 1-3 word noun phrase naming the surface to sample in it \
 (the object it covers works best: "table", "floor", "brick wall"), else "",
  "sam_alternatives": if a photo is given, two other short noun phrases for the same surface, \
@@ -67,6 +70,21 @@ clean, flat, unoccluded areas of that surface, far from its edges and from objec
 }
 Values must be physically plausible for the material."""
 
+
+# The request when the user sends a photo and no words (/understand).
+SUBJECT_REQUEST = "the material of the photo's subject"
+
+# With a photo, when the request does not say which surface: read the photo as its author framed it.
+# Without this, "the main material" became the largest surface (a receipt on a glass table gave glass).
+COMPOSITION = (
+    "If the request does not name the surface (no words, \"this\", \"ça\", \"the main material\"), the "
+    "user framed the photo on what they want: find that subject from the composition. It is the object "
+    "near the centre, in focus, closest to the camera, filling much of the frame, standing out from what "
+    "surrounds it. The surface it rests on (table, desk, floor, mat) and the background (wall, screen, "
+    "shelf, room) are context, not the subject, unless the photo shows nothing else. Take the subject's "
+    "own material on its largest clean face, and put points and sam_prompt on the subject, not on what "
+    "it lies on. If the request names a surface, that surface wins over the composition."
+)
 
 MAX_PHOTO_SIDE = 2048
 
@@ -101,7 +119,9 @@ class Pipeline:
     def plan(self, request: str, photo: Image.Image | None) -> MaterialPlan:
         user = f"Request: {request}"
         if photo is not None:
-            user += "\nThe photo shows the real surface to sample."
+            if request == SUBJECT_REQUEST:
+                user = "Request: none. The user only pointed the camera and sent the photo."
+            user += f"\nThe photo shows the real surface to sample. {COMPOSITION}"
         raw = self.client.chat_json(PLAN_SYSTEM, user, [photo] if photo is not None else None)
         plan = MaterialPlan.lenient(raw)
         if not plan.texture_prompt:  # the one field Muse cannot do without

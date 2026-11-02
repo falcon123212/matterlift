@@ -12,3 +12,4 @@ samples/out/
 .wrangler/
 web/.wrangler/
 docs/img/candidates/
+results/photo_test/private/
