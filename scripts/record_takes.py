@@ -248,21 +248,116 @@ def desk(hand: Hand, ids: dict) -> None:
     time.sleep(2.0)
 
 
-# take name -> (material name in ids.json, what it does)
+# --- generation takes: they start from an empty page ----------------------------------------
+
+def blank(critique: bool, size: str):
+    """Start state (set before the recording starts): empty page, self-critique on or off, a size."""
+    def prep(page: Page, site: str) -> None:
+        page.goto(site)
+        page.wait_for_selector("#request")
+        page.evaluate("""([crit, size]) => { document.querySelector('#self-critique').checked = crit;
+            document.querySelector('select[name="size"]').value = size; }""", [critique, size])
+        time.sleep(1.5)
+    return prep
+
+
+def _done(page: Page, critique: bool, timeout: int = 280_000) -> None:
+    """Until the material is on screen (and Spark's verdict, when self-critique is on)."""
+    page.wait_for_function(r"""() => { const b = document.querySelector('#request button[type="submit"]');
+        const st = document.querySelector('#status')?.textContent || '';
+        return b && !b.disabled && st && !/ \d+ s$/.test(st); }""", timeout=timeout)
+    if critique:
+        page.wait_for_function(r"""() => /Spark: \d+\/10|Failed/.test(document.querySelector('#status')?.textContent || '')""",
+                               timeout=timeout)
+
+
+def _choose_photo(hand: Hand, path: Path) -> None:
+    """Click Choose File; the file picker is answered by the script (no system dialog on screen)."""
+    with hand.page.expect_file_chooser() as fc:
+        hand.click('input[name="photo"]')
+    fc.value.set_files(str(path))
+    time.sleep(1.0)
+
+
+def _remember(page: Page, folder: Path, name: str) -> None:
+    mid = page.evaluate("new URLSearchParams(location.search).get('id')")
+    if mid:
+        path = folder / "ids.json"
+        ids = json.loads(path.read_text(encoding="utf-8"))
+        ids[name] = mid
+        path.write_text(json.dumps(ids, indent=2), encoding="utf-8")
+        print(f"  {name}: {mid}")
+
+
+def c01(hand: Hand, ids: dict) -> None:
+    """Photo, no text: Spark reads the framing, SAM masks the bowl, Muse paints, Spark critiques."""
+    _choose_photo(hand, ids["_dir"] / "photos" / "bowl.jpg")
+    hand.click('#request button[type="submit"]')
+    hand.page.wait_for_selector("#understanding:not([hidden]) #und-text:not(:empty)", timeout=120_000)
+    hand.move(1500, 300)
+    time.sleep(3.0)  # the overlay and Spark's sentence
+    _done(hand.page, critique=True)
+    time.sleep(2.0)
+    _remember(hand.page, ids["_dir"], "bowl")
+
+
+def c07(hand: Hand, ids: dict) -> None:
+    """Text: typed, sent, the material."""
+    hand.click('textarea[name="text"]')
+    hand.page.keyboard.type(TEXTS["oak"], delay=55)
+    time.sleep(0.8)
+    hand.click('#request button[type="submit"]')
+    hand.move(760, 470, 0.8)
+    _done(hand.page, critique=False)
+    time.sleep(2.0)
+
+
+# Points on the bowl photo (0..1 of the picker image): the bowl's glaze, the plush, the desk mat
+SAM_POINTS = [(0.42, 0.52), (0.79, 0.21), (0.70, 0.86)]
+
+
+def c16(hand: Hand, ids: dict) -> None:
+    """SAM on the user's clicks: one material per surface pointed at."""
+    _choose_photo(hand, ids["_dir"] / "photos" / "bowl.jpg")
+    hand.click("#library-mode")
+    hand.page.wait_for_selector("#lib-points:not([hidden]) #pick-img", timeout=10_000)
+    time.sleep(0.8)
+    b = hand.page.locator("#pick-img").bounding_box()
+    for fx, fy in SAM_POINTS:
+        hand.move(b["x"] + b["width"] * fx, b["y"] + b["height"] * fy, 0.6)
+        time.sleep(0.35)
+        hand.page.evaluate("([x, y]) => window.__curRing(x, y)", [hand.x, hand.y])
+        hand.page.mouse.click(hand.x, hand.y)
+        time.sleep(0.6)
+    hand.click('#request button[type="submit"]')
+    hand.page.wait_for_selector("#understanding:not([hidden]) #und-items button", timeout=150_000)
+    hand.move(1500, 320)
+    time.sleep(3.0)  # every mask on the photo, the cards
+    hand.page.wait_for_function("/materials ready|Failed/.test(document.querySelector('#status')?.textContent || '')",
+                                timeout=290_000)
+    time.sleep(1.5)
+    hand.click("#und-items button.main:not(.failed):not(.pending) >> nth=1")
+    time.sleep(2.5)
+
+
+# take name -> (material name in ids.json, or None for an empty page; what it does; start state)
 TAKES = {
-    "c02_bowl_look": ("bowl", c02),
-    "c03_bowl_maps": ("bowl", c03),
-    "c04_bowl_critique": ("bowl", c04),
-    "c05_diamond": ("diamond", c05),
-    "c06_ruby_live": ("ruby", c06),
-    "c09_passes": ("oak", c09),
-    "c09b_thickness": ("ruby", c09b),
-    "c10_gallery_live_steel": ("steel", gallery("dragon")),
-    "c10_gallery_live_moss": ("moss", gallery("lucy")),
-    "c10_gallery_live_limestone": ("limestone", gallery("buddha")),
-    "c10_gallery_live_oak": ("oak", gallery("dragon")),
-    "c15_desk_cube": ("cube", desk),
-    "c15_desk_plush": ("plush", desk),
+    "c01_bowl_auto": (None, c01, blank(True, "1024")),
+    "c07_text_oak": (None, c07, blank(False, "512")),
+    "c16_sam_points": (None, c16, blank(False, "512")),
+    "c02_bowl_look": ("bowl", c02, None),
+    "c03_bowl_maps": ("bowl", c03, None),
+    "c04_bowl_critique": ("bowl", c04, None),
+    "c05_diamond": ("diamond", c05, None),
+    "c06_ruby_live": ("ruby", c06, None),
+    "c09_passes": ("oak", c09, None),
+    "c09b_thickness": ("ruby", c09b, None),
+    "c10_gallery_live_steel": ("steel", gallery("dragon"), None),
+    "c10_gallery_live_moss": ("moss", gallery("lucy"), None),
+    "c10_gallery_live_limestone": ("limestone", gallery("buddha"), None),
+    "c10_gallery_live_oak": ("oak", gallery("dragon"), None),
+    "c15_desk_cube": ("cube", desk, None),
+    "c15_desk_plush": ("plush", desk, None),
 }
 
 
@@ -305,7 +400,8 @@ def chrome(p, site: str, out: Path, recorder: str) -> tuple[BrowserContext, Page
 
 
 def run_takes(names: list[str], site: str, folder: Path, recorder: str) -> None:
-    ids = json.loads((folder / "ids.json").read_text(encoding="utf-8"))
+    path = folder / "ids.json"
+    ids = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     out = folder / ("captures" if recorder == "obs" else "test-takes")
     out.mkdir(parents=True, exist_ok=True)
     names = list(TAKES) if names == ["all"] else [n for n in TAKES if any(n.startswith(a) for a in names)]
@@ -313,14 +409,17 @@ def run_takes(names: list[str], site: str, folder: Path, recorder: str) -> None:
         obs = Obs(out) if recorder == "obs" else None
         ctx, page = chrome(p, site, out, recorder)
         for name in names:
-            mat, take = TAKES[name]
-            if mat not in ids:
+            mat, take, prep = TAKES[name]
+            if mat is not None and mat not in ids:
                 print(f"skip {name}: no '{mat}' in ids.json")
                 continue
             if not obs:
                 page = ctx.new_page()  # one page, so one video, per take
             opened = time.time()
-            open_material(page, site, ids[mat])
+            if mat is None:
+                prep(page, site)
+            else:
+                open_material(page, site, ids[mat])
             page.evaluate(CURSOR_JS)
             hand = Hand(page)
             hand.move(W * 0.62, H * 0.55, 0.01)
@@ -330,7 +429,7 @@ def run_takes(names: list[str], site: str, folder: Path, recorder: str) -> None:
                 time.sleep(1.0)  # the still second at the head
             t = time.time()
             try:
-                take(hand, ids)
+                take(hand, {**ids, "_dir": folder})
                 if not obs:
                     time.sleep(2.0)
                 print(f"{name}: {time.time() - t:.0f} s")
