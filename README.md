@@ -247,17 +247,20 @@ side by side with that score.
 
 ## Run it
 
-Python 3.11+ and Node 20+. A Meta Model API key goes in `.env` (never committed).
+Python 3.11+ and Node 20+. A Meta Model API key goes in `.env` (never committed). One command per
+line, so it works the same in Windows PowerShell, Git Bash, macOS and Linux.
 
 ```bash
-git clone https://github.com/falcon123212/matterlift && cd matterlift
+git clone https://github.com/falcon123212/matterlift
+cd matterlift
 python -m venv .venv
 .venv/Scripts/python -m pip install -e .[dev]   # macOS/Linux: .venv/bin/python
 cp .env.example .env                              # then set META_API_KEY
 .venv/Scripts/python scripts/smoke_meta.py        # every Meta model answers
 .venv/Scripts/python -m pytest -q                 # offline tests, no API calls
 .venv/Scripts/python -m uvicorn matterlift_api.main:app --app-dir api --port 8001
-npm --prefix web install && npm --prefix web run dev   # http://localhost:5173
+npm --prefix web install
+npm --prefix web run dev                          # http://localhost:5173 (second terminal)
 ```
 
 API:
@@ -278,7 +281,8 @@ API:
 - Page on Cloudflare Workers (static assets, `web/wrangler.jsonc`):
 
 ```bash
-cd web && npm run deploy   # builds with web/.env.production (API URL), refuses an unbuilt page, deploys
+cd web
+npm run deploy   # builds with web/.env.production (API URL), refuses an unbuilt page, deploys
 ```
 
 `VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: `live.html` of the same site).
