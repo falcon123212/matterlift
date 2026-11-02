@@ -201,3 +201,12 @@ def test_flatten_uniform_only_touches_plain_surfaces():
     assert k == 1.0 and metrics.luminance(out).std() < metrics.luminance(paint).std() / 3
     _, k_rough = delight.flatten_uniform(_noise(256, sigma=1.5))
     assert k_rough == 0.0
+
+
+@pytest.mark.parametrize("n,size", [(512, 4096), (1600, 2048), (1600, 512), (1601, 1024)])
+def test_resize_keeps_the_tile_seamless(n, size):
+    from pbrforge import io
+
+    out = io.resize(_noise(n, seed=3), size)
+    assert out.shape == (size, size, 3)
+    assert metrics.seam_score(out) < 1.5  # Pillow alone clamps the border: ~4 on 2K/4K upscales

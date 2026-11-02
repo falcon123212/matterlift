@@ -7,13 +7,26 @@ on:
 jobs:
   python:
     runs-on: ubuntu-latest
+    env:
+      GODOT_VERSION: 4.7.2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install -e ".[dev]"
-      - run: python -m pytest -q  # offline: no Meta key, no network
+      - run: python -m pip install -e ".[dev]"  # with MaterialX and usd-core, the formats' own libraries
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci  # brings the Khronos glTF-Validator
+        working-directory: web
+      - name: Godot (headless check of the .tres, the shader and the .glb)
+        run: |
+          curl -sSLo godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d "$RUNNER_TEMP/godot"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+      # offline: no Meta key, no network. -rs lists anything skipped, so a missing tool shows up
+      - run: python -m pytest -q -rs --durations=10
 
   web:
     runs-on: ubuntu-latest
@@ -25,4 +38,6 @@ jobs:
       - run: npm ci
         working-directory: web
       - run: npm run build  # typecheck + Vite build
+        working-directory: web
+      - run: node scripts/check-dist.mjs  # the page that would be deployed is a built one
         working-directory: web

@@ -1,0 +1,77 @@
+{
+  "date": "2026-11-02T09:39:53+00:00",
+  "machine": {
+    "os": "Windows 11",
+    "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+    "cores": 12,
+    "python": "3.12.0",
+    "numpy": "2.5.4"
+  },
+  "input": "1600x1600 albedo (Muse Image size), stone detail, wear 0.4, metal",
+  "rows": [
+    {
+      "size": 512,
+      "format": "png",
+      "derive_s": 0.35,
+      "derive_peak_mb": 46,
+      "export_zip_s": 0.78,
+      "zip_mb": 6.4
+    },
+    {
+      "size": 512,
+      "format": "jpg",
+      "derive_s": 0.35,
+      "derive_peak_mb": 46,
+      "export_zip_s": 0.62,
+      "zip_mb": 5.2
+    },
+    {
+      "size": 1024,
+      "format": "png",
+      "derive_s": 1.32,
+      "derive_peak_mb": 122,
+      "export_zip_s": 2.11,
+      "zip_mb": 20.3
+    },
+    {
+      "size": 1024,
+      "format": "jpg",
+      "derive_s": 1.32,
+      "derive_peak_mb": 122,
+      "export_zip_s": 1.62,
+      "zip_mb": 15.0
+    },
+    {
+      "size": 2048,
+      "format": "png",
+      "derive_s": 5.46,
+      "derive_peak_mb": 487,
+      "export_zip_s": 7.79,
+      "zip_mb": 66.2
+    },
+    {
+      "size": 2048,
+      "format": "jpg",
+      "derive_s": 5.46,
+      "derive_peak_mb": 487,
+      "export_zip_s": 5.48,
+      "zip_mb": 46.6
+    },
+    {
+      "size": 4096,
+      "format": "png",
+      "derive_s": 24.71,
+      "derive_peak_mb": 2483,
+      "export_zip_s": 31.0,
+      "zip_mb": 223.6
+    },
+    {
+      "size": 4096,
+      "format": "jpg",
+      "derive_s": 24.71,
+      "derive_peak_mb": 2483,
+      "export_zip_s": 21.19,
+      "zip_mb": 149.2
+    }
+  ]
+}

@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["pytest", "MaterialX", "usd-core"]
 
 [tool.setuptools]
 packages = ["pbrforge", "matterlift_api"]

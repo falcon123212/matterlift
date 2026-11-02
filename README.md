@@ -274,6 +274,42 @@ API:
 - `GET /materials/{id}`, `/materials/{id}/maps/{name}.png`, `/materials/{id}/export?size=2048&fmt=png`,
   `GET /libraries/{id}`. The UI reopens them with `?id=` or `?lib=`.
 
+## Tests and benchmarks
+
+174 offline tests (no Meta key, no network) run on every push in GitHub Actions, with Godot and the
+formats' official validators installed:
+
+| What | How it is checked |
+|---|---|
+| Every export the UI offers | 512, 1K, 2K, 4K × PNG, JPG: every file present and named like ambientCG, sizes, pixel formats (16-bit displacement), albedo in PBR range, unit normals facing out, DirectX normal = OpenGL with green flipped, **every map tiles without a seam**, zip complete, `.glb` textures at full size (`tests/test_export_matrix.py`) |
+| glTF | **Khronos glTF-Validator**: 0 errors, 0 warnings on 14 packages (every shading lobe: clearcoat, sheen, transmission + IOR, anisotropy, subsurface, all at once; metal and not) |
+| MaterialX | **MaterialX library (ASWF)**: documents validate, one OpenPBR surface, every texture file exists |
+| USD | **Pixar USD**: stages open, UsdPreviewSurface with its 5 inputs connected, every texture asset resolves |
+| Godot 4.7 | **Godot headless** opens the 14 packages: the `.tres` with all its textures, the live shader **compiles** (its controls are exposed), the `.glb` loads through GLTFDocument (`tests/test_export_godot.py`) |
+| What users upload | Through the HTTP API: JPEG, PNG with transparency, palette PNG, 16-bit PNG, greyscale, CMYK JPEG, WebP, rotated phone photo, 24 px, 6000 px, 4000×300 panorama → a material; empty, truncated, non-image, 31 MB upload, decompression bomb → a clear 400/413; WAV speech, silence, non-WAV audio; path traversal and bad ids → 404 (`tests/test_api_inputs.py`) |
+| Model failures | Spark garbage or empty answers, SAM misses, Muse failures: a material still comes out (`tests/test_resilience.py`) |
+| Performance | Time and memory guards per size (`tests/test_perf.py`); the 4K export must fit the API container |
+
+The validators were checked against broken files (a wrong MaterialX type, a missing USD texture, a
+corrupted `.glb` count, a shader with an unknown identifier): each one fails as it should.
+
+These tests found a real bug: 2K and 4K exports had a seam at the tile border, because the resize
+(Pillow's Lanczos) clamps at the image edge instead of wrapping. Maps are now padded with their own
+opposite edges before resizing (`pbrforge/io.py`); the seam score went from 3.98 to 1.07 (1 = invisible).
+
+**pbrforge performance** (`scripts/bench_pbrforge.py`, full table in `results/perf_pbrforge.md`), from a
+1600 px albedo (Muse Image's size), on a desktop AMD CPU (12 threads):
+
+| Size | Maps (s) | Peak memory | Export + zip, PNG (s) | Zip, PNG / JPG |
+|---|---|---|---|---|
+| 512 | 0.35 | 46 MB | 0.8 | 6 / 5 MB |
+| 1K | 1.3 | 122 MB | 2.1 | 20 / 15 MB |
+| 2K | 5.5 | 487 MB | 7.8 | 66 / 47 MB |
+| 4K | 24.7 | 2.5 GB | 31 | 224 / 149 MB |
+
+A 4K export needs about 2.5 GB, within the 4 GB of the API container; two at the same moment would
+likely not fit (not measured yet: that is for the load test), so 4K exports are best done one at a time.
+
 ## Deploy
 
 - API on Modal: `modal deploy deploy/modal_app.py`. The Meta key is read from the local `.env` at

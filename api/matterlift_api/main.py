@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import shutil
+import wave
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -61,7 +62,9 @@ async def _request_text(text: str, audio: UploadFile | None) -> str:
     if audio is not None:
         try:
             spoken = await run_in_threadpool(pipeline().client.transcribe, await audio.read(), VOCABULARY)
-        except (RuntimeError, ValueError, EOFError) as e:  # wave raises on non-WAV input
+        except (wave.Error, ValueError, EOFError) as e:  # the upload, not the model
+            raise HTTPException(400, f"the recording is not a readable WAV file ({e})") from e
+        except RuntimeError as e:
             raise HTTPException(502, f"transcription failed: {e}") from e
         request = f"{request} {spoken}".strip()
     return request
