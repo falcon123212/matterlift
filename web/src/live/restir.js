@@ -1164,9 +1164,9 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 			frames = 0;
 			tFps = now;
 			results.live = { fps, gpuMs, dnMs, accum, variant, showRef, denoise, width: W, height: H, auto, timer: ts };
-			hud.textContent = showRef
+			hud.textContent = ( modelError ? `⚠ ${ modelError }\n` : '' ) + ( showRef
 				? `EXACT REFERENCE: every spot, one shadow ray each per pixel · ${ fps.toFixed( 0 ) } FPS\n`
-				: `ReSTIR DI ${ MODES[ variant ] } · ${ $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n`;
+				: `ReSTIR DI ${ MODES[ variant ] } · ${ $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n` );
 			hud.textContent += `${ triangles.toLocaleString( 'en' ) } triangles · Drag: orbit 360° · Wheel: zoom · Shift + click: place a spot · 1/2/3: ReSTIR variant · R: exact reference · D: denoiser · H: hide UI`;
 		}
 		// the frame index drives the G-Buffer / history ping-pong, so it only advances when something was rendered
@@ -1176,6 +1176,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 	}
 	let prevBasis = null;
 	let lastMaps = null, lastLook = null;
+	let modelSeq = 0, modelError = null;
 	showQuality();
 	device.lost.then( info => {
 		document.body.classList.remove( 'live' );
@@ -1195,10 +1196,20 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		if ( e.source !== window.parent ) return;
 		if ( e.data?.type === 'live-rt:material' ) await R.setMaterial( ( lastMaps = e.data.maps ) );
 		else if ( e.data?.type === 'live-rt:settings' ) R.setLook( ( lastLook = e.data ) );
-		else if ( e.data?.type === 'live-rt:model' && loadModel && ! rebuilding ) {
+		else if ( e.data?.type === 'live-rt:model' && loadModel ) {
 			// another scan: new geometry and BVH, the renderer rebuilt around them, the camera reframed;
-			// spots placed on the previous model go
-			const next = await loadModel( e.data.model );
+			// spots placed on the previous model go. Quick clicks: the last one wins.
+			const seq = ++modelSeq;
+			let next;
+			try {
+				next = await loadModel( e.data.model );
+			} catch ( err ) {
+				if ( seq === modelSeq ) modelError = `could not load ${ e.data.model }: ${ err.message }`;
+				return;
+			}
+			while ( rebuilding ) await new Promise( r => setTimeout( r, 50 ) );
+			if ( seq !== modelSeq ) return;
+			modelError = null;
 			scene = next.scene;
 			bvh = scene.bvh;
 			triangles = scene.geo.index.count / 3;

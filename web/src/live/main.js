@@ -12,10 +12,13 @@ import { liveUnbiased, setupUnbiased, testUnbiased } from './restir.js';
 // The decimated Stanford scans of the WebGL preview (credits: public/models/CREDITS.md).
 // zUp: the file already stands on z (the renderer's up axis); the others stand on y.
 const MODELS = {
-	dragon: { url: 'models/stanford_dragon.ply', zUp: false },
-	buddha: { url: 'models/happy_buddha.ply', zUp: false },
-	lucy: { url: 'models/lucy.ply', zUp: true },
+	dragon: { url: 'models/stanford_dragon.ply', zUp: false, label: 'the Stanford Dragon' },
+	buddha: { url: 'models/happy_buddha.ply', zUp: false, label: 'the Happy Buddha' },
+	lucy: { url: 'models/lucy.ply', zUp: true, label: 'Lucy' },
 };
+// a step that never settles (driver, network) ends in an error with a retry instead of an endless load
+const ADAPTER_TIMEOUT = 15000;
+const MODEL_TIMEOUT = 60000;
 const SIZE = 0.2; // every scan scaled to 20 cm along its longest side, so the spot rig fits them all
 const FOV = 30;
 
@@ -27,14 +30,38 @@ const log = ( ...a ) => { logEl.textContent += a.join( ' ' ) + '\n'; console.log
 
 main().catch( e => { results.status = 'error'; results.error = String( e?.stack || e ); log( 'ERROR', e?.stack || e ); showError( e ); } );
 
-// friendly message in the loading overlay (the raw log stays below for the test page)
+// friendly message in the loading overlay, with a retry (the raw log stays below for the test page)
 function showError( e ) {
 
 	const el = document.getElementById( 'loading' );
 	el.classList.add( 'error' );
-	el.textContent = navigator.gpu
+	el.style.pointerEvents = 'auto';
+	document.body.classList.remove( 'live' );
+	const text = document.createElement( 'span' );
+	text.textContent = navigator.gpu
 		? `Something went wrong: ${ e?.message || e }`
 		: 'Live RT needs WebGPU. Open it in a recent Chrome or Edge (desktop), or Safari 26.';
+	const retry = document.createElement( 'button' );
+	retry.textContent = 'Retry';
+	retry.style.marginLeft = '12px';
+	retry.addEventListener( 'click', () => location.reload() );
+	el.replaceChildren( text, ...( navigator.gpu ? [ retry ] : [] ) );
+
+}
+
+function setLoading( text ) {
+
+	document.getElementById( 'loading' ).textContent = text;
+
+}
+
+function withTimeout( promise, ms, what ) {
+
+	let timer;
+	const timeout = new Promise( ( _, reject ) => {
+		timer = setTimeout( () => reject( new Error( `${ what } did not answer within ${ ms / 1000 } s` ) ), ms );
+	} );
+	return Promise.race( [ promise, timeout ] ).finally( () => clearTimeout( timer ) );
 
 }
 
@@ -45,14 +72,17 @@ async function main() {
 	// inside MatterLift the render controls show from the start; H hides them
 	if ( QUERY.has( 'embed' ) ) document.body.classList.add( 'embed' );
 
-	const adapter = await navigator.gpu.requestAdapter( { powerPreference: 'high-performance' } );
+	const name = TEST ? 'dragon' : QUERY.get( 'model' ) in MODELS ? QUERY.get( 'model' ) : 'dragon';
+	setLoading( `Starting WebGPU for ${ MODELS[ name ].label }…` );
+	const adapter = await withTimeout( navigator.gpu.requestAdapter( { powerPreference: 'high-performance' } ), ADAPTER_TIMEOUT, 'The GPU (WebGPU adapter)' );
 	if ( ! adapter ) throw new Error( 'no WebGPU adapter' );
-	const device = await adapter.requestDevice( { requiredFeatures: adapter.features.has( 'timestamp-query' ) ? [ 'timestamp-query' ] : [] } );
+	const device = await withTimeout(
+		adapter.requestDevice( { requiredFeatures: adapter.features.has( 'timestamp-query' ) ? [ 'timestamp-query' ] : [] } ),
+		ADAPTER_TIMEOUT, 'The GPU (WebGPU device)' );
 	const info = adapter.info || {};
 	results.adapter = `${ info.vendor } / ${ info.architecture } / ${ info.description || info.device }`;
 	log( 'Adapter:', results.adapter, '| timestamp-query:', device.features.has( 'timestamp-query' ) );
 
-	const name = TEST ? 'dragon' : QUERY.get( 'model' ) in MODELS ? QUERY.get( 'model' ) : 'dragon';
 	const { scene, view } = await loadModel( name );
 	if ( TEST ) {
 		const R = await setupUnbiased( device, scene );
@@ -70,7 +100,25 @@ async function loadModel( name ) {
 
 	const model = MODELS[ name ] ?? MODELS.dragon;
 	const t0 = performance.now();
-	const geo = await new PLYLoader().loadAsync( model.url );
+	setLoading( `Loading ${ model.label } and building its BVH…` );
+	// revalidated fetch (a stale cached 404 must not stick), checked before parsing
+	const abort = new AbortController();
+	const timer = setTimeout( () => abort.abort(), MODEL_TIMEOUT );
+	let data;
+	try {
+		const r = await fetch( model.url, { cache: 'no-cache', signal: abort.signal } );
+		if ( ! r.ok ) throw new Error( `${ model.label }: ${ model.url } answered ${ r.status }` );
+		data = await r.arrayBuffer();
+	} catch ( e ) {
+		throw abort.signal.aborted ? new Error( `${ model.label } did not load within ${ MODEL_TIMEOUT / 1000 } s` ) : e;
+	} finally {
+		clearTimeout( timer );
+	}
+	if ( new TextDecoder().decode( data.slice( 0, 3 ) ) !== 'ply' ) {
+		throw new Error( `${ model.label } could not be loaded: the server sent something else than the model (${ model.url })` );
+	}
+	const geo = new PLYLoader().parse( data );
+	if ( ! geo.index?.count || ! geo.attributes.position?.count ) throw new Error( `${ model.url } has no triangles` );
 	const p = geo.attributes.position.array;
 	if ( ! model.zUp ) {
 		for ( let i = 0; i < p.length; i += 3 ) {

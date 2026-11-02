@@ -121,6 +121,7 @@ function showTriplanar(forced: boolean) {
 const LIVE_URL = (import.meta.env.VITE_LIVE_URL as string | undefined) ?? new URL("live.html", location.href).href;
 let live: HTMLIFrameElement | null = null;
 let liveReady = false;
+let liveModel: string | null = null; // the scan the iframe shows (or loads)
 let liveMaps: Record<string, string> | null = null;
 
 const liveBtn = $<HTMLButtonElement>("#live");
@@ -139,17 +140,22 @@ liveBtn.addEventListener("click", () => {
     .forEach((b) => {
       if (!isScan(b.dataset.shape!)) b.disabled = on;
     });
-  if (on && !live) {
+  // a fresh iframe each time, removed when Live RT goes off: its WebGPU device and ~700 MB of GPU
+  // memory go with it, and a page that failed to load never sticks
+  live?.remove();
+  live = null;
+  liveReady = false;
+  if (on) {
     const url = new URL(LIVE_URL);
     url.searchParams.set("embed", "");
     url.searchParams.set("model", currentShape);
+    liveModel = currentShape;
     live = document.createElement("iframe");
     live.className = "live-frame";
     live.src = url.href;
     live.title = "Live path-traced preview";
     $("#canvas-wrap").append(live);
   }
-  if (live) live.hidden = !on;
   preview.setActive(!on);
 });
 window.addEventListener("message", (e) => {
@@ -157,6 +163,8 @@ window.addEventListener("message", (e) => {
   liveReady = true;
   void sendLiveMaterial();
   sendLiveTweaks();
+  // a scan picked while the page was loading
+  if (isScan(currentShape) && currentShape !== liveModel) sendLiveModel(currentShape);
 });
 
 // Look-dev controls: one set for every shape, mirrored in Live RT (which has no displacement:
@@ -176,7 +184,8 @@ $("#tweaks").addEventListener("input", () => {
 });
 
 function sendLiveModel(model: Scan) {
-  if (!live?.contentWindow || !liveReady) return;
+  if (!live?.contentWindow || !liveReady || model === liveModel) return;
+  liveModel = model;
   live.contentWindow.postMessage({ type: "live-rt:model", model }, "*");
 }
 
