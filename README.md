@@ -182,7 +182,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Preview meshes | Stanford Dragon, Happy Buddha and Lucy, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles each: `web/public/models/` (details and terms in `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
 | Live RT renderer | Ours, written during the hackathon: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris) |
-| Hosting | Modal (API), Cloudflare Workers (page) |
+| Hosting | Vercel (page, API as a Python function, saved work in Vercel Blob) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
 ## How it works
@@ -438,18 +438,28 @@ likely not fit (not measured yet: that is for the load test), so 4K exports are 
 
 ## Deploy
 
-- API on Modal: `modal deploy deploy/modal_app.py`. The Meta key is read from the local `.env` at
-  deploy time and stored as a Modal secret, never in the image; materials live on a Modal Volume.
-- Page on Cloudflare Workers (static assets, `web/wrangler.jsonc`):
+One Vercel project (free Hobby plan) serves the page and the API:
 
-```bash
-cd web
-npm run deploy   # builds with web/.env.production (API URL), refuses an unbuilt page, deploys
-```
+- **The page** is built by Vercel (`vercel.json`: `npm --prefix web ci`, build, then
+  `web/scripts/check-dist.mjs` refuses an unbuilt page) and served from its CDN.
+- **The API** is the same FastAPI app as on a PC, one Python function (`pyproject.toml`:
+  `[tool.vercel] entrypoint = "matterlift_api.main:app"`, up to 300 s per request).
+- **Saved work** (materials, understandings, libraries) goes to **Vercel Blob**, since a function's
+  disk does not outlive the request: `matterlift_api/storage.py` mirrors each saved folder (files
+  under their content hash, one manifest per save) and pulls it back on any instance. Images and
+  `.zip` exports are redirects to Blob, as a function answers at most 4.5 MB. Old folders are
+  purged to stay under the free 1 GB. Without a Blob store (a PC, a server) none of this runs.
+- **Free-plan limits**: 2 GB of memory, so materials and exports stop at 2K there (4K locally);
+  the page shrinks photos to 2048 px before upload (4.5 MB request limit).
 
-  Cloudflare also redeploys the page on every push to GitHub (Workers Builds). The root
-  `wrangler.jsonc` makes that build the page and run the same check first; without it Cloudflare
-  served the unbuilt `web/` folder and the page lost its CSS after each push.
+Setting it up, once:
+
+1. https://vercel.com/new: import the GitHub repository (Vercel detects FastAPI and reads
+   `vercel.json`). Every push then redeploys.
+2. Storage → Create → **Blob**, access **Public**, and connect it to the project (this adds
+   `BLOB_STORE_ID`).
+3. Settings → Environment Variables: the `META_*` values from `.env.example`, with your key in
+   `META_API_KEY`. Then redeploy.
 
 `VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: `live.html` of the same site).
 
