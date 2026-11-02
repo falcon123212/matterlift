@@ -3,7 +3,9 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 
-export type Shape = "sphere" | "cube" | "plane" | "dragon";
+export type Shape = "sphere" | "cube" | "plane" | Scan;
+/** The Stanford scans (no UVs: always triplanar, no displacement). */
+export type Scan = "dragon" | "buddha" | "lucy";
 export type LightPass = "hdri" | "key" | "raking" | "back";
 /** Render passes (AOVs): the lit beauty pass, or one buffer shown on its own. */
 export type Aov = "beauty" | "depth" | "normal" | "albedo" | "roughness" | "ao";
@@ -37,9 +39,17 @@ export interface Shading {
 
 const REPEAT = 2;
 // Triplanar tiles per world unit, matching each shape's UV density (REPEAT tiles across its UVs).
-const TRI_SCALE: Record<Shape, number> = { sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4, dragon: REPEAT / 0.8 };
-// Stanford dragon (Stanford 3D Scanning Repository), decimated to 150k triangles. No UVs: shown triplanar only.
-const DRAGON_URL = "/models/stanford_dragon.ply";
+const TRI_SCALE: Record<Shape, number> = {
+  sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4, dragon: REPEAT / 0.8, buddha: REPEAT / 0.8, lucy: REPEAT / 0.8,
+};
+// Stanford 3D Scanning Repository models, decimated to 150k triangles (credits: public/models/CREDITS.md).
+// `zUp`: the scan stands on its z axis (three.js is y-up).
+export const SCANS: Record<Scan, { url: string; zUp: boolean }> = {
+  dragon: { url: "models/stanford_dragon.ply", zUp: false },
+  buddha: { url: "models/happy_buddha.ply", zUp: false },
+  lucy: { url: "models/lucy.ply", zUp: true },
+};
+export const isScan = (shape: string): shape is Scan => shape in SCANS;
 // The height map displaces the mesh for real, so silhouettes and the depth AOV show the relief.
 const DISPLACEMENT = 0.035;
 const BACKGROUND = new THREE.Color(0x141416);
@@ -168,8 +178,8 @@ export class Preview {
   private tweaks: Tweaks = { normalScale: 1, displacement: 1, tiling: 1, clay: false };
   private shape: Shape = "sphere";
   private triplanarChosen = false;
-  private dragon?: Promise<THREE.BufferGeometry>;
-  private dragonGeometry?: THREE.BufferGeometry;
+  private scans = new Map<Scan, Promise<THREE.BufferGeometry>>();
+  private scanGeometries = new Set<THREE.BufferGeometry>();
   private envMap: THREE.Texture;
   private sun = new THREE.DirectionalLight(0xffffff, 3);
   private loader = new THREE.TextureLoader();
@@ -220,28 +230,32 @@ export class Preview {
     return new THREE.SphereGeometry(1, 256, 128);
   }
 
-  /** The dragon scan, loaded once, centred and scaled to the unit sphere like the other shapes. */
-  private loadDragon(): Promise<THREE.BufferGeometry> {
-    this.dragon ??= new PLYLoader().loadAsync(DRAGON_URL).then((g) => {
+  /** A scan, loaded once, upright, centred and scaled to the unit sphere like the other shapes. */
+  private loadScan(scan: Scan): Promise<THREE.BufferGeometry> {
+    const cached = this.scans.get(scan);
+    if (cached) return cached;
+    const loading = new PLYLoader().loadAsync(SCANS[scan].url).then((g) => {
+      if (SCANS[scan].zUp) g.rotateX(-Math.PI / 2);
       g.computeVertexNormals();
       g.computeBoundingSphere();
       const { center, radius } = g.boundingSphere!;
       g.translate(-center.x, -center.y, -center.z);
       g.scale(1 / radius, 1 / radius, 1 / radius);
       g.computeBoundingSphere();
-      this.dragonGeometry = g;
+      this.scanGeometries.add(g);
       return g;
     });
-    return this.dragon;
+    this.scans.set(scan, loading);
+    return loading;
   }
 
   async setShape(shape: Shape) {
     this.shape = shape;
-    const geometry = shape === "dragon" ? await this.loadDragon() : this.geometry(shape);
-    // a later click won while the dragon was loading
+    const geometry = isScan(shape) ? await this.loadScan(shape) : this.geometry(shape);
+    // a later click won while the scan was loading
     if (this.shape !== shape) return;
-    // the cached dragon is kept for the next visit
-    if (this.mesh.geometry !== this.dragonGeometry) this.mesh.geometry.dispose();
+    // the cached scans are kept for the next visit
+    if (!this.scanGeometries.has(this.mesh.geometry)) this.mesh.geometry.dispose();
     this.mesh.geometry = geometry;
     this.mesh.rotation.set(shape === "plane" ? -0.9 : 0, 0, 0);
     this.tri.triScale.value = TRI_SCALE[shape] * this.tweaks.tiling;
@@ -264,7 +278,7 @@ export class Preview {
     this.sun.position.set(...pos[pass]);
   }
 
-  /** Triplanar projection on or off (beauty pass). The dragon has no UVs, so it is always triplanar;
+  /** Triplanar projection on or off (beauty pass). The scans have no UVs, so they are always triplanar;
    * the choice comes back on the other shapes. */
   setTriplanar(on: boolean) {
     this.triplanarChosen = on;
@@ -272,12 +286,12 @@ export class Preview {
   }
 
   private applyTriplanar() {
-    this.tri.triplanar.value = this.triplanarChosen || this.shape === "dragon" ? 1 : 0;
+    this.tri.triplanar.value = this.triplanarChosen || isScan(this.shape) ? 1 : 0;
   }
 
-  /** The height map displaces along UVs, which the dragon lacks: no displacement there. */
+  /** The height map displaces along UVs, which the scans lack: no displacement there. */
   private displacement(): number {
-    return this.shape === "dragon" ? 0 : DISPLACEMENT * this.tweaks.displacement;
+    return isScan(this.shape) ? 0 : DISPLACEMENT * this.tweaks.displacement;
   }
 
   private applyDisplacement() {

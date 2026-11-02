@@ -1,5 +1,5 @@
 import "./style.css";
-import { Preview, type Aov, type LightPass, type MaterialMaps, type Shading, type Shape, type Tweaks } from "./preview";
+import { Preview, isScan, type Aov, type LightPass, type MaterialMaps, type Scan, type Shading, type Shape, type Tweaks } from "./preview";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -80,9 +80,13 @@ function toggle(groupSel: string, attr: string, apply: (v: string) => void) {
     apply(btn.dataset[attr]!);
   });
 }
+let currentShape: Shape = "sphere";
 toggle("#shapes", "shape", (v) => {
-  void preview.setShape(v as Shape);
-  showTriplanar(v === "dragon");
+  currentShape = v as Shape;
+  void preview.setShape(currentShape);
+  showTriplanar(isScan(v));
+  // Live RT follows the scan picked here
+  if (isScan(v)) sendLiveModel(v);
 });
 toggle("#lights", "light", (v) => preview.setLight(v as LightPass));
 let currentAov: Aov = "beauty";
@@ -103,7 +107,7 @@ $("#triplanar").addEventListener("click", () => {
   showTriplanar(false);
   preview.setTriplanar(triplanarOn);
 });
-/** The dragon is always triplanar (no UVs): the button shows it and is locked there. */
+/** The scans are always triplanar (no UVs): the button shows it and is locked there. */
 function showTriplanar(forced: boolean) {
   const b = $<HTMLButtonElement>("#triplanar");
   const on = forced || triplanarOn;
@@ -128,9 +132,17 @@ liveBtn.addEventListener("click", () => {
   const on = !liveBtn.classList.contains("on");
   liveBtn.classList.toggle("on", on);
   liveBtn.setAttribute("aria-pressed", String(on));
+  // Live RT traces the scans only: Sphere / Cube / Plane are greyed out, and a primitive switches to the dragon
+  if (on && !isScan(currentShape)) $<HTMLButtonElement>('#shapes [data-shape="dragon"]').click();
+  $("#shapes")
+    .querySelectorAll<HTMLButtonElement>("button")
+    .forEach((b) => {
+      if (!isScan(b.dataset.shape!)) b.disabled = on;
+    });
   if (on && !live) {
     const url = new URL(LIVE_URL);
     url.searchParams.set("embed", "");
+    url.searchParams.set("model", currentShape);
     live = document.createElement("iframe");
     live.className = "live-frame";
     live.src = url.href;
@@ -162,6 +174,11 @@ $("#tweaks").addEventListener("input", () => {
   preview.setTweaks(t);
   sendLiveTweaks();
 });
+
+function sendLiveModel(model: Scan) {
+  if (!live?.contentWindow || !liveReady) return;
+  live.contentWindow.postMessage({ type: "live-rt:model", model }, "*");
+}
 
 function sendLiveTweaks() {
   if (!live?.contentWindow || !liveReady) return;

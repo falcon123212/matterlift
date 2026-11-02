@@ -49,8 +49,8 @@ material ready for Godot, Blender, Unity or Unreal.
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
    and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
-   passes (Depth, Normal, Albedo, Rough, AO). Try it on the Stanford **Dragon**, or in **Live RT**:
-   the dragon path traced in the browser (WebGPU) with the same material. With a photo, MatterLift
+   passes (Depth, Normal, Albedo, Rough, AO). Try it on the Stanford **Dragon**, **Buddha** or **Lucy**, or
+   in **Live RT**: that scan path traced in the browser (WebGPU) with the same material. With a photo, MatterLift
    first shows what it understood: the surface SAM masked and the square it sampled, before
    generating anything.
 3. **Use it.** **Download .zip**: ambientCG-style maps, a glTF `.glb`, Godot `.tres` and
@@ -75,7 +75,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
 | Ported from Meta | `api/matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
-| Preview mesh | Stanford dragon, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles with meshoptimizer: `web/public/models/stanford_dragon.ply` |
+| Preview meshes | Stanford Dragon, Happy Buddha and Lucy, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles each: `web/public/models/` (details and terms in `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
 | Live RT renderer | Ours, written during the hackathon: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris) |
 | Hosting | Modal (API), Cloudflare Workers (page) |
@@ -112,22 +112,23 @@ told to keep the pattern scale of the first: the kitchen's octagonal floor tiles
 **Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, with the height map as real
 displacement on the mesh (so the depth pass shows the relief), and Save PNG for the current pass.
 
-**Preview shapes and look-dev**: Sphere, Cube, Plane and the Stanford **Dragon** (150k triangles; no
-UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,
+**Preview shapes and look-dev**: Sphere, Cube, Plane and three Stanford scans, **Dragon**, **Buddha**
+and **Lucy** (150k triangles each; no UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,
 **Tiling scale** and **Clay render** (grey, no colour or metal, the relief stays) apply to every
 shape.
 
-**Live RT**: the same material on the dragon, path traced in the browser with WebGPU: unbiased
+**Live RT**: the same material on the selected scan (Dragon, Buddha or Lucy; Sphere, Cube and Plane
+are greyed out while it is on), path traced in the browser with WebGPU: unbiased
 ReSTIR DI (generalised RIS with pairwise MIS, temporal and spatial reuse) over 256 spot lights,
 shadow rays through a BVH in compute shaders, an SVGF denoiser, accumulation that stops once the
 image has converged. It is written for any WebGPU GPU (plain WGSL, default limits, GPU timers only
 when offered): its *Auto* quality steps down the internal resolution until a frame takes under
 40 ms. The renderer is the `live.html` page of the same site (`web/src/live/`: `restir.js` for the
 passes, `wgsl.js` for the shared WGSL, `main.js` for the scene), shown in an iframe over the preview
-and fed the current maps; it uses the preview's decimated dragon (150k triangles). Its
+and fed the current maps and scan; it uses the preview's decimated scans (150k triangles each). Its
 unbiasedness is checked against an exact reference (every light, one shadow ray each) by
-`live.html?test`: mean bias under 0.1 % (0.02 % and -0.06 % for the two unbiased variants, -12.7 %
-for the plain biased combination, over 128 frames). Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as
+`live.html?test`: mean bias under 0.1 % (0.03 % for both unbiased variants, -12.9 % for the plain
+biased combination, over 128 frames on the dragon). Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as
 it is).
 
 **Live RT limits** (an experimental viewer; the rest of MatterLift does not depend on it):
@@ -358,9 +359,13 @@ Implementation written with Claude Code (Anthropic) as a coding assistant, under
 I chose the pipeline, reviewed the code, ran the tests and validated the materials in the results
 gallery.
 Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
+3D models: Stanford Dragon, Happy Buddha and Lucy from the Stanford 3D Scanning Repository,
+Stanford University Computer Graphics Laboratory (https://graphics.stanford.edu/data/3Dscanrep/),
+used under its terms (non-commercial, source acknowledged); see `web/public/models/CREDITS.md`.
 Third-party code, data and libraries: see [Built during the hackathon](#built-during-the-hackathon).
 
 ## License
 
 MIT (see `LICENSE`), except `api/matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
-which is distributed under the SAM License (see `LICENSE-SAM`).
+which is distributed under the SAM License (see `LICENSE-SAM`), and the 3D models in
+`web/public/models/` (Stanford 3D Scanning Repository terms, see `web/public/models/CREDITS.md`).

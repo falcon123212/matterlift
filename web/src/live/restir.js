@@ -909,7 +909,8 @@ async function buildAtQuality( device, scene, level ) {
 
 }
 
-export async function liveUnbiased( device, scene, sceneCam, results, triangles, bvh ) {
+// loadModel( name ) -> { scene, view }: another Stanford scan, when MatterLift switches model
+export async function liveUnbiased( device, scene, sceneCam, results, triangles, bvh, loadModel ) {
 
 	// Live RT runs on any WebGPU GPU (NVIDIA, AMD, Intel, Apple, Qualcomm): plain WGSL, default limits,
 	// GPU timestamps only when offered. "Auto" quality starts high and steps down until a frame
@@ -1059,8 +1060,8 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 	// quality: level in QUALITY, "auto" adapts while the camera moves; rebuilding takes a second or two
 	let level = built.level, auto = true, rebuilding = false, probe = { t: 0, n: 0, sum: 0 };
 	const showQuality = () => { $( 'qualityOut' ).textContent = `${ W }x${ H }${ auto ? ' (auto)' : '' }`; };
-	const rebuild = async next => {
-		if ( rebuilding || next === level ) return;
+	const rebuild = async ( next, force = false ) => {
+		if ( rebuilding || ( next === level && ! force ) ) return;
 		rebuilding = true;
 		R.destroy();
 		built = await buildAtQuality( device, scene, next );
@@ -1194,7 +1195,20 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		if ( e.source !== window.parent ) return;
 		if ( e.data?.type === 'live-rt:material' ) await R.setMaterial( ( lastMaps = e.data.maps ) );
 		else if ( e.data?.type === 'live-rt:settings' ) R.setLook( ( lastLook = e.data ) );
-		else return;
+		else if ( e.data?.type === 'live-rt:model' && loadModel && ! rebuilding ) {
+			// another scan: new geometry and BVH, the renderer rebuilt around them, the camera reframed;
+			// spots placed on the previous model go
+			const next = await loadModel( e.data.model );
+			scene = next.scene;
+			bvh = scene.bvh;
+			triangles = scene.geo.index.count / 3;
+			custom.length = 0;
+			const [ np, nt ] = next.view;
+			cam.position.set( ...np );
+			controls.target.set( ...nt );
+			controls.update();
+			await rebuild( level, true );
+		} else return;
 		reset = true;
 		refValid = false;
 	} );
