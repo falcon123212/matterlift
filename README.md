@@ -77,7 +77,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
 | Preview mesh | Stanford dragon, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles with meshoptimizer: `web/public/models/stanford_dragon.ply` |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, Vite, TypeScript |
-| Live RT renderer | Separate WebGPU prototype written during the hackathon (Three.js 0.187, three-mesh-bvh 0.9.17), hosted at https://hyperwave-proto.taurus-silver-dev.workers.dev; its code is not in this repository |
+| Live RT renderer | Separate WebGPU prototype (Three.js 0.187, three-mesh-bvh 0.9.17), started 2026-11-01 23:51 (Paris), hosted at https://hyperwave-proto.taurus-silver-dev.workers.dev; wired into MatterLift in commit `3e5736c` (2026-11-02 01:21, Paris). The renderer's own code is not in this repository and not under version control yet |
 | Hosting | Modal (API), Cloudflare Workers (page) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
@@ -120,11 +120,32 @@ shape.
 **Live RT**: the same material on the dragon, path traced in the browser with WebGPU: unbiased
 ReSTIR DI (generalised RIS with pairwise MIS, temporal and spatial reuse) over 256 spot lights,
 shadow rays through a BVH in compute shaders, an SVGF denoiser, accumulation that stops once the
-image has converged. It runs on any WebGPU GPU (NVIDIA, AMD, Intel, Apple): its *Auto* quality steps
-down the internal resolution until a frame takes under 40 ms. The renderer is a separate prototype
-(`hyperwave-proto` on Cloudflare Workers) shown in an iframe and fed the current maps; its unbiasedness
-is checked against an exact reference (every light, one shadow ray each): mean bias under 0.1 %.
-Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as it is).
+image has converged. It is written for any WebGPU GPU (plain WGSL, default limits, GPU timers only
+when offered): its *Auto* quality steps down the internal resolution until a frame takes under
+40 ms. The renderer is a separate prototype (`hyperwave-proto` on Cloudflare Workers, wired into
+MatterLift in commit `3e5736c` on 2026-11-02) shown in an iframe and fed the current maps; its
+unbiasedness is checked against an exact reference (every light, one shadow ray each): mean bias
+under 0.1 %. Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as
+it is).
+
+**Live RT limits** (an experimental viewer; the rest of MatterLift does not depend on it):
+
+- **Tested on one machine only:** Windows 11, NVIDIA GeForce RTX 4060 (desktop), AMD CPU, in Chromium
+  (Chrome and the Chromium of the Claude desktop app). There it runs at 30-150 FPS depending on the
+  variant and the zoom, about 25 ms per frame at 1080p for the visibility-in-target variant.
+- **AMD GPU:** one remote test on a Radeon (RDNA 2) showed a corrupted image. The cause (integers stored
+  in float lanes, which AMD may canonicalise) is fixed, but the fix has not been checked on an AMD
+  GPU since.
+- **Linux, Firefox, Safari, mobile: not tested.** WebGPU itself may be missing: on Linux, Chrome's
+  WebGPU depends on the version and the GPU driver (it may need `chrome://flags`); Firefox and Safari
+  ship WebGPU on some systems only. Without WebGPU the **Live RT** button is disabled and says why.
+- **Laptops with two GPUs:** Chrome on Windows ignores the "high performance" request and may pick the
+  integrated GPU; set Chrome to *High performance* in Windows graphics settings.
+- **Weak or integrated GPUs** should settle at 540p or 360p (estimate from the costs measured on the
+  RTX 4060). The renderer needs about 700 MB of GPU memory at 1080p and 170 MB at 540p; if allocation
+  fails it steps down, and if the driver drops the GPU it asks for a reload.
+- **Not a full material preview:** direct lighting only (no indirect bounce), a mirror floor without
+  shadows, and transmission, clearcoat, sheen, AO and displacement are not rendered.
 
 **Library mode**: one photo of a room gives every material in it. Spark lists up to 8 materials
 with two points on each; SAM masks each from its noun phrase (one concept per request, all in
