@@ -285,3 +285,66 @@ def test_audio_level_tells_silence_from_speech():
     assert abs(seconds - 2) < 0.01 and peak == 0
     _, peak = audio_level(wav(0.5 * np.sin(np.linspace(0, 2000, 48_000))))
     assert 0.45 < peak < 0.55
+
+
+def test_library_manual_points_frame_with_spark(tmp_path, photo):
+    from matterlift_api.library import clean_points
+    client = FakeClient(found={"table": (100, 100, 700, 500)})  # SAM finds Spark's noun phrase
+    pipe = _pipe(tmp_path, client)
+    points = clean_points([[[500, 500]], [[100, 900], [150, 950]]])
+    lib = understand_library(pipe, photo, root=tmp_path / "libraries", points=points)
+    assert len(lib.items) == 2 and all(i.manual for i in lib.items)
+    assert lib.items[0].plan.points == [(500.0, 500.0)]  # the user's points, not Spark's
+    assert lib.items[0].crop_from == "mask" and lib.items[0].found_by == 'SAM "table"'
+    # the second group is outside the table: SAM's instance does not contain it, the largest is kept
+    assert "spark_points" in lib.timings and "spark_list" not in lib.timings
+    assert (tmp_path / "libraries" / lib.id / "mask_0.png").exists()
+
+
+def test_library_manual_points_without_spark_framing(tmp_path, photo):
+    client = FakeClient(found={"table": (100, 100, 700, 500)}, point_box=(200, 200, 600, 450))
+    lib = understand_library(_pipe(tmp_path, client), photo, root=tmp_path / "libraries",
+                             points=[[(500.0, 500.0)]], frame=False)
+    assert lib.items[0].found_by == "SAM on Spark's points"
+    assert not any(c.startswith("sam:table") for c in client.calls)  # no noun phrase sent to SAM
+
+
+def test_library_edit_add_redo_remove_then_build(tmp_path, photo):
+    from matterlift_api.library import point_item, remove_item
+    root = tmp_path / "libraries"
+    listing = {"materials": [{"name": "brick_wall", "texture_prompt": "red brick", "sam_prompt": "brick wall"}]}
+    client = FakeClient(library=listing, found={"brick wall": (0, 0, 800, 300), "table": (100, 350, 700, 590)})
+    pipe = _pipe(tmp_path, client)
+    lib = build_library(pipe, understand_library(pipe, photo, root=root), 256, root=root)
+    built_first = lib.items[0].material
+    client.library = None  # point plans come from PLAN_SYSTEM
+    overlay_before = lib.overlay
+    lib = point_item(pipe, lib, [(500.0, 800.0)], root=root)  # add the table
+    assert len(lib.items) == 2 and lib.items[1].key == 1 and lib.items[1].material is None
+    assert lib.overlay != overlay_before and lib.status == "understood"
+    lib = point_item(pipe, lib, [(400.0, 700.0)], index=1, root=root)  # redo it
+    assert lib.items[1].key == 2 and (root / lib.id / "crop_2_0.png").exists()
+    lib = build_library(pipe, lib, 256, root=root)
+    assert lib.items[0].material == built_first  # only the new item was made
+    assert lib.items[1].material is not None
+    lib = remove_item(lib, 0, root=root)
+    assert [i.plan.name for i in lib.items] == ["oak_table"]
+
+
+def test_library_points_are_validated():
+    from matterlift_api.library import clean_points
+    assert clean_points([[[1200, -5]]]) == [[(1000.0, 0.0)]]
+    for bad in [[], [[]], [[[1, 2, 3]]], [["a", "b"]], "x", [[[0, 0]] * 4]]:
+        with pytest.raises(ValueError):
+            clean_points(bad)
+
+
+def test_same_export_twice_at_once(tmp_path, photo):
+    """Two downloads of the same package at the same time must not delete each other's files."""
+    from concurrent.futures import ThreadPoolExecutor
+    from matterlift_api.pipeline import export_material
+    mat = _pipe(tmp_path, FakeClient(found={"table": (100, 100, 700, 500)})).run("oak", photo, 256)
+    with ThreadPoolExecutor(2) as ex:
+        zips = list(ex.map(lambda _: export_material(mat, 256, "png", tmp_path / "materials"), range(2)))
+    assert zips[0] != zips[1] and all(z.exists() and z.stat().st_size > 0 for z in zips)
+    assert zips[0].name == zips[1].name  # same download name

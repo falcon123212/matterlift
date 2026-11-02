@@ -86,6 +86,9 @@ class LibraryItem(BaseModel):
     crop_from: str | None = None
     found_by: str | None = None
     sam_box: list[int] | None = None
+    key: int | None = None  # names its files (crop_{key}_k.png, mask_{key}.png); index in older libraries
+    regions: list[list[int]] = Field(default_factory=list)  # sampled squares [x, y, w, h], for the overlay
+    manual: bool = False  # placed by the user's points rather than listed by Spark
     material: Material | None = None
     error: str | None = None
 

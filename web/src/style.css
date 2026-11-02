@@ -55,7 +55,22 @@ button.on { background: var(--accent); color: #1a1408; }
 
 label.check { display: flex; gap: 8px; align-items: center; color: var(--text); }
 label.check input { width: auto; margin: 0; }
-#und-overlay { width: 100%; border-radius: 6px; display: block; margin-bottom: 8px; }
+#und-overlay { width: 100%; border-radius: 6px; display: block; }
+#und-pick { margin-bottom: 8px; }
+/* photo with the user's points: one numbered dot per point, a group shares its number */
+.pick { position: relative; line-height: 0; }
+.pick img { width: 100%; border-radius: 6px; display: block; cursor: crosshair; }
+.pick .dots { position: absolute; inset: 0; pointer-events: none; }
+.pick .dot { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%; background: #e61e28; border: 2px solid #fff; color: #fff; font: 600 10px/14px Inter, system-ui, sans-serif; text-align: center; box-shadow: 0 1px 3px #0008; }
+.pick .dot.busy { animation: pulse 0.9s ease-in-out infinite alternate; }
+@keyframes pulse { to { transform: scale(1.4); opacity: 0.6; } }
+.pick-bar { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+#lib-points { display: grid; gap: 6px; }
+#lib-points[hidden] { display: none; }
+#und-items .card { position: relative; }
+#und-items .card .acts { position: absolute; top: 2px; right: 2px; display: flex; gap: 2px; }
+#und-items .card .acts button { width: 18px; height: 18px; padding: 0; border-radius: 4px; background: #000a; color: #fff; font-size: 11px; line-height: 18px; border: 0; }
+#und-items .card.redo > button.main { border-color: #e61e28; }
 #und-items { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #und-items button { padding: 0; background: none; text-align: center; border: 2px solid transparent; border-radius: 6px; }
 #und-items button.on { border-color: var(--accent); }

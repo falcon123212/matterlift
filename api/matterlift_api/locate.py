@@ -74,10 +74,11 @@ def around_points(photo: Image.Image, points: list[tuple[int, int]], frac: float
     return x, y, side, side
 
 
-def locate(client: MetaClient, photo: Image.Image, plan: MaterialPlan) -> Located:
+def locate(client: MetaClient, photo: Image.Image, plan: MaterialPlan, frame: bool = True) -> Located:
+    """frame=False skips Spark's noun phrases: SAM takes the object under the points directly."""
     pts = pixel_points(plan, photo)
     tried: list[str] = []
-    for prompt in prompts_for(plan):
+    for prompt in prompts_for(plan) if frame else []:
         tried.append(f'SAM "{prompt}"')
         try:
             seg = pick(client.segment(photo, prompt), pts)

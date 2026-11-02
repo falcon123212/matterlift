@@ -63,6 +63,7 @@ interface Library {
     found_by: string | null;
     material: Material | null;
     error: string | null;
+    manual?: boolean;
   }[];
   timings: Record<string, number>;
 }
@@ -446,6 +447,54 @@ const libraryMode = $<HTMLInputElement>("#library-mode");
 photoInput.addEventListener("change", () => {
   libraryMode.disabled = !photoInput.files?.length;
   if (libraryMode.disabled) libraryMode.checked = false;
+  pickGroups = [];
+  const file = photoInput.files?.[0];
+  if (file) $<HTMLImageElement>("#pick-img").src = URL.createObjectURL(file);
+  showPicker();
+});
+libraryMode.addEventListener("change", showPicker);
+
+// Manual library mode: the user's points on the photo, one group (1-3 points) per material, in
+// 0..1000 image coordinates. The browser shows phone photos upright, as the API does.
+type Point = [number, number];
+let pickGroups: Point[][] = [];
+const frameMasks = $<HTMLInputElement>("#frame");
+
+function showPicker() {
+  $("#lib-points").hidden = !(libraryMode.checked && photoInput.files?.length);
+  drawDots($("#lib-points .dots"), pickGroups);
+}
+
+function pointAt(e: MouseEvent): Point {
+  const img = e.currentTarget as HTMLImageElement;
+  const r = img.getBoundingClientRect();
+  const clamp = (v: number) => Math.round(Math.min(1000, Math.max(0, v)));
+  return [clamp(((e.clientX - r.left) / r.width) * 1000), clamp(((e.clientY - r.top) / r.height) * 1000)];
+}
+
+function drawDots(layer: HTMLElement, groups: Point[][], busy = false) {
+  layer.replaceChildren(
+    ...groups.flatMap((g, i) =>
+      g.map(([x, y]) => {
+        const d = el("span", String(i + 1), busy ? "dot busy" : "dot");
+        d.style.left = `${x / 10}%`;
+        d.style.top = `${y / 10}%`;
+        return d;
+      }),
+    ),
+  );
+}
+
+$<HTMLImageElement>("#pick-img").addEventListener("click", (e) => {
+  const p = pointAt(e);
+  const last = pickGroups[pickGroups.length - 1];
+  if (e.shiftKey && last && last.length < 3) last.push(p);
+  else if (pickGroups.length < 12) pickGroups.push([p]);
+  drawDots($("#lib-points .dots"), pickGroups);
+});
+$("#pick-clear").addEventListener("click", () => {
+  pickGroups = [];
+  drawDots($("#lib-points .dots"), pickGroups);
 });
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, cls?: string) {
@@ -460,6 +509,9 @@ function describe(target: HTMLElement, parts: (string | [string])[]) {
 }
 
 function showUnderstanding(und: Understanding) {
+  currentLib = null;
+  $("#und-edit").hidden = true;
+  drawDots($("#und-pick .dots"), []);
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + und.overlay;
   const pretty = und.plan.name.replace(/_/g, " ");
@@ -477,7 +529,15 @@ function showUnderstanding(und: Understanding) {
   $("#und-items").replaceChildren();
 }
 
+let currentLib: Library | null = null;
+let redoIndex: number | null = null;
+let editing = false;
+
 function showLibrary(lib: Library, onPick: (m: Material) => void) {
+  currentLib = lib;
+  redoIndex = null;
+  $("#und-edit").hidden = false;
+  drawDots($("#und-pick .dots"), []);
   $("#understanding").hidden = false;
   $<HTMLImageElement>("#und-overlay").src = API + lib.overlay;
   const sampled = lib.items.filter((i) => i.crops.length).length;
@@ -487,7 +547,8 @@ function showLibrary(lib: Library, onPick: (m: Material) => void) {
     fromText ? `; ${fromText} not found in the photo will be painted from their description.` : "."]);
   const cards = lib.items.map((item, i) => {
     const failed = !item.material && lib.status === "built";
-    const b = el("button", undefined, item.material ? "" : failed ? "failed" : "pending");
+    const card = el("div", undefined, "card");
+    const b = el("button", undefined, `main ${item.material ? "" : failed ? "failed" : "pending"}`);
     b.type = "button";
     const src = item.material ? item.material.maps.albedo : item.crops[0];
     let thumb: HTMLElement;
@@ -503,11 +564,25 @@ function showLibrary(lib: Library, onPick: (m: Material) => void) {
     if (item.error) b.title = item.error;
     if (item.material) {
       b.addEventListener("click", () => {
-        $("#und-items").querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+        $("#und-items").querySelectorAll("button.main").forEach((x) => x.classList.toggle("on", x === b));
         onPick(item.material!);
       });
     }
-    return b;
+    const redo = el("button", "↻");
+    redo.type = "button";
+    redo.title = "Redo this material: then click on the photo where it is";
+    redo.addEventListener("click", () => {
+      redoIndex = redoIndex === i ? null : i;
+      $("#und-items").querySelectorAll(".card").forEach((c, k) => c.classList.toggle("redo", k === redoIndex));
+      status.textContent = redoIndex === null ? "" : `Click the photo on the ${item.plan.name.replace(/_/g, " ")}`;
+    });
+    const remove = el("button", "×");
+    remove.type = "button";
+    remove.title = "Remove this material from the library";
+    remove.addEventListener("click", () => void removeFromLibrary(i));
+    card.append(b, el("div", undefined, "acts"));
+    card.lastElementChild!.append(redo, remove);
+    return card;
   });
   $("#und-items").replaceChildren(...cards);
 }
@@ -564,20 +639,27 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
   const stop = ticking(() => phase);
   try {
     if (hasPhoto && libraryMode.checked) {
-      phase = "Spark lists the materials, SAM masks each one…";
+      if (pickGroups.length) {
+        data.append("points", JSON.stringify(pickGroups));
+        data.append("frame", String(frameMasks.checked));
+      }
+      phase = pickGroups.length
+        ? `Spark names the ${pickGroups.length} surface${pickGroups.length > 1 ? "s" : ""} you pointed at, SAM masks them…`
+        : "Spark lists the materials, SAM masks each one…";
       let lib = await post<Library>("/libraries", data);
       history.replaceState(null, "", `?lib=${lib.id}`);
       const pick = pickFromLibrary;
       showLibrary(lib, pick);
-      phase = `Understood in ${(lib.timings.spark_list + lib.timings.sam_masks).toFixed(0)} s. Muse paints every material…`;
+      const spark = lib.timings.spark_list ?? lib.timings.spark_points ?? 0;
+      phase = `Understood in ${(spark + lib.timings.sam_masks).toFixed(0)} s. Muse paints every material…`;
       const build = new FormData();
       build.append("size", size);
       lib = await post<Library>(`/libraries/${lib.id}/build`, build);
       showLibrary(lib, pick);
       const first = lib.items.find((i) => i.material)?.material;
       if (first) await pick(first);
-      $("#und-items").querySelector("button:not(.failed):not(.pending)")?.classList.add("on");
-      status.textContent = `${lib.items.filter((i) => i.material).length}/${lib.items.length} materials ready — click one to preview it`;
+      $("#und-items").querySelector("button.main:not(.failed):not(.pending)")?.classList.add("on");
+      status.textContent = `${lib.items.filter((i) => i.material).length}/${lib.items.length} materials ready — click one to preview it, or the photo to add one`;
     } else if (hasPhoto) {
       phase = "Spark reads your request, SAM finds the surface…";
       const und = await post<Understanding>("/understand", data);
@@ -607,6 +689,60 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
   if (critiqueAfter && $<HTMLInputElement>("#self-critique").checked) await runCritique(critiqueAfter);
 });
 
+// Edit mode on a library: a click on the overlay adds a material there (or redoes the armed card),
+// then only that material is built.
+$<HTMLImageElement>("#und-overlay").addEventListener("click", (e) => {
+  if (!currentLib || editing) return;
+  const p = pointAt(e);
+  void editLibrary([p], redoIndex);
+});
+
+async function editLibrary(points: Point[], index: number | null) {
+  if (!currentLib) return;
+  editing = true;
+  drawDots($("#und-pick .dots"), [points], true);
+  let phase = index === null ? "Spark names what you pointed at, SAM masks it…" : "Spark and SAM redo this material…";
+  const stop = ticking(() => phase);
+  try {
+    const f = new FormData();
+    f.append("points", JSON.stringify([points]));
+    f.append("frame", String(frameMasks.checked));
+    if (index !== null) f.append("index", String(index));
+    let lib = await post<Library>(`/libraries/${currentLib.id}/items`, f);
+    showLibrary(lib, pickFromLibrary);
+    const target = index ?? lib.items.length - 1;
+    phase = `${lib.items[target].plan.name.replace(/_/g, " ")}: Muse paints it…`;
+    const b = new FormData();
+    b.append("size", String($<HTMLSelectElement>('select[name="size"]').value));
+    lib = await post<Library>(`/libraries/${lib.id}/build`, b);
+    showLibrary(lib, pickFromLibrary);
+    const mat = lib.items[target].material;
+    if (mat) {
+      await pickFromLibrary(mat);
+      $("#und-items").querySelectorAll("button.main")[target]?.classList.add("on");
+    } else status.textContent = `Failed: ${lib.items[target].error ?? "no material"}`;
+  } catch (err) {
+    status.textContent = `Failed: ${(err as Error).message}`;
+    drawDots($("#und-pick .dots"), []);
+  } finally {
+    stop();
+    editing = false;
+  }
+}
+
+async function removeFromLibrary(index: number) {
+  if (!currentLib || editing) return;
+  const name = currentLib.items[index].plan.name.replace(/_/g, " ");
+  if (!confirm(`Remove ${name} from this library?`)) return;
+  const r = await fetch(`${API}/libraries/${currentLib.id}/items/${index}`, { method: "DELETE" });
+  if (!r.ok) {
+    status.textContent = `Failed: could not remove ${name} (${r.status})`;
+    return;
+  }
+  showLibrary((await r.json()) as Library, pickFromLibrary);
+  status.textContent = `${name} removed`;
+}
+
 const pickFromLibrary = (m: Material) =>
   show(m, false).then(() => (status.textContent = `${m.plan.name} — from the library`));
 
@@ -618,7 +754,7 @@ if (libId) {
       showLibrary(lib, pickFromLibrary);
       const first = lib.items.find((i) => i.material)?.material;
       if (first) await pickFromLibrary(first);
-      $("#und-items").querySelector("button:not(.failed):not(.pending)")?.classList.add("on");
+      $("#und-items").querySelector("button.main:not(.failed):not(.pending)")?.classList.add("on");
       if (lib.status !== "built") status.textContent = "This library is still being built.";
     })
     .catch(() => (status.textContent = `Library ${libId} not found`));

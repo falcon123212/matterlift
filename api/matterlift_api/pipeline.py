@@ -268,7 +268,9 @@ class Pipeline:
 
 def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DIR) -> Path:
     """Recompute the maps at `size` from the stored albedo and Muse height, write the
-    ambientCG-style package and return its zip."""
+    ambientCG-style package and return its zip. Each call writes into its own folder (two downloads
+    of the same package at once would otherwise delete each other's files); the caller removes
+    `zip.parent` once the zip is sent."""
     d = data_dir / mat.id
     src = d / "albedo_source.png"
     albedo = pio.load(src if src.exists() else d / "albedo.png")
@@ -278,8 +280,8 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
     maps = pbrforge.derive(albedo, params, size=size, height_guide=guide)
     preview = pio.to_pil(contact.render_sphere(maps, 512))
     lay = shaders.layers(albedo, params, size, guide)
-    folder = export.export_package(maps, mat.plan.name, d / "export", fmt, preview, mat.plan.shading.model_dump(),
-                                   shader_layers=(lay, params))
+    folder = export.export_package(maps, mat.plan.name, d / "export" / uuid.uuid4().hex[:10], fmt, preview,
+                                   mat.plan.shading.model_dump(), shader_layers=(lay, params))
     return export.zip_package(folder)
 
 

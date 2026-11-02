@@ -2,18 +2,22 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import re
+import shutil
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from PIL import Image
+from starlette.background import BackgroundTask
 
 from .critique import critique_by_id
 from .meta_client import audio_level
-from .library import LIBRARY_DIR, build_library, load_library, understand_library
+from .library import (LIBRARY_DIR, build_library, clean_points, load_library, point_item, remove_item,
+                      understand_library)
 from .pipeline import (DATA_DIR, UNDERSTAND_DIR, Pipeline, export_material, load_material,
                        load_understanding, normalize_photo)
 from .schemas import Critique, Library, Material, Understanding
@@ -185,7 +189,9 @@ async def export(mid: str, size: int = 1024, fmt: str = "png") -> FileResponse:
     if size not in (512, 1024, 2048, 4096) or fmt not in ("png", "jpg"):
         raise HTTPException(400, "size in 512/1024/2048/4096, fmt in png/jpg")
     path = await run_in_threadpool(export_material, mat, size, fmt)
-    return FileResponse(path, media_type="application/zip", filename=path.name)
+    # this request's own folder (package + zip) goes once the zip is sent
+    return FileResponse(path, media_type="application/zip", filename=path.name,
+                        background=BackgroundTask(shutil.rmtree, path.parent, ignore_errors=True))
 
 
 @app.get("/materials/{mid}/maps/{name}.png")
@@ -203,15 +209,58 @@ async def create_library(
     photo: UploadFile = File(...),
     text: str = Form(""),
     audio: UploadFile | None = File(None),
+    points: str = Form(""),
+    frame: bool = Form(True),
 ) -> Library:
     """Library step 1: Spark lists the materials, SAM masks each one; returns the overlay and
-    samples to show, before /libraries/{id}/build generates them."""
+    samples to show, before /libraries/{id}/build generates them.
+    Manual mode: `points` (JSON [[[x, y], ...], ...] in 0..1000, one group per material) replaces
+    Spark's listing; `frame` lets Spark's noun phrase frame each mask (else SAM takes the object
+    under the points)."""
+    groups = _points(points) if points else None
     request = await _request_text(text, audio)
     img = await _photo(photo)
     try:
-        return await run_in_threadpool(understand_library, pipeline(), img, request)
+        return await run_in_threadpool(understand_library, pipeline(), img, request, LIBRARY_DIR, groups, frame)
     except RuntimeError as e:
         raise HTTPException(502, str(e)) from e
+
+
+def _points(raw: str) -> list:
+    try:
+        return clean_points(json.loads(raw))
+    except (ValueError, json.JSONDecodeError) as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.post("/libraries/{lid}/items", response_model=Library)
+async def add_library_item(lid: str, points: str = Form(...), frame: bool = Form(True),
+                           index: int | None = Form(None)) -> Library:
+    """Edit mode: a material at the user's points (one group), or with `index` that item redone
+    from them. The item comes back without a material: /libraries/{id}/build makes it."""
+    lib = load_library(lid) if _SAFE.match(lid) else None
+    if lib is None:
+        raise HTTPException(404)
+    group = _points(points)
+    if len(group) != 1:
+        raise HTTPException(400, "points: one group per edit")
+    try:
+        return await run_in_threadpool(point_item, pipeline(), lib, group[0], frame, index)
+    except IndexError as e:
+        raise HTTPException(404, str(e)) from e
+    except (ValueError, RuntimeError) as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@app.delete("/libraries/{lid}/items/{index}", response_model=Library)
+def delete_library_item(lid: str, index: int) -> Library:
+    lib = load_library(lid) if _SAFE.match(lid) else None
+    if lib is None:
+        raise HTTPException(404)
+    try:
+        return remove_item(lib, index)
+    except IndexError as e:
+        raise HTTPException(404, str(e)) from e
 
 
 @app.post("/libraries/{lid}/build", response_model=Library)

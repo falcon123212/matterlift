@@ -54,6 +54,14 @@
           <input type="checkbox" name="library" id="library-mode" disabled title="Needs a photo: one material per surface Spark finds in it" />
           Every material in this photo (library)
         </label>
+        <div id="lib-points" hidden>
+          <p class="small muted">Optional: click the surfaces you want, one material per click (Shift+click: one more point on the same one). No point: Spark lists every material.</p>
+          <div class="pick"><img id="pick-img" alt="Your photo: click a surface to choose it" /><div class="dots"></div></div>
+          <div class="pick-bar">
+            <label class="check"><input type="checkbox" id="frame" checked title="On: Spark names what you pointed at and SAM masks that surface. Off: SAM takes the object under the point." /> Spark frames the masks</label>
+            <button type="button" class="link" id="pick-clear">clear points</button>
+          </div>
+        </div>
         <label class="check">
           <input type="checkbox" id="self-critique" checked title="Spark reviews the result under raking light and fixes what it finds" />
           Spark self-critique after generating
@@ -107,7 +115,8 @@
       <section class="side">
         <div id="understanding" hidden>
           <h2>What MatterLift understood</h2>
-          <img id="und-overlay" alt="The photo with the surface SAM masked and the square sampled from it" />
+          <div class="pick" id="und-pick"><img id="und-overlay" alt="The photo with the surface SAM masked and the square sampled from it" /><div class="dots"></div></div>
+          <p id="und-edit" class="small muted" hidden>Edit: click the photo to add a material there. ↻ on a card, then a click on the photo, redoes its mask; × removes it.</p>
           <p id="und-text" class="small"></p>
           <div id="und-items"></div>
         </div>
