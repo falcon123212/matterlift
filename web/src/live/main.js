@@ -1,6 +1,6 @@
 // MatterLift Live RT: a Stanford scan path traced with WebGPU (unbiased ReSTIR DI over 256 spot
 // lights, BVH shadow rays, SVGF denoiser), wearing the material MatterLift sends it (restir.js).
-//   live.html                live viewer (inside MatterLift: ?embed, controls hidden until H)
+//   live.html                live viewer (inside MatterLift: ?embed; H hides the controls)
 //   live.html?model=buddha   start on another scan (dragon, buddha, lucy); MatterLift can switch later
 //   live.html?test           bias test against the exact reference (every light, one shadow ray each)
 import * as THREE from 'three';
@@ -42,7 +42,8 @@ async function main() {
 
 	if ( ! navigator.gpu ) throw new Error( 'WebGPU is not available in this browser' );
 	if ( TEST ) document.getElementById( 'loading' ).style.display = 'none';
-	if ( QUERY.has( 'embed' ) ) document.body.classList.add( 'embed', 'hide-ui' );
+	// inside MatterLift the render controls show from the start; H hides them
+	if ( QUERY.has( 'embed' ) ) document.body.classList.add( 'embed' );
 
 	const adapter = await navigator.gpu.requestAdapter( { powerPreference: 'high-performance' } );
 	if ( ! adapter ) throw new Error( 'no WebGPU adapter' );
