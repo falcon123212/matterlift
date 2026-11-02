@@ -8,8 +8,8 @@
 - **Video:** coming soon
 - **Repository:** https://github.com/falcon123212/matterlift
 
-![MatterLift: "vieux parquet de chêne très usé, rayé" on the sphere, with Spark's critique and the export](docs/img/interface.jpg)
-*"vieux parquet de chêne très usé, rayé" (very worn, scratched old oak parquet): Spark judged the
+![MatterLift: "very worn, scratched old oak parquet" on the sphere, with Spark's critique and the export](docs/img/interface.jpg)
+*"very worn, scratched old oak parquet": Spark judged the
 first result 5/10 under raking light (wear too faint, planks too clean), changed the plan itself and
 the new version scored 7/10. Right: export and the tiled 3×3 check.*
 
@@ -23,12 +23,13 @@ Muse Voice Transcribe).
 Five materials made from a sentence alone, shown in **Live RT** (the Stanford dragon path traced in
 the browser, WebGPU). Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
 gives it (512 px PNG): maps, `.glb`, Godot `.tres` and shader, MaterialX, USD, Blender script, all
-passing the Khronos glTF validator, MaterialX, USD and Godot 4.
+passing the Khronos glTF validator, MaterialX, USD and Godot 4. Prompts typed in French are shown translated: MatterLift
+takes requests in any language Spark reads.
 
 | | | |
 |---|---|---|
 | ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
-| **"un rubis"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Rubis_512-PNG)) | **"vieux parquet de chêne très usé, rayé"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Pierre calcaire centenaire gris-beige patiné, finition mate brute, pores, fissures fines et joints maçonnés visibles…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
+| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Rubis_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
 | ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | |
 | **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | |
 
@@ -131,7 +132,7 @@ map as real displacement on the mesh (so the depth pass shows the relief), and S
 current pass.
 
 ![The ruby on the Stanford dragon: Beauty, Depth, Normal and Thickness passes](docs/img/passes_ruby.jpg)
-*"un rubis" on the dragon: Beauty, Depth (white = near), Normal, Thickness (white = thick: the veins
+*"a ruby" on the dragon: Beauty, Depth (white = near), Normal, Thickness (white = thick: the veins
 of the stone, projected triplanar since the scan has no UVs).*
 
 **Preview shapes and look-dev**: Sphere, Cube, Plane and three Stanford scans, **Dragon**, **Buddha**
