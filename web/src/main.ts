@@ -112,9 +112,9 @@ function showTriplanar(forced: boolean) {
   b.setAttribute("aria-pressed", String(on));
 }
 
-// Live path tracing: the WebGPU ReSTIR renderer (DEV/ray/webgpu_proto) in an iframe over the preview,
+// Live path tracing: the WebGPU ReSTIR renderer (live.html, src/live) in an iframe over the preview,
 // fed the current material's maps as ImageBitmaps. The WebGL preview sleeps while it is shown.
-const LIVE_URL = (import.meta.env.VITE_LIVE_URL as string | undefined) ?? "https://hyperwave-proto.taurus-silver-dev.workers.dev/";
+const LIVE_URL = (import.meta.env.VITE_LIVE_URL as string | undefined) ?? new URL("live.html", location.href).href;
 let live: HTMLIFrameElement | null = null;
 let liveReady = false;
 let liveMaps: Record<string, string> | null = null;
@@ -141,7 +141,7 @@ liveBtn.addEventListener("click", () => {
   preview.setActive(!on);
 });
 window.addEventListener("message", (e) => {
-  if (!live || e.source !== live.contentWindow || e.data?.type !== "hyperwave:ready") return;
+  if (!live || e.source !== live.contentWindow || e.data?.type !== "live-rt:ready") return;
   liveReady = true;
   void sendLiveMaterial();
   sendLiveTweaks();
@@ -166,7 +166,7 @@ $("#tweaks").addEventListener("input", () => {
 function sendLiveTweaks() {
   if (!live?.contentWindow || !liveReady) return;
   const { normalScale, tiling, clay } = tweaks();
-  live.contentWindow.postMessage({ type: "hyperwave:settings", normalScale, tiling, clay }, "*");
+  live.contentWindow.postMessage({ type: "live-rt:settings", normalScale, tiling, clay }, "*");
 }
 
 async function sendLiveMaterial() {
@@ -176,7 +176,7 @@ async function sendLiveMaterial() {
     keys.map(async (k) => (liveMaps?.[k] ? createImageBitmap(await (await fetch(liveMaps[k])).blob()) : undefined)),
   );
   const maps = Object.fromEntries(keys.map((k, i) => [k, bitmaps[i]]));
-  live.contentWindow.postMessage({ type: "hyperwave:material", maps }, "*", bitmaps.filter((b) => b !== undefined));
+  live.contentWindow.postMessage({ type: "live-rt:material", maps }, "*", bitmaps.filter((b) => b !== undefined));
 }
 
 function absolute(maps: Record<string, string>): Record<string, string> {

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MatterLift Live RT</title>
+<style>
+	body { margin: 0; background: #111; color: #ddd; font: 13px/1.4 ui-monospace, Consolas, monospace; }
+	#view { display: block; width: 960px; height: 540px; background: #000; }
+	pre { padding: 8px 12px; margin: 0; white-space: pre-wrap; }
+	#hud { display: none; }
+	body.live { background: #000; overflow: hidden; }
+	body.live #view { width: 100vw; height: 100vh; object-fit: contain; cursor: grab; touch-action: none; }
+	body.live #log { display: none; }
+	#panel { display: none; }
+	body.live #panel { display: flex; flex-direction: column; gap: 6px; position: fixed; left: 12px; bottom: 12px; padding: 10px 12px; background: rgba( 20, 20, 24, 0.75 ); border: 1px solid #333; border-radius: 8px; color: #ccc; font-size: 12px; }
+	body.live #panel:empty { display: none; }
+	body.hide-ui #hud, body.hide-ui #panel { display: none !important; }
+	#tip { display: none; }
+	body.embed.hide-ui.live #tip { display: block; position: fixed; right: 10px; bottom: 8px; color: #777; font-size: 11px; pointer-events: none; }
+	#loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; color: #9aa; font-size: 14px; pointer-events: none; text-align: center; padding: 16px; }
+	#loading.error { color: #e88; }
+	body.live #loading { display: none; }
+	#panel label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+	#panel input[type=range] { width: 140px; }
+	#panel input[type=color] { width: 32px; height: 20px; padding: 0; border: none; background: none; cursor: pointer; }
+	body.live #hud { display: block; position: fixed; left: 12px; top: 10px; color: #bbb; font-size: 12px; letter-spacing: 0.02em; pointer-events: none; text-shadow: 0 1px 2px #000; }
+</style>
+</head>
+<body>
+<canvas id="view" width="960" height="540"></canvas>
+<pre id="hud"></pre>
+<div id="panel"></div>
+<div id="tip">H: render controls · drag: orbit · wheel: zoom</div>
+<div id="loading">Loading the Stanford dragon and building its BVH…</div>
+<pre id="log"></pre>
+<script type="module" src="/src/live/main.js"></script>
+</body>
+</html>
