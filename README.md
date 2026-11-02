@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
+  <a href="https://youtu.be/lK5YGg_GBmg"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
   <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
   <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-12%20materials-2b2d35?style=for-the-badge&labelColor=16171c"></a>
 </p>
@@ -11,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/falcon123212/matterlift/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/falcon123212/matterlift/actions/workflows/tests.yml/badge.svg"></a>
   <img alt="Meta Global AI Hackathon 2026" src="https://img.shields.io/badge/Meta%20Global%20AI%20Hackathon-2026-0866ff">
-  <img alt="Muse Spark, SAM 3.1, Muse Image, Muse Voice" src="https://img.shields.io/badge/Meta%20models-Muse%20Spark%20%C2%B7%20SAM%203.1%20%C2%B7%20Muse%20Image%20%C2%B7%20Muse%20Voice-0866ff">
+  <img alt="Muse Spark, SAM 3.1, Muse Image, Muse Transcribe" src="https://img.shields.io/badge/Meta%20models-Muse%20Spark%20%C2%B7%20SAM%203.1%20%C2%B7%20Muse%20Image%20%C2%B7%20Muse%20Transcribe-0866ff">
   <img alt="Exports" src="https://img.shields.io/badge/exports-glTF%20%C2%B7%20Godot%204%20%C2%B7%20Blender%20%C2%B7%20MaterialX%20%C2%B7%20USD-555">
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-555">
 </p>
@@ -23,7 +24,15 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#tests-and-benchmarks">Tests</a> ·
   <a href="#run-it">Run it</a> ·
-  Video: coming soon
+  <b><a href="https://youtu.be/lK5YGg_GBmg">Video</a></b>
+</p>
+
+<br>
+
+<p align="center">
+  <a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/video_thumbnail.jpg" alt="Watch the 3-minute demo on YouTube: one photo of a bowl becomes a game-ready 3D material in 55 seconds" width="720"></a>
+  <br>
+  <sub>▶ <a href="https://youtu.be/lK5YGg_GBmg"><b>Watch the 3-minute demo</b></a>: one photo of a bowl, a game-ready material in 55 s, every step on screen.</sub>
 </p>
 
 <br>
@@ -31,7 +40,8 @@
 <p align="center">
   <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
   <br>
-  <sub><b>"a ruby"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
+  <sub><b>"a ruby"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.
+  <br><b>Live RT is tested on Chrome on Windows with an NVIDIA GPU only</b> (<a href="#live-rt-limits">limits</a>).</sub>
 </p>
 
 <br>
@@ -40,6 +50,23 @@ From a photo or a sentence to a game-ready material: show a real surface, say wh
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, thickness, ORM, glTF) ready
 for Godot, Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image,
 SAM 3.1, Muse Voice Transcribe).
+
+## See it in action
+
+<table>
+  <tr>
+    <td width="33%" align="center"><a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/videos/demo.jpg" alt="Watch the 3-minute demo: one photo of a bowl becomes a game-ready material" width="100%"></a><br><b>The 3-minute demo</b><br><sub>A photo of a bowl, every step on screen</sub></td>
+    <td width="33%" align="center"><a href="https://youtu.be/BPpDhytLlfs"><img src="docs/img/videos/diamond.jpg" alt="Watch a diamond being generated from two words" width="100%"></a><br><b>A diamond, from two words</b><br><sub>Spark sets transmission and IOR 2.4</sub></td>
+    <td width="33%" align="center"><a href="https://youtu.be/g-3Ds-COs7U"><img src="docs/img/videos/buddha.jpg" alt="Watch aged limestone on the Buddha, path traced live" width="100%"></a><br><b>Limestone on the Buddha</b><br><sub>Path traced live in the browser</sub></td>
+  </tr>
+  <tr>
+    <td width="33%" align="center"><a href="https://youtu.be/kYKld37nRlw"><img src="docs/img/videos/lucy.jpg" alt="Watch mossy flagstone on Lucy, path traced live" width="100%"></a><br><b>Mossy flagstone on Lucy</b><br><sub>Path traced live in the browser</sub></td>
+    <td width="33%" align="center"><a href="https://youtu.be/tEU3NPhObLY"><img src="docs/img/videos/godot.jpg" alt="Watch the package in Godot 4" width="100%"></a><br><b>Straight into Godot 4</b><br><sub><code>.glb</code> · <code>.tres</code> · live <code>.gdshader</code></sub></td>
+    <td width="33%" align="center"><a href="https://youtu.be/5K5PUd57xCg"><img src="docs/img/videos/blender.jpg" alt="Watch the material in Blender with live sliders" width="100%"></a><br><b>Straight into Blender</b><br><sub>A node tree with live sliders</sub></td>
+  </tr>
+</table>
+
+<p align="center"><sub>Live RT (path tracing) is tested on Chrome on Windows with an NVIDIA GPU only.</sub></p>
 
 <p align="center">
   <img src="docs/img/flow.jpg" alt="You say: very worn, scratched old oak parquet. MatterLift makes colour, normal, roughness, AO and height maps. Path traced in your browser on the Stanford dragon." width="100%">
@@ -61,10 +88,10 @@ takes requests in any language Spark reads.
 
 | | | |
 |---|---|---|
-| ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
-| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Ruby_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
-| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | ![Diamond](docs/img/preview_diamond.jpg) |
-| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG)) |
+| ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | [![Aged limestone blocks: watch it on the Buddha, live](docs/img/live_limestone.jpg)](https://youtu.be/g-3Ds-COs7U) |
+| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Ruby_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG) · [▶ on the Buddha, live](https://youtu.be/g-3Ds-COs7U)) |
+| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | [![Mossy flagstone path: watch it on Lucy, live](docs/img/live_mossy_flagstone.jpg)](https://youtu.be/kYKld37nRlw) | [![Diamond: watch it being generated](docs/img/preview_diamond.jpg)](https://youtu.be/BPpDhytLlfs) |
+| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG) · [▶ on Lucy, live](https://youtu.be/kYKld37nRlw)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG) · [▶ watch it being generated](https://youtu.be/BPpDhytLlfs)) |
 
 ## Why MatterLift
 
@@ -101,12 +128,13 @@ material ready for Godot, Blender, Unity or Unreal.
    and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
    passes (Depth, Normal, Albedo, Rough, AO). Try it on the Stanford **Dragon**, **Buddha** or **Lucy**, or
-   in **Live RT**: that scan path traced in the browser (WebGPU) with the same material. With a photo, MatterLift
+   in **Live RT**: that scan path traced in the browser (WebGPU; tested on Chrome on Windows with an NVIDIA
+   GPU only, see [Live RT limits](#live-rt-limits)) with the same material. With a photo, MatterLift
    first shows what it understood: the surface SAM masked and the square it sampled, before
    generating anything.
 3. **Use it.** **Download .zip**: ambientCG-style maps, a glTF `.glb`, Godot `.tres` and
    `.gdshader`, MaterialX, USD and a Blender script. Drop the `.glb` into Godot, Blender or any
-   glTF viewer.
+   glTF viewer ([▶ in Godot 4](https://youtu.be/tEU3NPhObLY): the `.glb`, the `.tres` and the live `.gdshader`; [▶ in Blender](https://youtu.be/5K5PUd57xCg), with live sliders).
 
 ## Honest scope
 
@@ -241,10 +269,11 @@ unbiasedness is checked against an exact reference (every light, one shadow ray 
 biased combination, over 128 frames on the dragon). Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as
 it is).
 
-**Live RT limits** (an experimental viewer; the rest of MatterLift does not depend on it):
+<a id="live-rt-limits"></a>**Live RT limits** (an experimental viewer; the rest of MatterLift does not depend on it):
 
-- **Tested on one machine only:** Windows 11, NVIDIA GeForce RTX 4060 (desktop), AMD CPU, in Chromium
-  (Chrome and the Chromium of the Claude desktop app). There it runs at 30-150 FPS depending on the
+- **Tested on Chrome on Windows with an NVIDIA GPU only:** one machine, Windows 11, NVIDIA GeForce
+  RTX 4060 (desktop), AMD CPU, in Chromium (Chrome and the Chromium of the Claude desktop app). Other
+  browsers, systems and GPUs may work but are not verified. There it runs at 30-150 FPS depending on the
   variant and the zoom, about 25 ms per frame at 1080p for the visibility-in-target variant.
 - **AMD GPU:** one remote test on a Radeon (RDNA 2) showed a corrupted image. The cause (integers stored
   in float lanes, which AMD may canonicalise) is fixed, but the fix has not been checked on an AMD
@@ -512,13 +541,13 @@ Verified:
 - the Godot shader compiles in Godot 4.7.2 and renders as the baked `.tres` at its defaults, with
   wear, detail and triplanar on a cube changing as expected;
 - the Blender script runs in Blender 5.0 (31 nodes, colour mixes on their colour sockets) and
-  renders in Cycles;
+  renders in Cycles ([▶ watch it in Blender](https://youtu.be/5K5PUd57xCg));
 - the `.glb` passes the Khronos glTF Validator with 0 errors and 0 warnings, including a material
   with five KHR extensions;
 - Three.js loads it as a MeshPhysicalMaterial with every map and every extension value;
 - Godot 4.7.2 loads the `.glb` (maps, tiling from KHR_texture_transform) and the `.tres`, next to
   the reference package. Godot's glTF importer ignores clearcoat and anisotropy, so for Godot the
-  `.tres` is the file that carries them.
+  `.tres` is the file that carries them. [▶ Watch the package in Godot](https://youtu.be/tEU3NPhObLY).
 
 Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw vs MatterLift
 contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's masks and spheres),
