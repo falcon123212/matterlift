@@ -47,7 +47,8 @@ def trim_bars(shot: Image.Image) -> Image.Image:
     return shot.convert("RGB").crop((8, int(rows[0]) + 4, shot.width - 8, int(rows[-1]) + 5))
 
 
-def capture(page: Page, url: str, mid: str, out: Path, live_seconds: float, passes: bool) -> list[Path]:
+def capture(page: Page, url: str, mid: str, out: Path, live_seconds: float, passes: bool,
+            live: bool = True) -> list[Path]:
     page.goto(f"{url}/?id={mid}")
     _settle(page)
     files = []
@@ -75,6 +76,9 @@ def capture(page: Page, url: str, mid: str, out: Path, live_seconds: float, pass
         files.append(out / f"passes_{mid}.png")
         sheet.save(files[-1])
 
+    if not live:  # Live RT does not trace transmission: a glass or a diamond only shows in the preview
+        print(mid, [f.name for f in files], flush=True)
+        return files
     page.evaluate("""() => { window.__liveReady = false;
         addEventListener('message', (e) => { if (e.data?.type === 'live-rt:ready') window.__liveReady = true; }); }""")
     _click(page, "#live", 0)
@@ -97,6 +101,7 @@ def main() -> None:
     ap.add_argument("--ids", nargs="+", default=DEFAULT_IDS)
     ap.add_argument("--out", default=str(ROOT / "docs" / "img" / "candidates"))
     ap.add_argument("--live-seconds", type=float, default=25)
+    ap.add_argument("--no-live", action="store_true", help="preview only (transparent materials)")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -106,7 +111,7 @@ def main() -> None:
         page = browser.new_page(viewport={"width": 1600, "height": 1000}, device_scale_factor=1, locale="en-US")
         page.add_init_script("localStorage.setItem('matterlift.tutorial.hidden', '1')")
         for k, mid in enumerate(args.ids):
-            capture(page, args.url.rstrip("/"), mid, out, args.live_seconds, passes=k == 0)
+            capture(page, args.url.rstrip("/"), mid, out, args.live_seconds, passes=k == 0, live=not args.no_live)
         browser.close()
 
 

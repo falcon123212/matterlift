@@ -1,0 +1,95 @@
+#usda 1.0
+(
+    defaultPrim = "Diamond_512_PNG"
+)
+
+def Xform "Diamond_512_PNG"
+{
+    def Material "Material"
+    {
+        token outputs:surface.connect = </Diamond_512_PNG/Material/Surface.outputs:surface>
+
+        def Shader "Surface"
+        {
+            uniform token info:id = "UsdPreviewSurface"
+            color3f inputs:diffuseColor.connect = </Diamond_512_PNG/Material/Color.outputs:rgb>
+            float inputs:roughness.connect = </Diamond_512_PNG/Material/Roughness.outputs:r>
+            float inputs:occlusion.connect = </Diamond_512_PNG/Material/AmbientOcclusion.outputs:r>
+            normal3f inputs:normal.connect = </Diamond_512_PNG/Material/NormalGL.outputs:rgb>
+            float inputs:displacement.connect = </Diamond_512_PNG/Material/Displacement.outputs:r>
+            float inputs:metallic = 0
+            float inputs:clearcoat = 0.000
+            float inputs:clearcoatRoughness = 0.000
+            float inputs:ior = 2.400
+            token outputs:surface
+        }
+
+        def Shader "uv"
+        {
+            uniform token info:id = "UsdPrimvarReader_float2"
+            string inputs:varname = "st"
+            float2 outputs:result
+        }
+
+        def Shader "Color"
+        {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @./Diamond_512-PNG_Color.png@
+            token inputs:sourceColorSpace = "sRGB"
+            float2 inputs:st.connect = </Diamond_512_PNG/Material/uv.outputs:result>
+            token inputs:wrapS = "repeat"
+            token inputs:wrapT = "repeat"
+            
+            
+            float3 outputs:rgb
+        }
+        def Shader "Roughness"
+        {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @./Diamond_512-PNG_Roughness.png@
+            token inputs:sourceColorSpace = "raw"
+            float2 inputs:st.connect = </Diamond_512_PNG/Material/uv.outputs:result>
+            token inputs:wrapS = "repeat"
+            token inputs:wrapT = "repeat"
+            
+            
+            float outputs:r
+        }
+        def Shader "AmbientOcclusion"
+        {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @./Diamond_512-PNG_AmbientOcclusion.png@
+            token inputs:sourceColorSpace = "raw"
+            float2 inputs:st.connect = </Diamond_512_PNG/Material/uv.outputs:result>
+            token inputs:wrapS = "repeat"
+            token inputs:wrapT = "repeat"
+            
+            
+            float outputs:r
+        }
+        def Shader "NormalGL"
+        {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @./Diamond_512-PNG_NormalGL.png@
+            token inputs:sourceColorSpace = "raw"
+            float2 inputs:st.connect = </Diamond_512_PNG/Material/uv.outputs:result>
+            token inputs:wrapS = "repeat"
+            token inputs:wrapT = "repeat"
+            float4 inputs:scale = (2, 2, 2, 1)
+            float4 inputs:bias = (-1, -1, -1, 0)
+            float3 outputs:rgb
+        }
+        def Shader "Displacement"
+        {
+            uniform token info:id = "UsdUVTexture"
+            asset inputs:file = @./Diamond_512-PNG_Displacement.png@
+            token inputs:sourceColorSpace = "raw"
+            float2 inputs:st.connect = </Diamond_512_PNG/Material/uv.outputs:result>
+            token inputs:wrapS = "repeat"
+            token inputs:wrapT = "repeat"
+            
+            
+            float outputs:r
+        }
+    }
+}

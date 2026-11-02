@@ -184,6 +184,7 @@ export class Preview {
   private scans = new Map<Scan, Promise<THREE.BufferGeometry>>();
   private scanGeometries = new Set<THREE.BufferGeometry>();
   private envMap: THREE.Texture;
+  private seeThrough = false; // a transmissive material: the studio shows behind it
   private sun = new THREE.DirectionalLight(0xffffff, 3);
   private loader = new THREE.TextureLoader();
 
@@ -339,7 +340,10 @@ export class Preview {
   setAov(aov: Aov) {
     this.aov = aov;
     const t = this.textures;
-    this.scene.background = aov === "beauty" ? BACKGROUND : new THREE.Color(0x000000);
+    this.scene.background = aov !== "beauty" ? new THREE.Color(0x000000) : this.seeThrough ? this.envMap : BACKGROUND;
+    // dimmed and sharp: the studio's light panels stay bright against it, so the refraction has contrast
+    this.scene.backgroundIntensity = 0.3;
+    this.scene.backgroundBlurriness = 0;
     if (aov === "beauty") {
       this.mesh.material = this.material;
     } else if (aov === "depth") {
@@ -446,6 +450,11 @@ export class Preview {
     m.transmission = s.transmission ?? 0;
     m.thickness = m.transmission > 0 ? 0.5 : 0;
     m.ior = s.ior ?? 1.5;
+    // Colours fanning out through clear matter: barely in glass, the "fire" of a diamond (IOR 2.42).
+    m.dispersion = m.transmission > 0 ? Math.max(0, m.ior - 1.4) * 0.6 : 0;
+    // See-through materials refract what is behind them: the studio, not the dark backdrop.
+    this.seeThrough = m.transmission > 0.01;
+    this.setAov(this.aov);
     m.clearcoat = s.clearcoat ?? 0;
     m.clearcoatRoughness = s.clearcoat_roughness ?? 0.1;
     m.sheen = s.sheen ?? 0;

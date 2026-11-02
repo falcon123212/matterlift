@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<materialx version="1.39" fileprefix="./">
+  <open_pbr_surface name="Diamond_512_PNG_OpenPbrSurface" type="surfaceshader">
+    <input name="base_color" type="color3" nodename="Diamond_512_PNG_Color" />
+    <input name="specular_roughness" type="float" nodename="Diamond_512_PNG_Roughness" />
+    <input name="transmission_weight" type="float" value="1.000" />
+    <input name="specular_ior" type="float" value="2.400" />
+    <input name="transmission_depth" type="float" nodename="Diamond_512_PNG_Thickness" />
+    <input name="geometry_normal" type="vector3" nodename="NormalMap" />
+  </open_pbr_surface>
+  <surfacematerial name="Diamond_512_PNG" type="material">
+    <input name="surfaceshader" type="surfaceshader" nodename="Diamond_512_PNG_OpenPbrSurface" />
+    <input name="displacementshader" type="displacementshader" nodename="displacement" />
+  </surfacematerial>
+  <tiledimage name="Diamond_512_PNG_Color" type="color3">
+    <input name="file" type="filename" value="Diamond_512-PNG_Color.png" colorspace="srgb_texture" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="Diamond_512_PNG_Roughness" type="float">
+    <input name="file" type="filename" value="Diamond_512-PNG_Roughness.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="Diamond_512_PNG_NormalGL" type="vector3">
+    <input name="file" type="filename" value="Diamond_512-PNG_NormalGL.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="Diamond_512_PNG_Displacement" type="float">
+    <input name="file" type="filename" value="Diamond_512-PNG_Displacement.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="Diamond_512_PNG_Thickness" type="float">
+    <input name="file" type="filename" value="Diamond_512-PNG_Thickness.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <normalmap name="NormalMap" type="vector3">
+    <input name="in" type="vector3" nodename="Diamond_512_PNG_NormalGL" />
+    <input name="scale" type="float" value="1.0" />
+  </normalmap>
+  <displacement name="displacement" type="displacementshader">
+    <input name="displacement" type="float" nodename="Diamond_512_PNG_Displacement" />
+    <input name="scale" type="float" value="1.0" />
+  </displacement>
+</materialx>

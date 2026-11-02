@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=7 format=3]
+
+[ext_resource type="Shader" path="./Diamond_512-PNG.gdshader" id="shader"]
+[ext_resource type="Texture2D" path="./Diamond_512-PNG_ShaderColor.png" id="albedo_tex"]
+[ext_resource type="Texture2D" path="./Diamond_512-PNG_ShaderNormal.png" id="normal_tex"]
+[ext_resource type="Texture2D" path="./Diamond_512-PNG_ShaderORM.png" id="orm_tex"]
+[ext_resource type="Texture2D" path="./Diamond_512-PNG_WearMask.png" id="wear_tex"]
+[ext_resource type="Texture2D" path="./Diamond_512-PNG_DetailNormal.png" id="detail_normal_tex"]
+
+[resource]
+shader = ExtResource("shader")
+shader_parameter/albedo_tex = ExtResource("albedo_tex")
+shader_parameter/normal_tex = ExtResource("normal_tex")
+shader_parameter/orm_tex = ExtResource("orm_tex")
+shader_parameter/wear_tex = ExtResource("wear_tex")
+shader_parameter/detail_normal_tex = ExtResource("detail_normal_tex")

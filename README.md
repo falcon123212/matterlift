@@ -20,8 +20,8 @@ Muse Voice Transcribe).
 
 ## Gallery
 
-Five materials made from a sentence alone, shown in **Live RT** (the Stanford dragon path traced in
-the browser, WebGPU). Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
+Six materials made from a sentence alone, on the Stanford dragon: five in **Live RT** (path traced in
+the browser, WebGPU), the diamond in the 3D preview. Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
 gives it (512 px PNG): maps, `.glb`, Godot `.tres` and shader, MaterialX, USD, Blender script, all
 passing the Khronos glTF validator, MaterialX, USD and Godot 4. Prompts typed in French are shown translated: MatterLift
 takes requests in any language Spark reads.
@@ -30,8 +30,8 @@ takes requests in any language Spark reads.
 |---|---|---|
 | ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
 | **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Rubis_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
-| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | |
-| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | |
+| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | ![Diamond](docs/img/preview_diamond.jpg) |
+| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG)) |
 
 ## Why MatterLift
 
@@ -138,7 +138,8 @@ of the stone, projected triplanar since the scan has no UVs).*
 **Preview shapes and look-dev**: Sphere, Cube, Plane and three Stanford scans, **Dragon**, **Buddha**
 and **Lucy** (150k triangles each; no UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,
 **Tiling scale** and **Clay render** (grey, no colour or metal, the relief stays) apply to every
-shape.
+shape. A see-through material (glass, gem) shows the studio behind it, dimmed, so its refraction has
+something to bend, with colour dispersion growing with its IOR.
 
 **Live RT**: the same material on the selected scan (Dragon, Buddha or Lucy; Sphere, Cube and Plane
 are greyed out while it is on), path traced in the browser with WebGPU: unbiased
