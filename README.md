@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://matterlift.taurus-silver-dev.workers.dev"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
+  <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
   <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
   <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-12%20materials-2b2d35?style=for-the-badge&labelColor=16171c"></a>
 </p>
@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <b><a href="https://matterlift.taurus-silver-dev.workers.dev">Live demo</a></b> ·
+  <b><a href="https://matterlift.vercel.app">Live demo</a></b> ·
   <a href="#gallery">Gallery</a> ·
   <a href="#real-photos-six-objects-from-a-desk">Real photos</a> ·
   <a href="#how-it-works">How it works</a> ·
@@ -96,7 +96,7 @@ material ready for Godot, Blender, Unity or Unreal.
 
 ## 60-second judge path
 
-1. **Ask.** Open the [live demo](https://matterlift.taurus-silver-dev.workers.dev), type
+1. **Ask.** Open the [live demo](https://matterlift.vercel.app), type
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
    and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
