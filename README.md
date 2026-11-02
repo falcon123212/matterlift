@@ -1,22 +1,55 @@
-# MatterLift
+<p align="center">
+  <img src="docs/img/hero.jpg" alt="MatterLift. Point at anything. Say what you want. Get a game-ready material." width="100%">
+</p>
 
-[![tests](https://github.com/falcon123212/matterlift/actions/workflows/tests.yml/badge.svg)](https://github.com/falcon123212/matterlift/actions/workflows/tests.yml)
+<p align="center">
+  <a href="https://matterlift.taurus-silver-dev.workers.dev"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
+  <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
+  <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-12%20materials-2b2d35?style=for-the-badge&labelColor=16171c"></a>
+</p>
 
-**Point at anything. Say what you want. Get a game-ready material.**
+<p align="center">
+  <a href="https://github.com/falcon123212/matterlift/actions/workflows/tests.yml"><img alt="tests" src="https://github.com/falcon123212/matterlift/actions/workflows/tests.yml/badge.svg"></a>
+  <img alt="Meta Global AI Hackathon 2026" src="https://img.shields.io/badge/Meta%20Global%20AI%20Hackathon-2026-0866ff">
+  <img alt="Muse Spark, SAM 3.1, Muse Image, Muse Voice" src="https://img.shields.io/badge/Meta%20models-Muse%20Spark%20%C2%B7%20SAM%203.1%20%C2%B7%20Muse%20Image%20%C2%B7%20Muse%20Voice-0866ff">
+  <img alt="Exports" src="https://img.shields.io/badge/exports-glTF%20%C2%B7%20Godot%204%20%C2%B7%20Blender%20%C2%B7%20MaterialX%20%C2%B7%20USD-555">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-555">
+</p>
 
-- **Live demo:** https://matterlift.taurus-silver-dev.workers.dev (page on Cloudflare Workers, API on Modal)
-- **Video:** coming soon
-- **Repository:** https://github.com/falcon123212/matterlift
+<p align="center">
+  <b><a href="https://matterlift.taurus-silver-dev.workers.dev">Live demo</a></b> ·
+  <a href="#gallery">Gallery</a> ·
+  <a href="#real-photos-six-objects-from-a-desk">Real photos</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#tests-and-benchmarks">Tests</a> ·
+  <a href="#run-it">Run it</a> ·
+  Video: coming soon
+</p>
 
-![MatterLift: "very worn, scratched old oak parquet" on the sphere, with Spark's critique and the export](docs/img/interface.jpg)
-*"very worn, scratched old oak parquet": Spark judged the
-first result 5/10 under raking light (wear too faint, planks too clean), changed the plan itself and
-the new version scored 7/10. Right: export and the tiled 3×3 check.*
+<br>
+
+<p align="center">
+  <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
+  <br>
+  <sub><b>"un rubis"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
+</p>
+
+<br>
 
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
-tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot,
-Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
-Muse Voice Transcribe).
+tileable PBR material (albedo, normal, height, AO, roughness, metallic, thickness, ORM, glTF) ready
+for Godot, Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image,
+SAM 3.1, Muse Voice Transcribe).
+
+<p align="center">
+  <img src="docs/img/flow.jpg" alt="You say: very worn, scratched old oak parquet. MatterLift makes colour, normal, roughness, AO and height maps. Path traced in your browser on the Stanford dragon." width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the sphere, with Spark's critique and the export" width="100%">
+  <br>
+  <sub>The page. Spark judged the first parquet 5/10 under raking light (wear too faint, planks too clean), changed the plan itself, and the new version scored 7/10. Right: export and the tiled 3×3 check.</sub>
+</p>
 
 ## Gallery
 
