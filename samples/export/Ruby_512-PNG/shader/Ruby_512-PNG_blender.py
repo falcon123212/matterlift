@@ -1,7 +1,7 @@
-"""MatterLift material for Blender 4/5: Rubis_512-PNG
+"""MatterLift material for Blender 4/5: Ruby_512-PNG
 
-Run once: Blender > Scripting > Open this file > Run Script (or blender --python Rubis_512-PNG_blender.py).
-It builds the material "Rubis_512-PNG" from the textures next to this file and puts it on the active object
+Run once: Blender > Scripting > Open this file > Run Script (or blender --python Ruby_512-PNG_blender.py).
+It builds the material "Ruby_512-PNG" from the textures next to this file and puts it on the active object
 (a preview sphere if there is none). The "MatterLift ..." Value nodes on the left are the controls:
 tiling, relief, detail strength, detail scale, wear. Triplanar: set TRIPLANAR = True below (Box
 projection, no UVs needed).
@@ -12,9 +12,9 @@ import bpy
 
 TRIPLANAR = False
 HERE = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else bpy.path.abspath("//")
-NAME = "Rubis_512-PNG"
+NAME = "Ruby_512-PNG"
 DEFAULTS = {'uv_scale': 1.0, 'normal_strength': 1.0, 'detail_strength': 0.0, 'detail_repeats': 8.0, 'wear': 0.0, 'clearcoat': 1.0, 'clearcoat_roughness': 0.05, 'anisotropy': 0.0, 'sss': 0.35, 'rim': 0.0, 'specular': 0.9658994643485513, 'sheen': 0.0, 'transmission': 0.8, 'ior': 1.77, 'subsurface': 0.35}
-FILES = {'ShaderColor': 'Rubis_512-PNG_ShaderColor.png', 'ShaderNormal': 'Rubis_512-PNG_ShaderNormal.png', 'ShaderORM': 'Rubis_512-PNG_ShaderORM.png', 'WearMask': 'Rubis_512-PNG_WearMask.png', 'DetailHeight': 'Rubis_512-PNG_DetailHeight.png'}
+FILES = {'ShaderColor': 'Ruby_512-PNG_ShaderColor.png', 'ShaderNormal': 'Ruby_512-PNG_ShaderNormal.png', 'ShaderORM': 'Ruby_512-PNG_ShaderORM.png', 'WearMask': 'Ruby_512-PNG_WearMask.png', 'DetailHeight': 'Ruby_512-PNG_DetailHeight.png'}
 
 
 def image(nodes, key, colour, x, y, vec):

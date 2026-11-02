@@ -816,7 +816,7 @@ if (id && !libId) {
 }
 
 // --- Tutorial: a popup on arrival, reopened with "?"; examples fill the request box ---
-const EXAMPLES = ["old oak planks", "rusty painted steel", "mossy flagstone", "vieille brique rouge"];
+const EXAMPLES = ["old oak planks", "rusty painted steel", "mossy flagstone", "old red brick"];
 const tutorial = $<HTMLDialogElement>("#tutorial");
 const tutHide = $<HTMLInputElement>("#tut-hide");
 const TUT_KEY = "matterlift.tutorial.hidden";

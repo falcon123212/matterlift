@@ -1,11 +1,11 @@
 [gd_resource type="StandardMaterial3D" load_steps=7 format=3]
 
-[ext_resource type="Texture2D" id="Color" path="./Rubis_512-PNG_Color.png"]
-[ext_resource type="Texture2D" id="AmbientOcclusion" path="./Rubis_512-PNG_AmbientOcclusion.png"]
-[ext_resource type="Texture2D" id="Displacement" path="./Rubis_512-PNG_Displacement.png"]
-[ext_resource type="Texture2D" id="Roughness" path="./Rubis_512-PNG_Roughness.png"]
-[ext_resource type="Texture2D" id="NormalGL" path="./Rubis_512-PNG_NormalGL.png"]
-[ext_resource type="Texture2D" id="Thickness" path="./Rubis_512-PNG_Thickness.png"]
+[ext_resource type="Texture2D" id="Color" path="./Ruby_512-PNG_Color.png"]
+[ext_resource type="Texture2D" id="AmbientOcclusion" path="./Ruby_512-PNG_AmbientOcclusion.png"]
+[ext_resource type="Texture2D" id="Displacement" path="./Ruby_512-PNG_Displacement.png"]
+[ext_resource type="Texture2D" id="Roughness" path="./Ruby_512-PNG_Roughness.png"]
+[ext_resource type="Texture2D" id="NormalGL" path="./Ruby_512-PNG_NormalGL.png"]
+[ext_resource type="Texture2D" id="Thickness" path="./Ruby_512-PNG_Thickness.png"]
 
 [resource]
 albedo_texture = ExtResource("Color")

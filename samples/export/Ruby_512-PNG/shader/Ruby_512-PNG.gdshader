@@ -1,4 +1,4 @@
-// MatterLift material shader for Godot 4: Rubis_512-PNG
+// MatterLift material shader for Godot 4: Ruby_512-PNG
 // Base maps + live controls. Defaults reproduce the packaged textures exactly; move the sliders
 // to change tiling, relief, detail and wear in the editor, no regeneration needed.
 shader_type spatial;

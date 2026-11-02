@@ -31,7 +31,7 @@
 <p align="center">
   <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
   <br>
-  <sub><b>"un rubis"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
+  <sub><b>"a ruby"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
 </p>
 
 <br>
@@ -46,9 +46,9 @@ SAM 3.1, Muse Voice Transcribe).
 </p>
 
 <p align="center">
-  <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the sphere, with Spark's critique and the export" width="100%">
+  <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the sphere, with its maps and the export" width="100%">
   <br>
-  <sub>The page. Spark judged the first parquet 5/10 under raking light (wear too faint, planks too clean), changed the plan itself, and the new version scored 7/10. Right: export and the tiled 3×3 check.</sub>
+  <sub>The page: "very worn, scratched old oak parquet" on the sphere, the tiled 3×3 seam check, every map and the export. Spark's review under raking light gave it 8/10 at once, nothing to fix.</sub>
 </p>
 
 ## Gallery
@@ -62,7 +62,7 @@ takes requests in any language Spark reads.
 | | | |
 |---|---|---|
 | ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
-| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Rubis_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
+| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Ruby_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
 | ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | ![Diamond](docs/img/preview_diamond.jpg) |
 | **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG)) |
 
@@ -141,7 +141,7 @@ texture made from it (the version kept after Spark's critique):
 | Massager | white matte plastic / "white cap" | 20 s | 38 s | 64 s, 4 → 7 | ✅ Critique saw a cross-shaped seam on the sphere and had Muse repaint the tile without it |
 | Bowl | pale blue glazed ceramic / "bowl" | 17 s | 34 s | 68 s, 3 → 7 | ✅ after the critique: Muse first drew the outside's oval decoration on a plain glaze; Spark saw it and had it repainted plain |
 | Receipt, no text | frosted glass table / "glass table" | 17 s | 36 s | 41 s, 4 → 6 | ❌ Took the table: the largest surface, not the paper. Fixed since, see below |
-| Receipt, "le papier froissé" | crumpled paper / "crumpled paper" | 20 s | 31 s | 67 s, 6 → 3, first kept | ⚠️ The paper, without its print. But a lighter band runs along the top and bottom edges |
+| Receipt, "the crumpled paper" (said in French) | crumpled paper / "crumpled paper" | 20 s | 31 s | 67 s, 6 → 3, first kept | ⚠️ The paper, without its print. But a lighter band runs along the top and bottom edges |
 
 **Time** (7 runs, median): understand 18 s (Spark's plan 13 s, from 11 to 30 s; SAM 2.6 s), generate
 33 s (Muse Image 11 s, Muse height 11 s, pbrforge about 6 s), critique 55 s, 1K export 10 s for a
@@ -149,7 +149,7 @@ texture made from it (the version kept after Spark's critique):
 
 **What went wrong, and what it says:**
 - **"The main material" meant the largest surface (fixed).** With no words, Spark picked the glass
-  table under the receipt. Saying it ("le papier froissé") fixed it at once. Then Spark was taught to
+  table under the receipt. Saying it ("the crumpled paper") fixed it at once. Then Spark was taught to
   read the photo as its author framed it: with no words, the subject is what is centred, in focus,
   closest and standing out, and the table or wall around it is context. It now names the subject and
   says why, and the page shows it. Rerun with no text, all six photos land on their object: the
@@ -343,7 +343,7 @@ sand), periodic so it tiles, repeated 8 times per texture and computed at the ex
 a 4K export gets real 4K micro detail although Muse paints 1600 px. Blended into the normal with RNM
 and into roughness. Wood fibres and metal brushing follow the local grain (structure tensor on the
 albedo), so a parquet's vertical and horizontal boards each get fibres along their length. Plus edge wear: convex rims lighter and smoother, recesses darker and rougher.
-Spark picks `detail_kind`, `detail_strength` and `wear` from the request ("vieux parquet très usé"
+Spark picks `detail_kind`, `detail_strength` and `wear` from the request ("very worn old parquet"
 -> wood, 0.6, wear 0.85); the kind is inferred from the name when it does not say.
 
 **Triplanar preview.** A Triplanar toggle projects every map along the world axes (whiteout blend
@@ -408,7 +408,7 @@ These tests found a real bug: 2K and 4K exports had a seam at the tile border, b
 opposite edges before resizing (`pbrforge/io.py`); the seam score went from 3.98 to 1.07 (1 = invisible).
 
 **Export report on a real material** (`scripts/export_report.py`, full table in
-[`results/export_report.md`](results/export_report.md)): "vieille brique rouge", generated by MatterLift,
+[`results/export_report.md`](results/export_report.md)): "old red brick", generated by MatterLift,
 exported the way the download button does it at 512, 1K, 2K, 4K × PNG, JPG, plus every shading lobe:
 **14 of 14 packages pass glTF-Validator, MaterialX, USD and Godot**. A 4K PNG package (maps recomputed
 at 4K, 20 files) takes 76 s and zips to 203 MB; 1K takes 5 s and 17 MB.
