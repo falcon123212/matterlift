@@ -95,8 +95,9 @@ vec3 triNormalWorld(sampler2D t) {
 `;
 
 function addTriplanar(
-  material: THREE.MeshPhysicalMaterial,
+  material: THREE.MeshPhysicalMaterial | THREE.MeshBasicMaterial,
   uniforms: { triplanar: { value: number }; triScale: { value: number }; triNormalScale: { value: number } },
+  normal = "objectNormal", // MeshBasicMaterial has no objectNormal without an env map: "normal"
 ) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
@@ -105,7 +106,7 @@ function addTriplanar(
       .replace(
         "#include <worldpos_vertex>",
         "#include <worldpos_vertex>\nvTriPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\n" +
-          "vTriNormal = normalize(mat3(modelMatrix) * objectNormal);",
+          `vTriNormal = normalize(mat3(modelMatrix) * ${normal});`,
       );
     // The shader still holds #include directives here: swap each one for its chunk, patched.
     const chunk = (name: keyof typeof THREE.ShaderChunk, from: string, to: string) => {
@@ -204,6 +205,7 @@ export class Preview {
     this.scene.add(this.sun);
 
     addTriplanar(this.material, this.tri);
+    addTriplanar(this.flatMaterial, this.tri, "normal"); // the Albedo/Rough/AO/Thick passes, on scans too
     this.mesh = new THREE.Mesh(this.geometry("sphere"), this.material);
     this.scene.add(this.mesh);
     this.setLight("hdri");
