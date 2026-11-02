@@ -312,6 +312,10 @@ async function show(mat: Material, updateUrl = true) {
   liveMaps = maps;
   void sendLiveMaterial();
   await preview.load(maps, mat.plan.shading);
+  // materials made before the thickness map have none: no empty pass to show
+  const thick = $<HTMLButtonElement>('[data-aov="thickness"]');
+  thick.disabled = !maps.thickness;
+  if (!maps.thickness && currentAov === "thickness") thick.parentElement!.querySelector<HTMLButtonElement>('[data-aov="beauty"]')!.click();
   $("#tiling").style.backgroundImage = `url(${maps.albedo})`;
   $("#maps").innerHTML = Object.entries(maps)
     .map(([k, v]) => `<figure><img src="${v}" alt="${k}" loading="lazy" /><figcaption>${k}</figcaption></figure>`)

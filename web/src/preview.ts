@@ -8,7 +8,7 @@ export type Shape = "sphere" | "cube" | "plane" | Scan;
 export type Scan = "dragon" | "buddha" | "lucy";
 export type LightPass = "hdri" | "key" | "raking" | "back";
 /** Render passes (AOVs): the lit beauty pass, or one buffer shown on its own. */
-export type Aov = "beauty" | "depth" | "normal" | "albedo" | "roughness" | "ao";
+export type Aov = "beauty" | "depth" | "normal" | "albedo" | "roughness" | "ao" | "thickness";
 
 export interface MaterialMaps {
   albedo: string;
@@ -17,6 +17,7 @@ export interface MaterialMaps {
   roughness: string;
   metallic: string;
   height?: string;
+  thickness?: string; // how much matter light crosses (materials made before it have none)
 }
 
 /** Look-dev controls shared by every shape (and sent to the live renderer): normal and
@@ -172,7 +173,7 @@ export class Preview {
   private depthMaterial = new LinearDepthMaterial();
   private normalMaterial = new THREE.MeshNormalMaterial();
   private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
-  private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height", THREE.Texture>> = {};
+  private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height" | "thickness", THREE.Texture>> = {};
   private aov: Aov = "beauty";
   private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere }, triNormalScale: { value: 1 } };
   private tweaks: Tweaks = { normalScale: 1, displacement: 1, tiling: 1, clay: false };
@@ -388,16 +389,17 @@ export class Preview {
   }
 
   async load(maps: MaterialMaps, shading?: Partial<Shading>) {
-    const [albedo, normal, ao, roughness, metallic, height] = await Promise.all([
+    const [albedo, normal, ao, roughness, metallic, height, thickness] = await Promise.all([
       this.texture(maps.albedo, true),
       this.texture(maps.normal),
       this.texture(maps.ao),
       this.texture(maps.roughness),
       this.texture(maps.metallic),
       maps.height ? this.texture(maps.height) : Promise.resolve(undefined),
+      maps.thickness ? this.texture(maps.thickness) : Promise.resolve(undefined),
     ]);
     for (const old of Object.values(this.textures)) old?.dispose();
-    this.textures = { albedo, normal, ao, roughness, metallic, height };
+    this.textures = { albedo, normal, ao, roughness, metallic, height, thickness };
     const m = this.material;
     Object.assign(m, {
       map: albedo,
@@ -406,6 +408,7 @@ export class Preview {
       roughnessMap: roughness,
       metalnessMap: metallic,
       displacementMap: height ?? null,
+      thicknessMap: thickness ?? null, // used by transmission: thin parts refract and tint less
     });
     this.applyDisplacement();
     this.applyClay();
@@ -419,6 +422,7 @@ export class Preview {
   setShading(s: Partial<Shading>) {
     const m = this.material;
     m.transmission = s.transmission ?? 0;
+    m.thickness = m.transmission > 0 ? 0.5 : 0;
     m.ior = s.ior ?? 1.5;
     m.clearcoat = s.clearcoat ?? 0;
     m.clearcoatRoughness = s.clearcoat_roughness ?? 0.1;

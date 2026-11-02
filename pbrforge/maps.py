@@ -52,6 +52,7 @@ MICRO_REF = 0.08  # p99.5 of the albedo's high band
 OCC_REF = 0.4  # p99 of the cavity measure
 HP_REF = 0.5  # max of the height's high band (roughness variation)
 CURV_REF = 0.09  # p97 of convex curvature (edge wear)
+THICK_REF = 0.4  # p1-p99 range of the blurred height that spans the whole thickness range
 
 
 def _spread(a: np.ndarray, ref: float) -> np.ndarray:
@@ -151,6 +152,20 @@ def ambient_occlusion(h: np.ndarray, strength: float = 1.2) -> np.ndarray:
     return np.clip(1 - occ * strength * 0.5, 0, 1).astype(np.float32)
 
 
+def thickness(h: np.ndarray, ao: np.ndarray) -> np.ndarray:
+    """How much matter light crosses, for subsurface and transmission (white = thick). A photo cannot
+    measure it, so it follows the broad relief: raised masses are thick, hollows and cavities thin,
+    and fine detail barely changes it. 0.2 at the thinnest, so nothing turns fully clear."""
+    sigma = h.shape[0] / 128
+    broad = filters.blur(h, sigma)
+    lo, mid, hi = np.percentile(broad, (1, 50, 99))
+    # A fixed reference, not the material's own range: a flat surface (skin) stays evenly thick
+    # instead of having its faint relief stretched into blotches.
+    t = np.clip(0.6 + (broad - mid) / max(float(hi - lo), THICK_REF), 0, 1)
+    t *= np.sqrt(np.clip(filters.blur(ao, sigma), 0, 1))
+    return (0.2 + 0.8 * t).astype(np.float32)
+
+
 def roughness(albedo: np.ndarray, h: np.ndarray, p: MapParams) -> np.ndarray:
     """Base roughness from the plan; cavities rougher, raised worn areas slightly smoother."""
     hp = h - filters.blur(h, h.shape[0] / 64)
@@ -241,5 +256,6 @@ def derive(albedo: np.ndarray, p: MapParams | None = None, size: int | None = No
         "ao": ao,
         "roughness": rough,
         "metallic": metal,
+        "thickness": thickness(h, ao),
         "orm": np.stack([ao, rough, metal], axis=-1),
     }

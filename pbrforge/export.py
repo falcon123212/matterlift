@@ -2,7 +2,7 @@
 
 <Name>_<res>-<FMT>/
   <Name>_<res>-<FMT>_Color, _NormalGL, _NormalDX, _Roughness, _AmbientOcclusion, _Displacement
-  (+ _Metalness when the material has metal), .tres (Godot 4), .mtlx (MaterialX OpenPBR),
+  (+ _Metalness when the material has metal, _Thickness when light goes through it), .tres (Godot 4), .mtlx (MaterialX OpenPBR),
   .usda (USD UsdPreviewSurface), .glb (glTF 2.0, textures embedded, KHR shading extensions),
   preview .png
 """
@@ -40,8 +40,19 @@ def _save(path: Path, arr: np.ndarray, fmt: str, bits16: bool = False) -> str:
     return path.with_suffix(".png").name
 
 
-def _tres(files: dict[str, str], metal: bool, shading: dict) -> str:
-    ids = [k for k in ("Color", "AmbientOcclusion", "Displacement", "Roughness", "NormalGL", "Metalness") if k in files]
+def translucent(shading: dict) -> bool:
+    """Light goes into the material (subsurface) or through it (transmission): it needs a thickness."""
+    return shading.get("subsurface", 0) > 0.01 or shading.get("transmission", 0) > 0.01
+
+
+def mean_color(albedo: np.ndarray) -> tuple[float, float, float]:
+    """Average albedo in linear RGB: the colour light takes on its way through the material."""
+    return tuple(round(float(c), 3) for c in (albedo.reshape(-1, 3).mean(0) ** 2.2))
+
+
+def _tres(files: dict[str, str], metal: bool, shading: dict, tint: tuple[float, float, float]) -> str:
+    ids = [k for k in ("Color", "AmbientOcclusion", "Displacement", "Roughness", "NormalGL", "Metalness", "Thickness")
+           if k in files]
     head = f'[gd_resource type="StandardMaterial3D" load_steps={len(ids) + 1} format=3]\n\n'
     res = "".join(f'[ext_resource type="Texture2D" id="{k}" path="./{files[k]}"]\n' for k in ids)
     body = """[resource]
@@ -60,6 +71,11 @@ heightmap_texture = ExtResource("Displacement")
     if metal:
         body += 'metallic = 1.0\nmetallic_texture = ExtResource("Metalness")\nmetallic_texture_channel = 4\n'
     body += _tres_shading(shading)
+    if "Thickness" in files:  # light coming through thin parts, tinted by the material
+        body += ("subsurf_scatter_transmittance_enabled = true\n"
+                 f"subsurf_scatter_transmittance_color = Color({tint[0]}, {tint[1]}, {tint[2]}, 1)\n"
+                 'subsurf_scatter_transmittance_texture = ExtResource("Thickness")\n'
+                 "subsurf_scatter_transmittance_depth = 0.1\n")
     return head + res + "\n" + body
 
 
@@ -105,6 +121,11 @@ def _mtlx(stem: str, files: dict[str, str], metal: bool, shading: dict) -> str:
                         for k, v in openpbr.items() if v > 0.01)
     if abs(shading.get("ior", 1.5) - 1.5) > 0.01:
         metal_in += f'    <input name="specular_ior" type="float" value="{shading["ior"]:.3f}" />\n'
+    if "Thickness" in files:  # OpenPBR's depths, in scene units: thin parts let more light through
+        if shading.get("subsurface", 0) > 0.01:
+            metal_in += f'    <input name="subsurface_radius" type="float" nodename="{n}_Thickness" />\n'
+        if shading.get("transmission", 0) > 0.01:
+            metal_in += f'    <input name="transmission_depth" type="float" nodename="{n}_Thickness" />\n'
     return f"""<?xml version="1.0"?>
 <materialx version="1.39" fileprefix="./">
   <open_pbr_surface name="{n}_OpenPbrSurface" type="surfaceshader">
@@ -116,7 +137,7 @@ def _mtlx(stem: str, files: dict[str, str], metal: bool, shading: dict) -> str:
     <input name="surfaceshader" type="surfaceshader" nodename="{n}_OpenPbrSurface" />
     <input name="displacementshader" type="displacementshader" nodename="displacement" />
   </surfacematerial>
-{tiled("Color", "color3", True)}{tiled("Roughness", "float")}{tiled("NormalGL", "vector3")}{tiled("Displacement", "float")}{tiled("Metalness", "float") if metal else ""}  <normalmap name="NormalMap" type="vector3">
+{tiled("Color", "color3", True)}{tiled("Roughness", "float")}{tiled("NormalGL", "vector3")}{tiled("Displacement", "float")}{tiled("Metalness", "float") if metal else ""}{tiled("Thickness", "float") if "Thickness" in files else ""}  <normalmap name="NormalMap" type="vector3">
     <input name="in" type="vector3" nodename="{n}_NormalGL" />
     <input name="scale" type="float" value="1.0" />
   </normalmap>
@@ -216,8 +237,11 @@ def export_package(maps: dict[str, np.ndarray], name: str, out_root: Path, fmt: 
     }
     if metal:
         files["Metalness"] = _save(d / f"{stem}_Metalness", maps["metallic"], fmt)
+    if translucent(shading):
+        files["Thickness"] = _save(d / f"{stem}_Thickness", maps["thickness"], fmt)
 
-    (d / f"{stem}.tres").write_text(_tres(files, metal, shading), encoding="utf-8")
+    tint = mean_color(maps["albedo"])
+    (d / f"{stem}.tres").write_text(_tres(files, metal, shading, tint), encoding="utf-8")
     (d / f"{stem}.mtlx").write_text(_mtlx(stem, files, metal, shading), encoding="utf-8")
     (d / f"{stem}.usda").write_text(_usda(stem, files, metal, shading), encoding="utf-8")
     gltf.write_glb(d / f"{stem}.glb", maps, stem, shading)  # self-contained: textures inside

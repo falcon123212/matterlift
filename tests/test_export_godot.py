@@ -29,6 +29,7 @@ func _init() -> void:
 			r["ao"] = std.ao_texture != null
 			r["height"] = std.heightmap_texture != null
 			r["metal"] = std.metallic_texture != null
+			r["thickness"] = std.subsurf_scatter_transmittance_enabled and std.subsurf_scatter_transmittance_texture != null
 		var sm := load(base + "shader/" + dir + "_shader.tres") as ShaderMaterial
 		r["uniforms"] = sm.shader.get_shader_uniform_list().size() if sm and sm.shader else -1
 		var doc := GLTFDocument.new()
@@ -59,7 +60,7 @@ def test_godot_opens_every_export(tmp_path):
         for key, shading in SHADINGS.items():
             d = export.export_package(m, f"{key} {'metal' if metallic else 'plain'}", proj / "m", "png",
                                       shading=shading, shader_layers=(lay, p))
-            expected[d.name] = metallic > 0
+            expected[d.name] = (metallic > 0, export.translucent(shading))
     (proj / "project.godot").write_text('[application]\nconfig/name="matterlift_check"\n')
     (proj / "check.gd").write_text(CHECK)
 
@@ -71,9 +72,10 @@ def test_godot_opens_every_export(tmp_path):
     rows = {r["name"]: r for r in (json.loads(line.split(" ", 1)[1]) for line in log.splitlines()
                                    if line.startswith("MATTERLIFT "))}
     assert set(rows) == set(expected), log[-3000:]
-    for name, metal in expected.items():
+    for name, (metal, thick) in expected.items():
         r = rows[name]
         assert r["std"] and r["albedo"] == 128 and r["normal"] and r["roughness"] and r["ao"] and r["height"], r
         assert r["metal"] == metal, r
+        assert r["thickness"] == thick, r  # subsurface and transmission get the thickness map
         assert r["uniforms"] >= 15, r  # the live shader compiled and exposes its controls
         assert r["glb"] and r["glb_materials"] == 1, r

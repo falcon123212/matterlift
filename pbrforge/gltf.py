@@ -101,15 +101,22 @@ def write_glb(path: str | Path, maps: dict[str, np.ndarray], name: str, shading:
                       "count": len(ind), "type": "SCALAR"})
     indices = len(accessors) - 1
 
+    shading = shading or {}
+    volume = (shading.get("subsurface", 0) > 0.01 or shading.get("transmission", 0) > 0.01) and "thickness" in maps
     images = []
-    for key in ("albedo", "orm", "normal"):
+    for key in ("albedo", "orm", "normal", *(("thickness",) if volume else ())):
         images.append({"bufferView": add_view(_png(maps[key])), "mimeType": "image/png", "name": f"{name}_{key}"})
     transform = {"KHR_texture_transform": {"scale": [repeat, repeat]}}
 
     def tex(i: int, **extra) -> dict:
         return {"index": i, **extra, "extensions": transform}
 
-    ext, used = material_extensions(shading or {})
+    ext, used = material_extensions(shading)
+    if volume:  # thickness (read from G, in mesh units: the sphere is 1 across), tinted by the albedo
+        tint = [round(float(c), 3) for c in maps["albedo"].reshape(-1, 3).mean(0) ** 2.2]
+        ext["KHR_materials_volume"] = {"thicknessFactor": 0.1, "thicknessTexture": tex(3),
+                                       "attenuationColor": tint, "attenuationDistance": 0.2}
+        used = [*used, "KHR_materials_volume"]
     material = {
         "name": name,
         "pbrMetallicRoughness": {"baseColorTexture": tex(0), "metallicRoughnessTexture": tex(1),
@@ -132,7 +139,7 @@ def write_glb(path: str | Path, maps: dict[str, np.ndarray], name: str, shading:
         "materials": [material],
         "samplers": [{"magFilter": 9729, "minFilter": 9987, "wrapS": 10497, "wrapT": 10497}],
         "images": images,
-        "textures": [{"sampler": 0, "source": i} for i in range(3)],
+        "textures": [{"sampler": 0, "source": i} for i in range(len(images))],
         "accessors": accessors,
         "bufferViews": buffer_views,
         "buffers": [{"byteLength": len(blob)}],

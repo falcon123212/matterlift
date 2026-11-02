@@ -276,13 +276,13 @@ API:
 
 ## Tests and benchmarks
 
-174 offline tests (no Meta key, no network) run on every push in GitHub Actions, with Godot and the
+180 offline tests (no Meta key, no network) run on every push in GitHub Actions, with Godot and the
 formats' official validators installed:
 
 | What | How it is checked |
 |---|---|
 | Every export the UI offers | 512, 1K, 2K, 4K × PNG, JPG: every file present and named like ambientCG, sizes, pixel formats (16-bit displacement), albedo in PBR range, unit normals facing out, DirectX normal = OpenGL with green flipped, **every map tiles without a seam**, zip complete, `.glb` textures at full size (`tests/test_export_matrix.py`) |
-| glTF | **Khronos glTF-Validator**: 0 errors, 0 warnings on 14 packages (every shading lobe: clearcoat, sheen, transmission + IOR, anisotropy, subsurface, all at once; metal and not) |
+| glTF | **Khronos glTF-Validator**: 0 errors, 0 warnings on 14 packages (every shading lobe: clearcoat, sheen, transmission + IOR, anisotropy, subsurface, all at once; metal and not), including the thickness texture of KHR_materials_volume |
 | MaterialX | **MaterialX library (ASWF)**: documents validate, one OpenPBR surface, every texture file exists |
 | USD | **Pixar USD**: stages open, UsdPreviewSurface with its 5 inputs connected, every texture asset resolves |
 | Godot 4.7 | **Godot headless** opens the 14 packages: the `.tres` with all its textures, the live shader **compiles** (its controls are exposed), the `.glb` loads through GLTFDocument (`tests/test_export_godot.py`) |
@@ -349,6 +349,7 @@ RustyPaintedSteel_2K-PNG/
   RustyPaintedSteel_2K-PNG_AmbientOcclusion.png
   RustyPaintedSteel_2K-PNG_Displacement.png   16-bit PNG
   RustyPaintedSteel_2K-PNG_Metalness.png      only when the material has metal
+  RustyPaintedSteel_2K-PNG_Thickness.png      only when light goes in or through (subsurface, transmission)
   RustyPaintedSteel_2K-PNG.tres               Godot 4 StandardMaterial3D
   RustyPaintedSteel_2K-PNG.mtlx               MaterialX OpenPBR
   RustyPaintedSteel_2K-PNG.usda               USD UsdPreviewSurface
@@ -366,6 +367,13 @@ _ior, _sheen, _anisotropy and _diffuse_transmission (for subsurface) in the `.gl
 anisotropy, subsurface scattering, rim (for sheen) and specular (for IOR) in the `.tres`; coat,
 transmission, fuzz, subsurface, anisotropy and IOR in the OpenPBR `.mtlx`; clearcoat and IOR in the
 `.usda`.
+
+Skin, wax, jade, glass or ruby also get a **thickness map**: how much matter light crosses, white =
+thick. A photo cannot measure it, so it follows the broad relief: raised masses are thick, hollows thin,
+pores and scratches leave it alone (a flat skin stays evenly thick instead of blotchy). It goes in the
+`.glb` as KHR_materials_volume (thickness tinted by the albedo), in the `.tres` as subsurface
+transmittance, and in the `.mtlx` as OpenPBR's subsurface radius and transmission depth.
+UsdPreviewSurface has no such input. The page shows it as the **Thick** render pass.
 
 The `shader/` folder keeps the studio controls live: the base maps without detail or wear, one
 detail tile and a wear/grain mask (edges, cavities, grain direction), recombined by a Godot shader and
