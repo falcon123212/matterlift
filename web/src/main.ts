@@ -1,5 +1,5 @@
 import "./style.css";
-import { Preview, type Aov, type LightPass, type MaterialMaps, type Shading, type Shape } from "./preview";
+import { Preview, type Aov, type LightPass, type MaterialMaps, type Shading, type Shape, type Tweaks } from "./preview";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -79,7 +79,10 @@ function toggle(groupSel: string, attr: string, apply: (v: string) => void) {
     apply(btn.dataset[attr]!);
   });
 }
-toggle("#shapes", "shape", (v) => preview.setShape(v as Shape));
+toggle("#shapes", "shape", (v) => {
+  void preview.setShape(v as Shape);
+  showTriplanar(v === "dragon");
+});
 toggle("#lights", "light", (v) => preview.setLight(v as LightPass));
 let currentAov: Aov = "beauty";
 toggle("#aovs", "aov", (v) => preview.setAov((currentAov = v as Aov)));
@@ -93,13 +96,87 @@ let currentName = "matterlift";
 $("#critique-btn").addEventListener("click", () => {
   if (currentMaterial) void runCritique(currentMaterial);
 });
-$("#triplanar").addEventListener("click", (e) => {
-  const b = e.currentTarget as HTMLButtonElement;
-  const on = !b.classList.contains("on");
+let triplanarOn = false;
+$("#triplanar").addEventListener("click", () => {
+  triplanarOn = !triplanarOn;
+  showTriplanar(false);
+  preview.setTriplanar(triplanarOn);
+});
+/** The dragon is always triplanar (no UVs): the button shows it and is locked there. */
+function showTriplanar(forced: boolean) {
+  const b = $<HTMLButtonElement>("#triplanar");
+  const on = forced || triplanarOn;
+  b.disabled = forced;
   b.classList.toggle("on", on);
   b.setAttribute("aria-pressed", String(on));
-  preview.setTriplanar(on);
+}
+
+// Live path tracing: the WebGPU ReSTIR renderer (DEV/ray/webgpu_proto) in an iframe over the preview,
+// fed the current material's maps as ImageBitmaps. The WebGL preview sleeps while it is shown.
+const LIVE_URL = (import.meta.env.VITE_LIVE_URL as string | undefined) ?? "https://hyperwave-proto.taurus-silver-dev.workers.dev/";
+let live: HTMLIFrameElement | null = null;
+let liveReady = false;
+let liveMaps: Record<string, string> | null = null;
+
+const liveBtn = $<HTMLButtonElement>("#live");
+if (!("gpu" in navigator)) {
+  liveBtn.disabled = true;
+  liveBtn.title = "Live path tracing needs WebGPU (recent Chrome or Edge on desktop, Safari 26)";
+}
+liveBtn.addEventListener("click", () => {
+  const on = !liveBtn.classList.contains("on");
+  liveBtn.classList.toggle("on", on);
+  liveBtn.setAttribute("aria-pressed", String(on));
+  if (on && !live) {
+    const url = new URL(LIVE_URL);
+    url.searchParams.set("embed", "");
+    live = document.createElement("iframe");
+    live.className = "live-frame";
+    live.src = url.href;
+    live.title = "Live path-traced preview";
+    $("#canvas-wrap").append(live);
+  }
+  if (live) live.hidden = !on;
+  preview.setActive(!on);
 });
+window.addEventListener("message", (e) => {
+  if (!live || e.source !== live.contentWindow || e.data?.type !== "hyperwave:ready") return;
+  liveReady = true;
+  void sendLiveMaterial();
+  sendLiveTweaks();
+});
+
+// Look-dev controls: one set for every shape, mirrored in Live RT (which has no displacement:
+// it traces the mesh as it is).
+const tweaks = (): Tweaks => ({
+  normalScale: +$<HTMLInputElement>("#tw-normal").value,
+  displacement: +$<HTMLInputElement>("#tw-disp").value,
+  tiling: 2 ** +$<HTMLInputElement>("#tw-tiling").value,
+  clay: $<HTMLInputElement>("#tw-clay").checked,
+});
+$("#tweaks").addEventListener("input", () => {
+  const t = tweaks();
+  const outs = $("#tweaks").querySelectorAll("output");
+  [t.normalScale, t.displacement, t.tiling].forEach((v, i) => (outs[i].textContent = v.toFixed(2)));
+  preview.setTweaks(t);
+  sendLiveTweaks();
+});
+
+function sendLiveTweaks() {
+  if (!live?.contentWindow || !liveReady) return;
+  const { normalScale, tiling, clay } = tweaks();
+  live.contentWindow.postMessage({ type: "hyperwave:settings", normalScale, tiling, clay }, "*");
+}
+
+async function sendLiveMaterial() {
+  if (!live?.contentWindow || !liveReady || !liveMaps) return;
+  const keys = ["albedo", "normal", "roughness", "metallic"] as const;
+  const bitmaps = await Promise.all(
+    keys.map(async (k) => (liveMaps?.[k] ? createImageBitmap(await (await fetch(liveMaps[k])).blob()) : undefined)),
+  );
+  const maps = Object.fromEntries(keys.map((k, i) => [k, bitmaps[i]]));
+  live.contentWindow.postMessage({ type: "hyperwave:material", maps }, "*", bitmaps.filter((b) => b !== undefined));
+}
 
 function absolute(maps: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(maps).map(([k, v]) => [k, API + v]));
@@ -197,6 +274,8 @@ async function show(mat: Material, updateUrl = true) {
   currentName = mat.plan.name;
   updateExportLink();
   const maps = absolute(mat.maps) as unknown as MaterialMaps & Record<string, string>;
+  liveMaps = maps;
+  void sendLiveMaterial();
   await preview.load(maps, mat.plan.shading);
   $("#tiling").style.backgroundImage = `url(${maps.albedo})`;
   $("#maps").innerHTML = Object.entries(maps)

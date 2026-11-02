@@ -73,6 +73,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
 | Ported from Meta | `api/matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
+| Preview mesh | Stanford dragon, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles with meshoptimizer: `web/public/models/stanford_dragon.ply` |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, Vite, TypeScript |
 | Hosting | Modal (API), Cloudflare Workers (page) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |

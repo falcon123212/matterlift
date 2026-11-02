@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 
-export type Shape = "sphere" | "cube" | "plane";
+export type Shape = "sphere" | "cube" | "plane" | "dragon";
 export type LightPass = "hdri" | "key" | "raking" | "back";
 /** Render passes (AOVs): the lit beauty pass, or one buffer shown on its own. */
 export type Aov = "beauty" | "depth" | "normal" | "albedo" | "roughness" | "ao";
@@ -16,6 +17,15 @@ export interface MaterialMaps {
   height?: string;
 }
 
+/** Look-dev controls shared by every shape (and sent to the live renderer): normal and
+ * displacement strength, tiling, and a clay pass that drops colour and metal. */
+export interface Tweaks {
+  normalScale: number;
+  displacement: number;
+  tiling: number;
+  clay: boolean;
+}
+
 export interface Shading {
   transmission: number;
   ior: number;
@@ -27,7 +37,9 @@ export interface Shading {
 
 const REPEAT = 2;
 // Triplanar tiles per world unit, matching each shape's UV density (REPEAT tiles across its UVs).
-const TRI_SCALE: Record<Shape, number> = { sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4 };
+const TRI_SCALE: Record<Shape, number> = { sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4, dragon: REPEAT / 0.8 };
+// Stanford dragon (Stanford 3D Scanning Repository), decimated to 150k triangles. No UVs: shown triplanar only.
+const DRAGON_URL = "/models/stanford_dragon.ply";
 // The height map displaces the mesh for real, so silhouettes and the depth AOV show the relief.
 const DISPLACEMENT = 0.035;
 const BACKGROUND = new THREE.Color(0x141416);
@@ -38,6 +50,7 @@ const BACKGROUND = new THREE.Color(0x141416);
 const TRIPLANAR_GLSL = /* glsl */ `
 uniform float triplanar;
 uniform float triScale;
+uniform float triNormalScale;
 varying vec3 vTriPos;
 varying vec3 vTriNormal;
 vec3 triWeights() {
@@ -60,6 +73,9 @@ vec3 triNormalWorld(sampler2D t) {
   vec3 tx = texture2D(t, p.zy).xyz * 2.0 - 1.0;
   vec3 ty = texture2D(t, p.xz).xyz * 2.0 - 1.0;
   vec3 tz = texture2D(t, p.xy).xyz * 2.0 - 1.0;
+  tx.xy *= triNormalScale;
+  ty.xy *= triNormalScale;
+  tz.xy *= triNormalScale;
   tx = vec3(tx.xy + n.zy, abs(tx.z) * n.x);
   ty = vec3(ty.xy + n.xz, abs(ty.z) * n.y);
   tz = vec3(tz.xy + n.xy, abs(tz.z) * n.z);
@@ -67,7 +83,10 @@ vec3 triNormalWorld(sampler2D t) {
 }
 `;
 
-function addTriplanar(material: THREE.MeshPhysicalMaterial, uniforms: { triplanar: { value: number }; triScale: { value: number } }) {
+function addTriplanar(
+  material: THREE.MeshPhysicalMaterial,
+  uniforms: { triplanar: { value: number }; triScale: { value: number }; triNormalScale: { value: number } },
+) {
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -145,7 +164,12 @@ export class Preview {
   private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
   private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height", THREE.Texture>> = {};
   private aov: Aov = "beauty";
-  private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere } };
+  private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere }, triNormalScale: { value: 1 } };
+  private tweaks: Tweaks = { normalScale: 1, displacement: 1, tiling: 1, clay: false };
+  private shape: Shape = "sphere";
+  private triplanarChosen = false;
+  private dragon?: Promise<THREE.BufferGeometry>;
+  private dragonGeometry?: THREE.BufferGeometry;
   private envMap: THREE.Texture;
   private sun = new THREE.DirectionalLight(0xffffff, 3);
   private loader = new THREE.TextureLoader();
@@ -174,11 +198,19 @@ export class Preview {
 
     new ResizeObserver(() => this.resize()).observe(host);
     this.resize();
-    this.renderer.setAnimationLoop(() => {
-      this.controls.update();
-      if (this.aov === "depth") this.fitDepthRange();
-      this.renderer.render(this.scene, this.camera);
-    });
+    this.renderer.setAnimationLoop(this.frame);
+  }
+
+  private frame = () => {
+    this.controls.update();
+    if (this.aov === "depth") this.fitDepthRange();
+    this.renderer.render(this.scene, this.camera);
+  };
+
+  /** Stop drawing (and hide the canvas) while another view covers the preview. */
+  setActive(on: boolean) {
+    this.renderer.setAnimationLoop(on ? this.frame : null);
+    this.renderer.domElement.style.visibility = on ? "" : "hidden";
   }
 
   private geometry(shape: Shape): THREE.BufferGeometry {
@@ -188,11 +220,33 @@ export class Preview {
     return new THREE.SphereGeometry(1, 256, 128);
   }
 
-  setShape(shape: Shape) {
-    this.mesh.geometry.dispose();
-    this.mesh.geometry = this.geometry(shape);
+  /** The dragon scan, loaded once, centred and scaled to the unit sphere like the other shapes. */
+  private loadDragon(): Promise<THREE.BufferGeometry> {
+    this.dragon ??= new PLYLoader().loadAsync(DRAGON_URL).then((g) => {
+      g.computeVertexNormals();
+      g.computeBoundingSphere();
+      const { center, radius } = g.boundingSphere!;
+      g.translate(-center.x, -center.y, -center.z);
+      g.scale(1 / radius, 1 / radius, 1 / radius);
+      g.computeBoundingSphere();
+      this.dragonGeometry = g;
+      return g;
+    });
+    return this.dragon;
+  }
+
+  async setShape(shape: Shape) {
+    this.shape = shape;
+    const geometry = shape === "dragon" ? await this.loadDragon() : this.geometry(shape);
+    // a later click won while the dragon was loading
+    if (this.shape !== shape) return;
+    // the cached dragon is kept for the next visit
+    if (this.mesh.geometry !== this.dragonGeometry) this.mesh.geometry.dispose();
+    this.mesh.geometry = geometry;
     this.mesh.rotation.set(shape === "plane" ? -0.9 : 0, 0, 0);
-    this.tri.triScale.value = TRI_SCALE[shape];
+    this.tri.triScale.value = TRI_SCALE[shape] * this.tweaks.tiling;
+    this.applyTriplanar();
+    this.applyDisplacement();
   }
 
   /** Lighting passes: HDRI for the overall read, key/raking/back to check relief and seams. */
@@ -210,9 +264,54 @@ export class Preview {
     this.sun.position.set(...pos[pass]);
   }
 
-  /** Triplanar projection on or off (beauty pass). */
+  /** Triplanar projection on or off (beauty pass). The dragon has no UVs, so it is always triplanar;
+   * the choice comes back on the other shapes. */
   setTriplanar(on: boolean) {
-    this.tri.triplanar.value = on ? 1 : 0;
+    this.triplanarChosen = on;
+    this.applyTriplanar();
+  }
+
+  private applyTriplanar() {
+    this.tri.triplanar.value = this.triplanarChosen || this.shape === "dragon" ? 1 : 0;
+  }
+
+  /** The height map displaces along UVs, which the dragon lacks: no displacement there. */
+  private displacement(): number {
+    return this.shape === "dragon" ? 0 : DISPLACEMENT * this.tweaks.displacement;
+  }
+
+  private applyDisplacement() {
+    this.material.displacementScale = this.displacement();
+    this.material.displacementBias = -this.material.displacementScale / 2;
+  }
+
+  setTweaks(tweaks: Tweaks) {
+    this.tweaks = { ...tweaks };
+    const m = this.material;
+    m.normalScale.set(tweaks.normalScale, tweaks.normalScale);
+    this.tri.triNormalScale.value = tweaks.normalScale;
+    this.tri.triScale.value = TRI_SCALE[this.shape] * tweaks.tiling;
+    for (const t of Object.values(this.textures)) {
+      t?.repeat.set(REPEAT * tweaks.tiling, REPEAT * tweaks.tiling);
+      t?.updateMatrix();
+    }
+    this.applyDisplacement();
+    this.applyClay();
+    this.setAov(this.aov);
+  }
+
+  /** Clay: neutral grey, no metal, uniform roughness; the normal and height maps still shape it. */
+  private applyClay() {
+    const m = this.material;
+    const t = this.textures;
+    const clay = this.tweaks.clay || !t.albedo;
+    m.map = clay ? null : t.albedo!;
+    m.metalnessMap = clay ? null : (t.metallic ?? null);
+    m.roughnessMap = clay ? null : (t.roughness ?? null);
+    m.color.set(clay && t.albedo ? 0xb4b4b4 : t.albedo ? 0xffffff : 0xbbbbbb);
+    m.metalness = clay ? 0 : 1;
+    m.roughness = clay ? 0.6 : 1;
+    m.needsUpdate = true;
   }
 
   /** Show one render pass. Lighting choices only affect the beauty pass. */
@@ -225,14 +324,15 @@ export class Preview {
     } else if (aov === "depth") {
       this.depthMaterial.uniforms.displacementMap.value = t.height ?? null;
       if (t.height) this.depthMaterial.uniforms.uvTransform.value.copy(t.height.matrix);
-      this.depthMaterial.uniforms.displacementScale.value = t.height ? DISPLACEMENT : 0;
+      this.depthMaterial.uniforms.displacementScale.value = t.height ? this.displacement() : 0;
       this.mesh.material = this.depthMaterial;
     } else if (aov === "normal") {
       Object.assign(this.normalMaterial, {
         normalMap: t.normal ?? null,
         displacementMap: t.height ?? null,
-        displacementScale: DISPLACEMENT,
-        displacementBias: -DISPLACEMENT / 2,
+        displacementScale: this.displacement(),
+        displacementBias: -this.displacement() / 2,
+        normalScale: new THREE.Vector2(this.tweaks.normalScale, this.tweaks.normalScale),
       });
       this.normalMaterial.needsUpdate = true;
       this.mesh.material = this.normalMaterial;
@@ -263,7 +363,7 @@ export class Preview {
   private async texture(url: string, color = false): Promise<THREE.Texture> {
     const t = await this.loader.loadAsync(url);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(REPEAT, REPEAT);
+    t.repeat.set(REPEAT * this.tweaks.tiling, REPEAT * this.tweaks.tiling);
     t.updateMatrix();
     t.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -289,14 +389,11 @@ export class Preview {
       roughnessMap: roughness,
       metalnessMap: metallic,
       displacementMap: height ?? null,
-      displacementScale: DISPLACEMENT,
-      displacementBias: -DISPLACEMENT / 2,
     });
-    m.color.set(0xffffff);
-    m.roughness = 1;
-    m.metalness = 1;
+    this.applyDisplacement();
+    this.applyClay();
     m.aoMapIntensity = 1;
-    m.normalScale.set(1, 1);
+    m.normalScale.set(this.tweaks.normalScale, this.tweaks.normalScale);
     if (shading) this.setShading(shading);
     m.needsUpdate = true;
     this.setAov(this.aov);

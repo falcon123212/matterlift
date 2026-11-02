@@ -38,14 +38,20 @@ button {
 }
 button[type="submit"] { width: 100%; background: var(--accent); color: #1a1408; font-weight: 600; }
 button:disabled { opacity: 0.5; cursor: progress; }
+#triplanar:disabled { cursor: default; }
 button.on { background: var(--accent); color: #1a1408; }
 #status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
 
 .viewer { display: flex; flex-direction: column; min-width: 0; }
-#canvas-wrap { flex: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-height: 300px; }
+#canvas-wrap { position: relative; flex: 1; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); min-height: 300px; }
+#canvas-wrap .live-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #000; }
 #canvas-wrap canvas { width: 100%; height: 100%; display: block; }
 .controls { display: flex; gap: 16px; justify-content: center; padding-top: 10px; flex-wrap: wrap; }
 .group { display: flex; gap: 4px; }
+.tweaks { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; padding-top: 8px; font-size: 12px; color: var(--muted); }
+.tweaks label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.tweaks input[type=range] { width: 110px; accent-color: var(--accent); }
+.tweaks output { min-width: 2.6em; color: var(--text); font-variant-numeric: tabular-nums; }
 
 label.check { display: flex; gap: 8px; align-items: center; color: var(--text); }
 label.check input { width: auto; margin: 0; }
