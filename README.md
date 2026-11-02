@@ -278,7 +278,7 @@ API:
 - Page on Cloudflare Workers (static assets, `web/wrangler.jsonc`):
 
 ```bash
-cd web && VITE_API_URL=https://<your-modal-url> npm run build && npx wrangler deploy
+cd web && npm run deploy   # builds with web/.env.production (API URL), refuses an unbuilt page, deploys
 ```
 
 `VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: `live.html` of the same site).
