@@ -82,6 +82,49 @@ sample as a clean, flat, tileable texture, then pbrforge matches its colours bac
 derives the maps. The result is faithful in character and colour (Delta E shown in the UI), not a
 pixel-exact capture.
 
+## Real photos: six objects from a desk
+
+Six phone photos (1500×2000, dim desk light) of what was on the desk, sent to the deployed API the
+way the page does it: **Understand** with no text at all, **Generate** at
+1K, **Spark's critique**, **Download .zip** at 1K (`scripts/photo_test.py`, raw numbers in
+[`results/photo_test/`](results/photo_test); the photos themselves are not in the repository, only
+the square that was sampled).
+
+![Photo sample and the texture made from it, for each object](docs/img/photo_test.jpg)
+
+| Object | Spark understood / SAM found | Understand | Generate | Critique | Result |
+|---|---|---|---|---|---|
+| 3D-printed cube | black circuit plastic / "black box" | 14 s | 29 s | 55 s, 6 → 7 | ✅ The best one: circuit traces and print grain kept |
+| Plush | beige plush fleece / "plush toy" | 32 s | 33 s | 51 s, 4 → 6 | ✅ Fleece, with sheen 0.9 and subsurface set by Spark. Critique: too pale, relief too flat |
+| Webcam | glossy black plastic / "webcam" | 18 s | 33 s | 41 s, 4 → 5 | ✅ Right but plain. Colour ΔE 0.3 |
+| Massager | white matte plastic / "white cap" | 20 s | 38 s | 64 s, 4 → 7 | ✅ Critique saw a cross-shaped seam on the sphere and removed the plaster grain |
+| Bowl | pale blue glazed ceramic / "bowl" | 17 s | 34 s | 68 s, 3 → 7 | ⚠️ Muse drew the outside's oval decoration on what is a plain glaze. The critique fixed the relief, not the pattern |
+| Receipt, no text | frosted glass table / "glass table" | 17 s | 36 s | 41 s, 4 → 6 | ❌ Took the table: the largest surface, not the paper. Fixed since, see below |
+| Receipt, "le papier froissé" | crumpled paper / "crumpled paper" | 20 s | 31 s | 67 s, 6 → 3, first kept | ⚠️ The paper, without its print. But a lighter band runs along the top and bottom edges |
+
+**Time** (7 runs, median): understand 18 s (Spark's plan 13 s, from 11 to 30 s; SAM 2.6 s), generate
+33 s (Muse Image 11 s, Muse height 11 s, pbrforge about 6 s), critique 55 s, 1K export 10 s for a
+10 to 21 MB zip. From photo to a downloadable 1K material: about 1 min, 2 min with the critique.
+
+**What went wrong, and what it says:**
+- **"The main material" meant the largest surface (fixed).** With no words, Spark picked the glass
+  table under the receipt. Saying it ("le papier froissé") fixed it at once. Then Spark was taught to
+  read the photo as its author framed it: with no words, the subject is what is centred, in focus,
+  closest and standing out, and the table or wall around it is context. It now names the subject and
+  says why, and the page shows it. Rerun with no text, all six photos land on their object: the
+  receipt gives "crumpled printed paper" ("centered white crumpled object stands out against the
+  glass table"), and SAM masks the paper only.
+- **The seam score misses a band that repeats on both edges.** The paper scored 0.77 ("invisible")
+  with a light strip along its top and bottom edges, and the massager 1.39 with a cross Spark saw on
+  the sphere: the score compares opposite edges, and here both edges carry the same strip. Spark's
+  critique caught both; the score did not. A border-band check is the next metric to add.
+- **Muse borrows patterns from elsewhere on the object.** The bowl's inside is a plain glaze; the
+  texture took the ovals painted on its outside.
+- **The critique does not always improve things.** On the paper, Spark's own fix scored 3 against 6
+  for the first version: MatterLift kept the first.
+- **Colour** after matching to the photo: ΔE 0.3 (webcam) and 1.9 (cube) on the dark objects, 12 to 17
+  on the pale ones (bowl, plush, massager, paper, table).
+
 ## Built during the hackathon
 
 Meta hackathon *Build for Your World*, Indie Developer track.

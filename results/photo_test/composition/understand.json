@@ -1,0 +1,74 @@
+[
+  {
+    "n": 1,
+    "object": "bowl",
+    "understand_s": 32.9,
+    "name": "light_blue_glazed_bowl",
+    "subject": "ceramic bowl",
+    "reason": "The bowl is centered, closest to the camera and in focus filling the foreground while desk and monitor are context.",
+    "found_by": "SAM \"bowl\"",
+    "crop_from": "mask",
+    "spark_s": 26.14,
+    "understanding": "82da967668"
+  },
+  {
+    "n": 2,
+    "object": "webcam",
+    "understand_s": 15.0,
+    "name": "glossy_black_plastic",
+    "subject": "black webcam housing",
+    "reason": "It is centered, in focus and closest to the camera, standing out from the screen and wall.",
+    "found_by": "SAM \"webcam\"",
+    "crop_from": "mask",
+    "spark_s": 12.09,
+    "understanding": "6daffc439e"
+  },
+  {
+    "n": 3,
+    "object": "receipt",
+    "understand_s": 14.3,
+    "name": "crumpled_printed_paper",
+    "subject": "crumpled printed paper",
+    "reason": "centered white crumpled object stands out against the glass table.",
+    "found_by": "SAM \"crumpled paper\"",
+    "crop_from": "mask",
+    "spark_s": 11.11,
+    "understanding": "f713aa025a"
+  },
+  {
+    "n": 4,
+    "object": "3D-printed cube",
+    "understand_s": 16.4,
+    "name": "black_circuit_box",
+    "subject": "black circuit-patterned box",
+    "reason": "The photo centers in focus close up on the black patterned cube under the monitor.",
+    "found_by": "SAM \"black box\"",
+    "crop_from": "mask",
+    "spark_s": 14.14,
+    "understanding": "dd7f1e6784"
+  },
+  {
+    "n": 5,
+    "object": "plush",
+    "understand_s": 18.6,
+    "name": "beige_plush_fleece",
+    "subject": "beige plush toy",
+    "reason": "It is centered, in focus and closest to the camera, filling much of the frame against the desk background.",
+    "found_by": "SAM \"plush toy\"",
+    "crop_from": "mask",
+    "spark_s": 16.32,
+    "understanding": "587505c8f8"
+  },
+  {
+    "n": 6,
+    "object": "massager",
+    "understand_s": 16.4,
+    "name": "white_matte_plastic",
+    "subject": "white massager top",
+    "reason": "It is centered, in focus and closest filling much of the frame.",
+    "found_by": "SAM \"plastic cap\"",
+    "crop_from": "mask",
+    "spark_s": 13.07,
+    "understanding": "513c07d67d"
+  }
+]

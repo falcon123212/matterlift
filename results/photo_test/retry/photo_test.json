@@ -1,0 +1,76 @@
+{
+  "date": "2026-11-02T13:14:25+00:00",
+  "api": "https://falcon123212--matterlift-api.us-east.modal.run",
+  "rows": [
+    {
+      "photo": "5a231911-image.jpg",
+      "request": "le papier froissé",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 19.6,
+      "understood": "papier_froisse",
+      "sam_prompt": "crumpled paper",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"crumpled paper\"",
+      "spark_sam_s": {
+        "spark_plan": 15.69,
+        "sam_mask": 2.76
+      },
+      "generate_s": 30.7,
+      "material_id": "3667343762",
+      "plan": {
+        "roughness": 0.9,
+        "metallic": 0.0,
+        "detail_kind": "fabric",
+        "wear": 0.6
+      },
+      "shading": {
+        "clearcoat_roughness": 0.5,
+        "subsurface": 0.2,
+        "ior": 1.5
+      },
+      "stages_s": {
+        "spark_plan": 15.69,
+        "sam_mask": 2.76,
+        "muse_image": 11.76,
+        "pbrforge_albedo": 3.24,
+        "muse_height": 10.84,
+        "pbrforge_maps": 1.14
+      },
+      "seam_before": 3.37,
+      "seam_after": 0.77,
+      "delta_e": {
+        "delta_e_before": 31.8,
+        "delta_e_after": 12.7
+      },
+      "critique_s": 66.8,
+      "score_before": 6,
+      "score_after": 3,
+      "kept": "3667343762",
+      "issues": [
+        "Strong horizontal seams visible at tile edges in 3x3 view and across sphere",
+        "Crumple relief too sharp and dense compared to soft large folds in photo sample"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          1.4,
+          1.0
+        ],
+        "height_strength": [
+          1.2,
+          0.8
+        ],
+        "detail_strength": [
+          0.3,
+          0.0
+        ]
+      },
+      "export_1k_s": 13.4,
+      "export_1k_mb": 14.7,
+      "n": 1
+    }
+  ]
+}

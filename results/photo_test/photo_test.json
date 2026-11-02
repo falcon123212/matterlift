@@ -1,0 +1,430 @@
+{
+  "date": "2026-11-02T13:11:39+00:00",
+  "api": "https://falcon123212--matterlift-api.us-east.modal.run",
+  "rows": [
+    {
+      "photo": "f1f08709-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 16.6,
+      "understood": "pale_blue_glazed_ceramic",
+      "sam_prompt": "bowl",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"bowl\"",
+      "spark_sam_s": {
+        "spark_plan": 13.22,
+        "sam_mask": 2.06
+      },
+      "generate_s": 33.7,
+      "material_id": "68790fd185",
+      "plan": {
+        "roughness": 0.28,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.35
+      },
+      "shading": {
+        "clearcoat": 0.8,
+        "clearcoat_roughness": 0.25,
+        "subsurface": 0.1,
+        "ior": 1.5
+      },
+      "stages_s": {
+        "spark_plan": 13.22,
+        "sam_mask": 2.06,
+        "muse_image": 11.86,
+        "pbrforge_albedo": 5.02,
+        "muse_height": 11.98,
+        "pbrforge_maps": 1.52
+      },
+      "seam_before": 24.17,
+      "seam_after": 0.59,
+      "delta_e": {
+        "delta_e_before": 43.0,
+        "delta_e_after": 17.1
+      },
+      "critique_s": 68.1,
+      "score_before": 3,
+      "score_after": 7,
+      "kept": "fe2f56ee05",
+      "issues": [
+        "Repeating white oval decoration covers tile while main photo area is plain glaze",
+        "Brown speckled blotches repeat across tile and are absent in photo",
+        "Surface shows grainy plaster micro-noise instead of smooth glaze"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.4,
+          0.3
+        ],
+        "roughness": [
+          0.28,
+          0.12
+        ],
+        "roughness_variation": [
+          0.15,
+          0.05
+        ],
+        "detail_strength": [
+          0.25,
+          0.0
+        ],
+        "wear": [
+          0.35,
+          0.0
+        ]
+      },
+      "export_1k_s": 10.6,
+      "export_1k_mb": 11.7,
+      "n": 1
+    },
+    {
+      "photo": "ca8017f1-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 17.7,
+      "understood": "glossy_black_plastic",
+      "sam_prompt": "webcam",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"webcam\"",
+      "spark_sam_s": {
+        "spark_plan": 14.17,
+        "sam_mask": 2.56
+      },
+      "generate_s": 33.4,
+      "material_id": "db3e293d87",
+      "plan": {
+        "roughness": 0.28,
+        "metallic": 0.0,
+        "detail_kind": "none",
+        "wear": 0.25
+      },
+      "shading": {
+        "clearcoat": 0.7,
+        "clearcoat_roughness": 0.25,
+        "ior": 1.49
+      },
+      "stages_s": {
+        "spark_plan": 14.17,
+        "sam_mask": 2.56,
+        "muse_image": 10.53,
+        "pbrforge_albedo": 5.88,
+        "muse_height": 11.63,
+        "pbrforge_maps": 0.96
+      },
+      "seam_before": 13.56,
+      "seam_after": 1.23,
+      "delta_e": {
+        "delta_e_before": 2.2,
+        "delta_e_after": 0.3
+      },
+      "critique_s": 40.7,
+      "score_before": 4,
+      "score_after": 5,
+      "kept": "7620796a5b",
+      "issues": [
+        "Surface shows grainy mottled relief instead of smooth plastic",
+        "Looks too matte and grey for glossy black plastic"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.35,
+          0.3
+        ],
+        "roughness": [
+          0.28,
+          0.15
+        ],
+        "roughness_variation": [
+          0.15,
+          0.05
+        ],
+        "wear": [
+          0.25,
+          0.0
+        ]
+      },
+      "export_1k_s": 10.4,
+      "export_1k_mb": 9.7,
+      "n": 2
+    },
+    {
+      "photo": "5a231911-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 16.6,
+      "understood": "frosted_glass_table",
+      "sam_prompt": "glass table",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"glass table\"",
+      "spark_sam_s": {
+        "spark_plan": 11.96,
+        "sam_mask": 3.45
+      },
+      "generate_s": 35.7,
+      "material_id": "1e1235b048",
+      "plan": {
+        "roughness": 0.45,
+        "metallic": 0.0,
+        "detail_kind": "none",
+        "wear": 0.4
+      },
+      "shading": {
+        "transmission": 0.4,
+        "clearcoat_roughness": 0.5,
+        "ior": 1.52
+      },
+      "stages_s": {
+        "spark_plan": 11.96,
+        "sam_mask": 3.45,
+        "muse_image": 10.14,
+        "pbrforge_albedo": 6.84,
+        "muse_height": 12.34,
+        "pbrforge_maps": 1.13
+      },
+      "seam_before": 3.43,
+      "seam_after": 1.0,
+      "delta_e": {
+        "delta_e_before": 33.7,
+        "delta_e_after": 13.2
+      },
+      "critique_s": 41.0,
+      "score_before": 4,
+      "score_after": 6,
+      "kept": "c320813f37",
+      "issues": [
+        "colour much lighter than dark photo sample",
+        "cloudy mottled variation much stronger than smooth uniform photo sample"
+      ],
+      "params_changed": {
+        "roughness_variation": [
+          0.15,
+          0.05
+        ],
+        "wear": [
+          0.4,
+          0.0
+        ]
+      },
+      "export_1k_s": 9.2,
+      "export_1k_mb": 12.3,
+      "n": 3
+    },
+    {
+      "photo": "c2c97e87-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 14.1,
+      "understood": "black_circuit_plastic",
+      "sam_prompt": "black box",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"black box\"",
+      "spark_sam_s": {
+        "spark_plan": 10.92,
+        "sam_mask": 2.14
+      },
+      "generate_s": 28.6,
+      "material_id": "d5dff65400",
+      "plan": {
+        "roughness": 0.85,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.55
+      },
+      "shading": {
+        "clearcoat_roughness": 0.5,
+        "ior": 1.46
+      },
+      "stages_s": {
+        "spark_plan": 10.92,
+        "sam_mask": 2.14,
+        "muse_image": 10.11,
+        "pbrforge_albedo": 4.36,
+        "muse_height": 8.96,
+        "pbrforge_maps": 1.38
+      },
+      "seam_before": 6.58,
+      "seam_after": 1.25,
+      "delta_e": {
+        "delta_e_before": 4.8,
+        "delta_e_after": 1.9
+      },
+      "critique_s": 55.0,
+      "score_before": 6,
+      "score_after": 7,
+      "kept": "1756c25626",
+      "issues": [
+        "Micro surface grain too coarse and pitted for smooth plastic"
+      ],
+      "params_changed": {
+        "detail_strength": [
+          0.55,
+          0.25
+        ]
+      },
+      "export_1k_s": 10.3,
+      "export_1k_mb": 13.8,
+      "n": 4
+    },
+    {
+      "photo": "738315fe-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 32.4,
+      "understood": "beige_plush_fleece",
+      "sam_prompt": "plush toy",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"plush toy\"",
+      "spark_sam_s": {
+        "spark_plan": 29.62,
+        "sam_mask": 1.93
+      },
+      "generate_s": 32.6,
+      "material_id": "c07e9453f5",
+      "plan": {
+        "roughness": 0.95,
+        "metallic": 0.0,
+        "detail_kind": "fabric",
+        "wear": 0.25
+      },
+      "shading": {
+        "clearcoat_roughness": 0.6,
+        "sheen": 0.9,
+        "subsurface": 0.3,
+        "ior": 1.4
+      },
+      "stages_s": {
+        "spark_plan": 29.62,
+        "sam_mask": 1.93,
+        "muse_image": 11.24,
+        "pbrforge_albedo": 5.11,
+        "muse_height": 10.56,
+        "pbrforge_maps": 1.06
+      },
+      "seam_before": 5.6,
+      "seam_after": 0.76,
+      "delta_e": {
+        "delta_e_before": 39.8,
+        "delta_e_after": 15.9
+      },
+      "critique_s": 50.5,
+      "score_before": 4,
+      "score_after": 6,
+      "kept": "efb296c435",
+      "issues": [
+        "colour too pale and grey versus warm tan fleece in photo",
+        "relief too flat for plush fleece fibres"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.5,
+          1.0
+        ],
+        "height_strength": [
+          0.4,
+          0.8
+        ],
+        "detail_strength": [
+          0.65,
+          0.9
+        ]
+      },
+      "export_1k_s": 10.4,
+      "export_1k_mb": 20.7,
+      "n": 5
+    },
+    {
+      "photo": "2a82170e-image.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 19.9,
+      "understood": "white_matte_plastic",
+      "sam_prompt": "massager top",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"white cap\"",
+      "spark_sam_s": {
+        "spark_plan": 12.9,
+        "sam_mask": 6.03
+      },
+      "generate_s": 37.7,
+      "material_id": "984cdcd4bc",
+      "plan": {
+        "roughness": 0.45,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.25
+      },
+      "shading": {
+        "clearcoat_roughness": 0.5,
+        "ior": 1.46
+      },
+      "stages_s": {
+        "spark_plan": 12.9,
+        "sam_mask": 6.03,
+        "muse_image": 11.43,
+        "pbrforge_albedo": 9.38,
+        "muse_height": 11.2,
+        "pbrforge_maps": 1.5
+      },
+      "seam_before": 33.24,
+      "seam_after": 1.39,
+      "delta_e": {
+        "delta_e_before": 29.9,
+        "delta_e_after": 11.9
+      },
+      "critique_s": 64.2,
+      "score_before": 4,
+      "score_after": 7,
+      "kept": "b230bc1b64",
+      "issues": [
+        "Visible tile edge seams forming a cross on sphere",
+        "Speckled plaster relief too noisy for smooth plastic in photo"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.4,
+          0.3
+        ],
+        "roughness": [
+          0.45,
+          0.75
+        ],
+        "detail_strength": [
+          0.2,
+          0.0
+        ],
+        "wear": [
+          0.25,
+          0.0
+        ]
+      },
+      "export_1k_s": 9.5,
+      "export_1k_mb": 11.0,
+      "n": 6
+    }
+  ]
+}
