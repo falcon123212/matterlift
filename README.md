@@ -37,15 +37,6 @@
 
 <br>
 
-<p align="center">
-  <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
-  <br>
-  <sub><b>"a ruby"</b>: two words, a game-ready material, path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.
-  <br><b>Live RT is tested on Chrome on Windows with an NVIDIA GPU only</b> (<a href="#live-rt-limits">limits</a>).</sub>
-</p>
-
-<br>
-
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, thickness, ORM, glTF) ready
 for Godot, Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image,
@@ -98,8 +89,7 @@ takes requests in any language Spark reads.
 MatterLift is an open-source material and shader extractor: show a photo, say what you want, get a
 material ready for Godot, Blender, Unity or Unreal.
 
-- **The problem.** A unique material takes time (roughly 30 min to 2 h per texture, about a day per
-  iteration round in pre-production), technical-artist know-how and a paid tool. Free libraries
+- **The problem.** A unique material takes time, technical-artist know-how and a paid tool. Free libraries
   give everyone the same materials.
 - **For whom.** Indie developers and modders (over 19,000 games released on Steam in 2025
   [[1]](https://www.gamingonlinux.com/2025/12/over-19000-games-have-released-on-steam-in-2025-with-nearly-half-seeing-fewer-than-10-reviews)),
@@ -209,7 +199,8 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
 | Preview meshes | Stanford Dragon, Happy Buddha and Lucy, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles each: `web/public/models/` (details and terms in `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
-| Live RT renderer | Ours, written during the hackathon: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris) |
+| Live RT renderer | Ours, written during the hackathon in WebGPU/WGSL: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris). Its design comes from an offline NVIDIA OptiX/CUDA path tracer I wrote before the hackathon (ReSTIR direct lighting): its algorithms and parameters were ported from it into WGSL. No CUDA or OptiX code is in this repository; the WebGPU side (software BVH traversal, passes, shaders) was written during the hackathon |
+| Runtime AI | **Meta models only**: Muse Spark, Muse Image, SAM 3.1 and Muse Voice Transcribe, through the Meta Model API (`https://api.meta.ai/v1`, the only AI endpoint the code calls). Checked in the code: `matterlift_api/`, `pbrforge/` and `web/src/` contain no call to any other AI provider or model (no OpenAI, Anthropic, Google Gemini, Hugging Face, Replicate, Stability or other service). pbrforge is plain numpy/SciPy; Live RT is our own renderer, on your GPU |
 | Hosting | Vercel (page, API as a Python function, saved work in Vercel Blob) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
@@ -254,6 +245,12 @@ and **Lucy** (150k triangles each; no UVs, so always triplanar and without displ
 **Tiling scale** and **Clay render** (grey, no colour or metal, the relief stays) apply to every
 shape. A see-through material (glass, gem) shows the studio behind it, dimmed, so its refraction has
 something to bend, with colour dispersion growing with its IOR.
+
+<p align="center">
+  <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
+  <br>
+  <sub><b>"a ruby"</b> in Live RT: path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
+</p>
 
 **Live RT**: the same material on the selected scan (Dragon, Buddha or Lucy; Sphere, Cube and Plane
 are greyed out while it is on), path traced in the browser with WebGPU: unbiased
@@ -574,7 +571,9 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
 Concept, product design, UI design and build plan: Silver (falcon123212).
 Implementation written with Claude Code (Anthropic) as a coding assistant, under my direction:
 I chose the pipeline, reviewed the code, ran the tests and validated the materials in the results
-gallery.
+gallery. Claude Code was used to write code during development only: it is never called when
+MatterLift runs, where the only AI models are Meta's (see *Runtime AI* in
+[Built during the hackathon](#built-during-the-hackathon)).
 Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
 3D models: Stanford Dragon, Happy Buddha and Lucy from the Stanford 3D Scanning Repository,
 Stanford University Computer Graphics Laboratory (https://graphics.stanford.edu/data/3Dscanrep/),
