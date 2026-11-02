@@ -461,7 +461,7 @@ async function enrich() {
   const body = new FormData();
   body.append("text", text);
   const photo = $<HTMLInputElement>('input[name="photo"]').files?.[0];
-  if (photo) body.append("photo", photo); // Spark describes what it sees in it
+  if (photo) body.append("photo", await shrinkPhoto(photo), photo.name); // Spark describes what it sees in it
   enrichBtn.disabled = true;
   voiceState.textContent = "Spark is fleshing out your request…";
   try {
@@ -483,6 +483,34 @@ enrichUndo.addEventListener("click", () => {
   enrichUndo.hidden = true;
   voiceState.textContent = "";
 });
+
+/** A phone photo at 2048 px, the size the API works at anyway: well under the 4.5 MB a Vercel
+ * function accepts (a 12 MP photo can be 5 MB or more). Upright from its EXIF orientation. */
+async function shrinkPhoto(file: File): Promise<Blob> {
+  const MAX = 2048;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const k = Math.min(1, MAX / Math.max(bmp.width, bmp.height));
+    if (k === 1 && file.size < 3_000_000) return file;
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * k);
+    canvas.height = Math.round(bmp.height * k);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    const out = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/jpeg", 0.9));
+    return out ?? file;
+  } catch {
+    return file; // a format the browser cannot decode (HEIC on some systems): the API says why
+  }
+}
+
+// Sizes this deployment can make (Vercel's free plan stops at 2K): larger ones are greyed out.
+void fetch(`${API}/health`).then((r) => r.json()).then(({ max_size }: { max_size?: number }) => {
+  if (!max_size) return;
+  for (const select of document.querySelectorAll<HTMLSelectElement>('#export-size, select[name="size"]')) {
+    for (const o of select.options) o.disabled = Number(o.value || o.text) > max_size;
+    if (select.selectedOptions[0]?.disabled) select.value = String(max_size);
+  }
+}).catch(() => {});
 
 // --- Understanding panel: shown as soon as Spark and SAM answer, before Muse paints ---
 const photoInput = $<HTMLInputElement>('input[name="photo"]');
@@ -666,8 +694,10 @@ $<HTMLFormElement>("#request").addEventListener("submit", async (e) => {
   e.preventDefault();
   const form = e.target as HTMLFormElement;
   const data = new FormData(form);
-  const hasPhoto = !!(data.get("photo") as File)?.size;
+  const photoFile = data.get("photo") as File | null;
+  const hasPhoto = !!photoFile?.size;
   if (!hasPhoto) data.delete("photo");
+  else data.set("photo", await shrinkPhoto(photoFile!), photoFile!.name);
   data.delete("library");
   if (recorder?.state === "recording") {
     status.textContent = "Stop the recording first.";

@@ -15,12 +15,12 @@ from pbrforge import io as pio
 from pbrforge import color, contact, delight, export, seamless, shaders
 from pbrforge.metrics import luminance
 
-from . import overlay
+from . import overlay, storage
 from .locate import locate
 from .meta_client import MetaClient
 from .schemas import Material, MaterialPlan, Understanding
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "materials"
+DATA_DIR = storage.DATA_ROOT / "materials"
 UNDERSTAND_DIR = DATA_DIR.parent / "understand"
 
 TEXTURE_SUFFIX = (
@@ -186,6 +186,7 @@ class Pipeline:
                             overlay=f"/understand/{uid}/overlay.jpg", crops=crops,
                             timings={k: round(v, 2) for k, v in timings.items()})
         (d / "understanding.json").write_text(und.model_dump_json(indent=2), encoding="utf-8")
+        storage.push(d)
         return und
 
     def run_understood(self, und: Understanding, size: int = 1024) -> Material:
@@ -283,6 +284,7 @@ class Pipeline:
         mat = Material(id=mid, plan=plan, request=request, source=source, size=size, maps=urls,
                        scores=scores, timings={k: round(v, 2) for k, v in timings.items()})
         (out_dir / "material.json").write_text(mat.model_dump_json(indent=2), encoding="utf-8")
+        storage.push(out_dir)
         return mat
 
 
@@ -292,6 +294,7 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
     of the same package at once would otherwise delete each other's files); the caller removes
     `zip.parent` once the zip is sent."""
     d = data_dir / mat.id
+    storage.pull(d, fresh=False)
     src = d / "albedo_source.png"
     albedo = pio.load(src if src.exists() else d / "albedo.png")
     guide_path = d / "muse_height.png"
@@ -306,11 +309,13 @@ def export_material(mat: Material, size: int, fmt: str, data_dir: Path = DATA_DI
 
 
 def load_understanding(uid: str, root: Path = UNDERSTAND_DIR) -> Understanding | None:
+    storage.pull(root / uid)
     p = root / uid / "understanding.json"
     return Understanding.model_validate(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else None
 
 
 def load_material(mid: str, data_dir: Path = DATA_DIR) -> Material | None:
+    storage.pull(data_dir / mid)
     p = data_dir / mid / "material.json"
     if not p.exists():
         return None

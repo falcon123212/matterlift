@@ -8,6 +8,7 @@ dependencies = [
   "numpy", "scipy", "pillow",
   "fastapi", "uvicorn[standard]", "python-multipart",
   "openai", "httpx", "python-dotenv", "pydantic",
+  "vercel",  # Vercel Blob, used only when a store is connected (the Vercel deployment)
 ]
 
 [project.optional-dependencies]
@@ -15,8 +16,16 @@ dev = ["pytest", "MaterialX", "usd-core"]
 
 [tool.setuptools]
 packages = ["pbrforge", "matterlift_api"]
-package-dir = { "pbrforge" = "pbrforge", "matterlift_api" = "api/matterlift_api" }
+package-dir = { "pbrforge" = "pbrforge", "matterlift_api" = "matterlift_api" }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "api"]
+pythonpath = ["."]
+
+# Vercel: the FastAPI app, with the built page (web/dist) served from Vercel's CDN.
+[tool.vercel]
+entrypoint = "matterlift_api.main:app"
+
+[tool.vercel.fastapi.static]
+cdn = true  # the CORS middleware would otherwise keep the page in the function
+exclude = true  # and out of the function bundle

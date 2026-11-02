@@ -23,7 +23,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "api"))
 from matterlift_api.pipeline import DATA_DIR, export_material, load_material  # noqa: E402
 from tests.test_export_godot import CHECK  # noqa: E402
 from tests.test_export_validators import SHADINGS  # noqa: E402

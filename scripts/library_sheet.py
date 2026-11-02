@@ -10,7 +10,6 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "api"))
 
 from matterlift_api.library import LIBRARY_DIR, load_library
 from matterlift_api.overlay import PALETTE  # noqa: E402

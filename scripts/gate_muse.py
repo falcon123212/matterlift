@@ -12,7 +12,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "api"))
 
 from matterlift_api.pipeline import DATA_DIR, Pipeline  # noqa: E402
 from pbrforge import contact, io, maps  # noqa: E402

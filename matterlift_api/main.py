@@ -1,4 +1,4 @@
-"""MatterLift API. Run: uvicorn matterlift_api.main:app --app-dir api --reload"""
+"""MatterLift API. Run: uvicorn matterlift_api.main:app --reload"""
 from __future__ import annotations
 
 import io
@@ -11,10 +11,12 @@ import wave
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from starlette.background import BackgroundTask
 
+from . import storage
 from .critique import critique_by_id
 from .meta_client import audio_level
 from .library import (LIBRARY_DIR, build_library, clean_points, load_library, point_item, remove_item,
@@ -53,7 +55,24 @@ def pipeline() -> Pipeline:
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True}
+    """`max_size`: the largest material or export this deployment can make (2K on Vercel's free plan)."""
+    return {"ok": True, "max_size": storage.MAX_SIZE}
+
+
+SIZES = tuple(s for s in (512, 1024, 2048, 4096) if s <= storage.MAX_SIZE)
+
+
+def _file(folder, name: str, media_type: str | None = None):
+    """A saved image: from disk, or a redirect to its Blob copy (Vercel)."""
+    if storage.remote():
+        link = storage.url(folder, name)
+        if link is None:
+            raise HTTPException(404)
+        return RedirectResponse(link, status_code=307)
+    path = folder / name
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path, media_type=media_type)
 
 
 async def _request_text(text: str, audio: UploadFile | None) -> str:
@@ -125,13 +144,10 @@ async def understand(
 
 
 @app.get("/understand/{uid}/{name}")
-def get_understanding_image(uid: str, name: str) -> FileResponse:
+def get_understanding_image(uid: str, name: str) -> Response:
     if not _SAFE.match(uid) or not re.fullmatch(r"overlay\.jpg|photo\.jpg|crop_\d\.png", name):
         raise HTTPException(404)
-    path = UNDERSTAND_DIR / uid / name
-    if not path.exists():
-        raise HTTPException(404)
-    return FileResponse(path)
+    return _file(UNDERSTAND_DIR / uid, name)
 
 
 @app.post("/materials", response_model=Material)
@@ -143,8 +159,8 @@ async def create_material(
     understanding: str = Form(""),
 ) -> Material:
     """Text, voice, or both; or resume from an understanding (step 2 after /understand)."""
-    if size not in (512, 1024, 2048, 4096):
-        raise HTTPException(400, "size must be 512, 1024, 2048 or 4096")
+    if size not in SIZES:
+        raise HTTPException(400, f"size must be one of {', '.join(map(str, SIZES))}")
     try:
         if understanding:
             und = load_understanding(understanding) if _SAFE.match(understanding) else None
@@ -183,28 +199,29 @@ async def critique_material(mid: str) -> Critique:
 
 
 @app.get("/materials/{mid}/export")
-async def export(mid: str, size: int = 1024, fmt: str = "png") -> FileResponse:
+async def export(mid: str, size: int = 1024, fmt: str = "png") -> Response:
     """ambientCG-style zip: Color, NormalGL/DX, Roughness, AO, Displacement (+ Metalness),
     Godot .tres, MaterialX .mtlx, USD .usda."""
     mat = load_material(mid) if _SAFE.match(mid) else None
     if mat is None:
         raise HTTPException(404)
-    if size not in (512, 1024, 2048, 4096) or fmt not in ("png", "jpg"):
-        raise HTTPException(400, "size in 512/1024/2048/4096, fmt in png/jpg")
+    if size not in SIZES or fmt not in ("png", "jpg"):
+        raise HTTPException(400, f"size in {'/'.join(map(str, SIZES))}, fmt in png/jpg")
     path = await run_in_threadpool(export_material, mat, size, fmt)
+    if storage.remote():  # over a function's 4.5 MB response limit: downloaded from Blob
+        link = await run_in_threadpool(storage.publish_export, path)
+        shutil.rmtree(path.parent, ignore_errors=True)
+        return RedirectResponse(link, status_code=307)
     # this request's own folder (package + zip) goes once the zip is sent
     return FileResponse(path, media_type="application/zip", filename=path.name,
                         background=BackgroundTask(shutil.rmtree, path.parent, ignore_errors=True))
 
 
 @app.get("/materials/{mid}/maps/{name}.png")
-def get_map(mid: str, name: str) -> FileResponse:
+def get_map(mid: str, name: str) -> Response:
     if not (_SAFE.match(mid) and _SAFE.match(name)):
         raise HTTPException(404)
-    path = DATA_DIR / mid / f"{name}.png"
-    if not path.exists():
-        raise HTTPException(404)
-    return FileResponse(path, media_type="image/png")
+    return _file(DATA_DIR / mid, f"{name}.png", "image/png")
 
 
 @app.post("/libraries", response_model=Library)
@@ -286,10 +303,14 @@ def get_library(lid: str) -> Library:
 
 
 @app.get("/libraries/{lid}/{name}")
-def get_library_image(lid: str, name: str) -> FileResponse:
+def get_library_image(lid: str, name: str) -> Response:
     if not (_SAFE.match(lid) and re.fullmatch(r"photo\.jpg|overlay\.jpg|crop_\d+_\d\.png", name)):
         raise HTTPException(404)
-    path = LIBRARY_DIR / lid / name
-    if not path.exists():
-        raise HTTPException(404)
-    return FileResponse(path)
+    return _file(LIBRARY_DIR / lid, name)
+
+
+# The page, once built (npm --prefix web run build): one server for the page and the API, on a PC as
+# on Vercel, which serves these files from its CDN. The API routes above take precedence.
+WEB_DIST = storage.REPO / "web" / "dist"
+if WEB_DIST.is_dir():
+    app.mount("/", StaticFiles(directory=WEB_DIST, html=True), name="web")

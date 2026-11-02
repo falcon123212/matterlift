@@ -1,0 +1,10 @@
+# Never uploaded by `vercel deploy` (a Git deploy only sees committed files anyway)
+.env
+.env.*
+!.env.example
+data/
+.venv/
+web/node_modules/
+web/dist/
+results/photo_test/**/private/
+docs/img/candidates/

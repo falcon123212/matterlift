@@ -25,12 +25,12 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw
 
-from . import overlay
+from . import overlay, storage
 from .locate import Located, locate
 from .pipeline import PLAN_SYSTEM, Pipeline, normalize_photo
 from .schemas import Library, LibraryItem, LibraryItemPlan
 
-LIBRARY_DIR = Path(__file__).resolve().parents[2] / "data" / "libraries"
+LIBRARY_DIR = storage.DATA_ROOT / "libraries"
 MAX_MATERIALS = 8
 MAX_MANUAL = 12  # point groups in one library
 MAX_POINTS = 3  # points per group
@@ -237,8 +237,10 @@ def build_library(pipe: Pipeline, lib: Library, size: int = 1024, root: Path = L
 
 def _save(lib: Library, root: Path) -> None:
     (root / lib.id / "library.json").write_text(lib.model_dump_json(indent=2), encoding="utf-8")
+    storage.push(root / lib.id)
 
 
 def load_library(lid: str, root: Path = LIBRARY_DIR) -> Library | None:
+    storage.pull(root / lid)
     p = root / lid / "library.json"
     return Library.model_validate(json.loads(p.read_text(encoding="utf-8"))) if p.exists() else None

@@ -1,10 +1,9 @@
-// Refuses to deploy a page that still points at the sources (/src/main.ts): it would load unstyled.
+// Refuses to deploy a page that is not built: a raw index.html (/src/main.ts) once went live and the
+// page lost its CSS. The API is on the same site (Vercel), so no URL is baked in.
 import { readFileSync } from "node:fs";
 
-// web/dist, wherever this runs from (web/ for npm run deploy, the repository root for Cloudflare)
 const dist = new URL("../dist/", import.meta.url);
 const read = (path) => readFileSync(new URL(path, dist), "utf8");
-
 for (const page of ["index.html", "live.html"]) {
   const html = read(page);
   if (/src="\/?src\//.test(html) || !html.includes("./assets/")) {
@@ -13,8 +12,8 @@ for (const page of ["index.html", "live.html"]) {
   }
 }
 const js = read("index.html").match(/assets\/main-[^"]+\.js/);
-if (!js || !read(js[0]).includes(".modal.run")) {
-  console.error("the built page has no API URL (VITE_API_URL)");
+if (!js || !read(js[0]).includes("/health")) {
+  console.error("dist/index.html does not load the MatterLift page script");
   process.exit(1);
 }
 console.log("dist ok");

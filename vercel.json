@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm --prefix web ci && npm --prefix web run build && node web/scripts/check-dist.mjs",
+  "functions": {
+    "matterlift_api/main.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{data/**,samples/**,results/**,docs/**,tests/**,scripts/**,deploy/**,web/node_modules/**,web/src/**,web/public/**,.venv/**}"
+    }
+  }
+}

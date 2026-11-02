@@ -177,7 +177,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | First commit | 2026-11-01 18:57 (Paris) |
 | Our code | Everything in this repository was written from 2026-11-01 onward; the Git history is the proof |
 | Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
-| Ported from Meta | `api/matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
+| Ported from Meta | `matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
 | Preview meshes | Stanford Dragon, Happy Buddha and Lucy, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles each: `web/public/models/` (details and terms in `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
@@ -195,7 +195,7 @@ With a photo, MatterLift works in two steps so you see what it understood before
 2. **Generate** (~25 s per material, in parallel for a room): Muse Image and pbrforge.
 
 **Nothing fails alone.** Each step falls back to the next instead of stopping the run
-(`api/matterlift_api/locate.py`, tested offline with failure injection in `tests/test_resilience.py`):
+(`matterlift_api/locate.py`, tested offline with failure injection in `tests/test_resilience.py`):
 
 | If… | then… |
 |---|---|
@@ -208,7 +208,7 @@ With a photo, MatterLift works in two steps so you see what it understood before
 | the Meta API answers 429/5xx or drops | up to two retries with backoff |
 | anything else goes wrong | a readable error message, never a bare 500; one failed material never sinks a library |
 
-**Samples** (`api/matterlift_api/sampling.py`): the largest rectangle inside the mask (aspect up to
+**Samples** (`matterlift_api/sampling.py`): the largest rectangle inside the mask (aspect up to
 3:1, so a countertop strip still gives a clean sample), then up to two more away from it (a floor
 half hidden by furniture is better described by several samples). Muse gets all of them and is
 told to keep the pattern scale of the first: the kitchen's octagonal floor tiles stay octagons.
@@ -323,7 +323,7 @@ with Reoriented Normal Mapping. Mean angular error is not the target: a flat nor
 8.0 deg on it, so it rewards smooth faces. Muse painting the normal map directly was tried and is
 worse (r 0.34, wrong neutral colour).
 
-**Spark critique** (`api/matterlift_api/critique.py`, `POST /materials/{id}/critique`, run
+**Spark critique** (`matterlift_api/critique.py`, `POST /materials/{id}/critique`, run
 automatically after each generation). Spark reviews the material like a senior material artist: a
 sphere under raking light, the 3x3 tiling and the photo sample. It scores it, lists what is wrong
 and fixes it with the right tool: parameters (relief, roughness, wear, detail) are re-derived at
@@ -358,20 +358,28 @@ side by side with that score.
 ## Run it
 
 Python 3.11+ and Node 20+. A Meta Model API key goes in `.env` (never committed). One command per
-line, so it works the same in Windows PowerShell, Git Bash, macOS and Linux.
+line, so it works the same in Windows PowerShell, Git Bash, macOS and Linux. On macOS and Linux,
+write `.venv/bin/python` where it says `.venv/Scripts/python`.
 
 ```bash
 git clone https://github.com/falcon123212/matterlift
 cd matterlift
 python -m venv .venv
-.venv/Scripts/python -m pip install -e .[dev]   # macOS/Linux: .venv/bin/python
-cp .env.example .env                              # then set META_API_KEY
-.venv/Scripts/python scripts/smoke_meta.py        # every Meta model answers
-.venv/Scripts/python -m pytest -q                 # offline tests, no API calls
-.venv/Scripts/python -m uvicorn matterlift_api.main:app --app-dir api --port 8001
-npm --prefix web install
-npm --prefix web run dev                          # http://localhost:5173 (second terminal)
+.venv/Scripts/python -m pip install -e .
+cp .env.example .env
+npm --prefix web ci
+npm --prefix web run build
+.venv/Scripts/python -m uvicorn matterlift_api.main:app --port 8000
 ```
+
+Then set `META_API_KEY` in `.env` and open http://localhost:8000: the API serves the built page
+too, one server. Saved materials go to `data/`. To work on the page with hot reload, run
+`npm --prefix web run dev` in a second terminal and open http://localhost:5173 (it forwards the API
+calls to port 8001: start uvicorn with `--port 8001`).
+
+Checks: `.venv/Scripts/python scripts/smoke_meta.py` (every Meta model answers, needs the key);
+`.venv/Scripts/python -m pip install -e .[dev]` then `.venv/Scripts/python -m pytest -q` (offline
+tests, no key; the Godot ones run when `GODOT_BIN` points at a Godot 4 binary).
 
 API:
 - `POST /understand` (form: `photo`, optional `text`, `audio`): step 1, returns the plan, overlay and sample.
@@ -519,7 +527,7 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
   + `audio`, WAV mono 16-bit at 16/24 kHz only. The browser converts its WebM recording to 24 kHz WAV;
   the API normalises any WAV and biases recognition with material vocabulary (`keywords`).
 - SAM 3.1 answers on `/responses` only, as text: a box token and a mask token per instance. We
-  request `metadata.mask_encoding: "one_bit"` and decode it in `api/matterlift_api/sam_mask.py`, a
+  request `metadata.mask_encoding: "one_bit"` and decode it in `matterlift_api/sam_mask.py`, a
   Python port of Meta's `@meta-sam/parser` decoder (adaptive binary range coder, 12-bit context).
 
 ## Credits
@@ -536,6 +544,6 @@ Third-party code, data and libraries: see [Built during the hackathon](#built-du
 
 ## License
 
-MIT (see `LICENSE`), except `api/matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
+MIT (see `LICENSE`), except `matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
 which is distributed under the SAM License (see `LICENSE-SAM`), and the 3D models in
 `web/public/models/` (Stanford 3D Scanning Repository terms, see `web/public/models/CREDITS.md`).

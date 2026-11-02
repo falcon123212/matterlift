@@ -3,7 +3,6 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "api"))
 from matterlift_api import meta_client as mc  # noqa: E402
 
 c = mc.MetaClient()

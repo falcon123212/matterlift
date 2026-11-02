@@ -14,7 +14,6 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "api"))
 
 from matterlift_api.pipeline import UNDERSTAND_DIR, Pipeline  # noqa: E402
 

@@ -20,6 +20,7 @@ from pbrforge import color, contact, delight
 from pbrforge import io as pio
 from pbrforge.metrics import luminance
 
+from . import storage
 from .pipeline import Pipeline, load_material
 from .schemas import Critique, Material, MaterialPlan
 
@@ -140,10 +141,13 @@ def critique(pipe: Pipeline, mat: Material) -> Critique:
     sheet.save(pipe.data_dir / mat.id / "review.png")
     first = _ask(pipe, mat, sheet)
     if not first["params"] and not first["albedo_fix"] and not first["colour"]:
-        return Critique(before=mat.id, after=mat.id, chosen=mat.id, score_before=first["score"],
-                        score_after=first["score"], issues=first["issues"], params_changed={}, albedo_fix="",
-                        review_before=f"/materials/{mat.id}/maps/review.png", review_after=None,
-                        seconds=round(time.perf_counter() - t0, 1))
+        result = Critique(before=mat.id, after=mat.id, chosen=mat.id, score_before=first["score"],
+                          score_after=first["score"], issues=first["issues"], params_changed={}, albedo_fix="",
+                          review_before=f"/materials/{mat.id}/maps/review.png", review_after=None,
+                          seconds=round(time.perf_counter() - t0, 1))
+        _record(pipe, mat, result)  # nothing to fix: still kept, so reopening it shows the verdict
+        storage.push(pipe.data_dir / mat.id)
+        return result
     try:
         after = _revise(pipe, mat, first["params"], first["albedo_fix"], first["colour"])
     except RuntimeError:  # the repaint failed: parameter and colour fixes alone
@@ -161,6 +165,8 @@ def critique(pipe: Pipeline, mat: Material) -> Critique:
         review_before=f"/materials/{mat.id}/maps/review.png",
         review_after=f"/materials/{after.id}/maps/review.png", seconds=round(time.perf_counter() - t0, 1))
     _record(pipe, after, result)
+    storage.push(pipe.data_dir / mat.id)  # its review sheet
+    storage.push(pipe.data_dir / after.id)  # review sheet, and the critique in material.json
     return result
 
 

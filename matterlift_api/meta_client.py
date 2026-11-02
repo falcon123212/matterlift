@@ -27,7 +27,7 @@ from PIL import Image
 
 from .sam_mask import decode_one_bit
 
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 BASE_URL = os.environ.get("META_BASE_URL", "https://api.meta.ai/v1").rstrip("/")
 MODEL_SPARK = os.environ.get("META_MODEL_SPARK", "muse-spark-1.3")
