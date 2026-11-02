@@ -72,7 +72,8 @@ def run_one(c: httpx.Client, api: str, path: Path, text: str, out: Path, k: int)
         row["critique_error"] = err
     else:
         row.update(score_before=crit["score_before"], score_after=crit["score_after"], kept=crit["chosen"],
-                   issues=crit["issues"][:3], params_changed=crit["params_changed"])
+                   issues=crit["issues"][:3], params_changed=crit["params_changed"],
+                   albedo_fix=crit.get("albedo_fix"))  # a repaint, which the parameters do not show
 
     chosen = row.get("kept", mat["id"])
     z, row["export_1k_s"], err = _timed(lambda: _ok(c.get(f"{api}/materials/{chosen}/export",

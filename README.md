@@ -90,15 +90,23 @@ way the page does it: **Understand** with no text at all, **Generate** at
 [`results/photo_test/`](results/photo_test); the photos themselves are not in the repository, only
 the square that was sampled).
 
-![Photo sample and the texture made from it, for each object](docs/img/photo_test.jpg)
+Each material in **Live RT** on the dragon, above the square sampled from the photo and the tileable
+texture made from it (the version kept after Spark's critique):
+
+| | | |
+|---|---|---|
+| ![3D-printed cube in Live RT](docs/img/photo_cube_live.jpg) | ![Plush in Live RT](docs/img/photo_plush_live.jpg) | ![Crumpled paper in Live RT](docs/img/photo_paper_live.jpg) |
+| ![3D-printed cube: photo sample and texture](docs/img/photo_cube_texture.jpg) | ![Plush: photo sample and texture](docs/img/photo_plush_texture.jpg) | ![Receipt: photo sample and texture](docs/img/photo_paper_texture.jpg) |
+| ![Bowl in Live RT](docs/img/photo_bowl_live.jpg) | ![Webcam in Live RT](docs/img/photo_webcam_live.jpg) | ![Massager in Live RT](docs/img/photo_massager_live.jpg) |
+| ![Bowl: photo sample and texture](docs/img/photo_bowl_texture.jpg) | ![Webcam: photo sample and texture](docs/img/photo_webcam_texture.jpg) | ![Massager: photo sample and texture](docs/img/photo_massager_texture.jpg) |
 
 | Object | Spark understood / SAM found | Understand | Generate | Critique | Result |
 |---|---|---|---|---|---|
 | 3D-printed cube | black circuit plastic / "black box" | 14 s | 29 s | 55 s, 6 → 7 | ✅ The best one: circuit traces and print grain kept |
 | Plush | beige plush fleece / "plush toy" | 32 s | 33 s | 51 s, 4 → 6 | ✅ Fleece, with sheen 0.9 and subsurface set by Spark. Critique: too pale, relief too flat |
 | Webcam | glossy black plastic / "webcam" | 18 s | 33 s | 41 s, 4 → 5 | ✅ Right but plain. Colour ΔE 0.3 |
-| Massager | white matte plastic / "white cap" | 20 s | 38 s | 64 s, 4 → 7 | ✅ Critique saw a cross-shaped seam on the sphere and removed the plaster grain |
-| Bowl | pale blue glazed ceramic / "bowl" | 17 s | 34 s | 68 s, 3 → 7 | ⚠️ Muse drew the outside's oval decoration on what is a plain glaze. The critique fixed the relief, not the pattern |
+| Massager | white matte plastic / "white cap" | 20 s | 38 s | 64 s, 4 → 7 | ✅ Critique saw a cross-shaped seam on the sphere and had Muse repaint the tile without it |
+| Bowl | pale blue glazed ceramic / "bowl" | 17 s | 34 s | 68 s, 3 → 7 | ✅ after the critique: Muse first drew the outside's oval decoration on a plain glaze; Spark saw it and had it repainted plain |
 | Receipt, no text | frosted glass table / "glass table" | 17 s | 36 s | 41 s, 4 → 6 | ❌ Took the table: the largest surface, not the paper. Fixed since, see below |
 | Receipt, "le papier froissé" | crumpled paper / "crumpled paper" | 20 s | 31 s | 67 s, 6 → 3, first kept | ⚠️ The paper, without its print. But a lighter band runs along the top and bottom edges |
 
@@ -119,7 +127,9 @@ the square that was sampled).
   the sphere: the score compares opposite edges, and here both edges carry the same strip. Spark's
   critique caught both; the score did not. A border-band check is the next metric to add.
 - **Muse borrows patterns from elsewhere on the object.** The bowl's inside is a plain glaze; the
-  texture took the ovals painted on its outside.
+  first texture took the ovals painted on its outside. Spark's critique caught it ("repeating white
+  oval decoration... while main photo area is plain glaze") and had Muse repaint a uniform glaze:
+  3/10 → 7/10. Still missing by its own review: the glossy reflections and the fine pinholes.
 - **The critique does not always improve things.** On the paper, Spark's own fix scored 3 against 6
   for the first version: MatterLift kept the first.
 - **Colour** after matching to the photo: ΔE 0.3 (webcam) and 1.9 (cube) on the dark objects, 12 to 17
