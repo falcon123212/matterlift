@@ -127,7 +127,7 @@ function addTriplanar(
   };
 }
 
-/** View-space depth, linear between near (white) and far (black) set around the object. */
+/** View-space depth, linear between near (white) and far (dark grey) set around the object. */
 class LinearDepthMaterial extends THREE.ShaderMaterial {
   constructor() {
     super({
@@ -156,7 +156,7 @@ class LinearDepthMaterial extends THREE.ShaderMaterial {
         varying float vDepth;
         void main() {
           float d = clamp((vDepth - near) / (far - near), 0.0, 1.0);
-          gl_FragColor = vec4(vec3(1.0 - d), 1.0);
+          gl_FragColor = vec4(vec3(1.0 - 0.85 * d), 1.0); // the farthest surface stays grey, apart from the black background
         }`,
     });
     this.toneMapped = false;
@@ -171,6 +171,7 @@ export class Preview {
   private mesh: THREE.Mesh;
   private material = new THREE.MeshPhysicalMaterial({ color: 0xbbbbbb, roughness: 0.6 });
   private depthMaterial = new LinearDepthMaterial();
+  private corner = new THREE.Vector3();
   private normalMaterial = new THREE.MeshNormalMaterial();
   private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
   private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height" | "thickness", THREE.Texture>> = {};
@@ -365,11 +366,30 @@ export class Preview {
   private fitDepthRange() {
     const sphere = (this.mesh.geometry.boundingSphere ??
       (this.mesh.geometry.computeBoundingSphere(), this.mesh.geometry.boundingSphere))!;
+    const u = this.depthMaterial.uniforms;
+    if (isScan(this.shape)) {
+      // A scan (dragon, Buddha, Lucy) shows surfaces down to its back: its whole depth, from its
+      // bounding box seen along the view (tighter than its sphere, so the depth keeps contrast).
+      const g = this.mesh.geometry;
+      if (!g.boundingBox) g.computeBoundingBox();
+      const { min, max } = g.boundingBox!;
+      const view = this.camera.matrixWorldInverse.clone().multiply(this.mesh.matrixWorld);
+      let near = Infinity, far = 0;
+      for (let i = 0; i < 8; i++) {
+        const z = -this.corner.set(i & 1 ? max.x : min.x, i & 2 ? max.y : min.y, i & 4 ? max.z : min.z).applyMatrix4(view).z;
+        near = Math.min(near, z);
+        far = Math.max(far, z);
+      }
+      u.near.value = Math.max(0.01, near);
+      u.far.value = far;
+      return;
+    }
+    // Sphere, cube, plane: the camera only sees their front, so the range is spent there and the
+    // relief reads too.
     const dist = this.camera.position.distanceTo(this.mesh.position);
-    // Front half only: the range is spent on what the camera sees, so the relief reads too.
     const r = sphere.radius + DISPLACEMENT;
-    this.depthMaterial.uniforms.near.value = Math.max(0.01, dist - r);
-    this.depthMaterial.uniforms.far.value = dist - r * 0.25;
+    u.near.value = Math.max(0.01, dist - r);
+    u.far.value = dist - r * 0.25;
   }
 
   /** PNG of the current view and pass. */
