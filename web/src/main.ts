@@ -82,8 +82,16 @@ function toggle(groupSel: string, attr: string, apply: (v: string) => void) {
 }
 let currentShape: Shape = "sphere";
 toggle("#shapes", "shape", (v) => {
+  const previous = currentShape;
   currentShape = v as Shape;
-  void preview.setShape(currentShape);
+  preview.setShape(currentShape).catch((err) => {
+    // the scan did not load: say so, and show the shape that is really on screen
+    status.textContent = `Could not load the ${v} model (${(err as Error).message}). Click it again to retry.`;
+    if (currentShape !== v) return;
+    currentShape = previous;
+    void preview.setShape(previous);
+    $("#shapes").querySelectorAll<HTMLButtonElement>("button").forEach((b) => b.classList.toggle("on", b.dataset.shape === previous));
+  });
   showTriplanar(isScan(v));
   // Live RT follows the scan picked here
   if (isScan(v)) sendLiveModel(v);

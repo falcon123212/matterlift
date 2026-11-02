@@ -244,6 +244,9 @@ export class Preview {
       g.computeBoundingSphere();
       this.scanGeometries.add(g);
       return g;
+    }).catch((err) => {
+      this.scans.delete(scan); // a failed download is not cached: the next click tries again
+      throw err;
     });
     this.scans.set(scan, loading);
     return loading;

@@ -1,0 +1,14 @@
+// The Cloudflare Worker "matterlift" (the page). Cloudflare also deploys it on every push to GitHub
+// (Workers Builds, from the repository root): without this file it guessed a static site and served
+// the unbuilt web/ folder, so the page lost its CSS after each push. Every deploy now builds first,
+// refuses an unbuilt page, then serves web/dist. Same config as web/wrangler.jsonc (npm run deploy).
+{
+  "name": "matterlift",
+  "compatibility_date": "2026-10-13",
+  "build": {
+    "command": "npm --prefix web ci && npm --prefix web run build && node web/scripts/check-dist.mjs"
+  },
+  "assets": {
+    "directory": "./web/dist"
+  }
+}

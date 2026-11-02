@@ -285,6 +285,10 @@ cd web
 npm run deploy   # builds with web/.env.production (API URL), refuses an unbuilt page, deploys
 ```
 
+  Cloudflare also redeploys the page on every push to GitHub (Workers Builds). The root
+  `wrangler.jsonc` makes that build the page and run the same check first; without it Cloudflare
+  served the unbuilt `web/` folder and the page lost its CSS after each push.
+
 `VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: `live.html` of the same site).
 
 ## Export
