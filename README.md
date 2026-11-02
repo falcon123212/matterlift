@@ -49,8 +49,10 @@ material ready for Godot, Blender, Unity or Unreal.
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
    and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
-   passes (Depth, Normal, Albedo, Rough, AO). With a photo, MatterLift first shows what it
-   understood: the surface SAM masked and the square it sampled, before generating anything.
+   passes (Depth, Normal, Albedo, Rough, AO). Try it on the Stanford **Dragon**, or in **Live RT**:
+   the dragon path traced in the browser (WebGPU) with the same material. With a photo, MatterLift
+   first shows what it understood: the surface SAM masked and the square it sampled, before
+   generating anything.
 3. **Use it.** **Download .zip**: ambientCG-style maps, a glTF `.glb`, Godot `.tres` and
    `.gdshader`, MaterialX, USD and a Blender script. Drop the `.glb` into Godot, Blender or any
    glTF viewer.
@@ -75,6 +77,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
 | Preview mesh | Stanford dragon, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles with meshoptimizer: `web/public/models/stanford_dragon.ply` |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, Vite, TypeScript |
+| Live RT renderer | Separate WebGPU prototype written during the hackathon (Three.js 0.187, three-mesh-bvh 0.9.17), hosted at https://hyperwave-proto.taurus-silver-dev.workers.dev; its code is not in this repository |
 | Hosting | Modal (API), Cloudflare Workers (page) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
@@ -109,11 +112,33 @@ told to keep the pattern scale of the first: the kitchen's octagonal floor tiles
 **Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, with the height map as real
 displacement on the mesh (so the depth pass shows the relief), and Save PNG for the current pass.
 
+**Preview shapes and look-dev**: Sphere, Cube, Plane and the Stanford **Dragon** (150k triangles; no
+UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,
+**Tiling scale** and **Clay render** (grey, no colour or metal, the relief stays) apply to every
+shape.
+
+**Live RT**: the same material on the dragon, path traced in the browser with WebGPU: unbiased
+ReSTIR DI (generalised RIS with pairwise MIS, temporal and spatial reuse) over 256 spot lights,
+shadow rays through a BVH in compute shaders, an SVGF denoiser, accumulation that stops once the
+image has converged. It runs on any WebGPU GPU (NVIDIA, AMD, Intel, Apple): its *Auto* quality steps
+down the internal resolution until a frame takes under 40 ms. The renderer is a separate prototype
+(`hyperwave-proto` on Cloudflare Workers) shown in an iframe and fed the current maps; its unbiasedness
+is checked against an exact reference (every light, one shadow ray each): mean bias under 0.1 %.
+Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as it is).
+
 **Library mode**: one photo of a room gives every material in it. Spark lists up to 8 materials
 with two points on each; SAM masks each from its noun phrase (one concept per request, all in
 parallel), Spark's points pick the right instance; then every sample is generated in parallel.
 On a kitchen photo: 7 of 8 materials in 81 s. (Point prompts can segment 16 objects in one SAM
 pass, but a point selects an object, one brick rather than the wall, so concept prompts win.)
+
+- **Manual mode.** Click the surfaces you want on the photo before Generate, one material per click
+  (Shift+click: more points on the same one). For each one Spark sees the photo with markers and
+  plans the material under them; SAM then masks it, framed by Spark's noun phrase (the instance under
+  your points) or, with *Spark frames the masks* off, as the object under the points.
+- **Edit after Generate.** Click the photo in *What MatterLift understood* to add a material there;
+  ↻ on a card then a click redoes that one; × removes it. Only the new or redone material is
+  painted (`POST /libraries/{id}/items`, `DELETE /libraries/{id}/items/{index}`).
 
 ```
 photo + voice/text
@@ -132,7 +157,7 @@ photo + voice/text
 | Model | Role |
 |---|---|
 | Muse Spark | Enriches short requests into a precise brief (same language, uses the photo); plans the material (roughness, metal, relief, shading model), names the surface for SAM |
-| SAM 3.1 | Masks the surface in the photo, so the samples avoid what lies on it |
+| SAM 3.1 | Masks the surface in the photo (or the object under the user's points), so the samples avoid what lies on it |
 | Muse Image | Paints the albedo from the photo sample or the text; paints the height map from the albedo |
 | Muse Voice Transcribe | Spoken requests |
 
@@ -214,8 +239,11 @@ npm --prefix web install && npm --prefix web run dev   # http://localhost:5173
 API:
 - `POST /understand` (form: `photo`, optional `text`, `audio`): step 1, returns the plan, overlay and sample.
 - `POST /materials` (form: `understanding` id, or `text`/`audio` with optional `photo`; `size`): a material.
-- `POST /libraries` (form: `photo`, optional `text`, `audio`): library step 1; then
-  `POST /libraries/{id}/build` (form: `size`) generates every material.
+- `POST /libraries` (form: `photo`, optional `text`, `audio`; manual mode: `points` as JSON
+  `[[[x, y], ...], ...]` in 0..1000, one group per material, and `frame` true/false): library step 1;
+  then `POST /libraries/{id}/build` (form: `size`) generates every material that has none yet.
+- `POST /libraries/{id}/items` (form: `points` with one group, `frame`, optional `index` to redo
+  that item) and `DELETE /libraries/{id}/items/{index}`: edit a library.
 - `GET /materials/{id}`, `/materials/{id}/maps/{name}.png`, `/materials/{id}/export?size=2048&fmt=png`,
   `GET /libraries/{id}`. The UI reopens them with `?id=` or `?lib=`.
 
@@ -228,6 +256,8 @@ API:
 ```bash
 cd web && VITE_API_URL=https://<your-modal-url> npm run build && npx wrangler deploy
 ```
+
+`VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: the hosted one).
 
 ## Export
 
