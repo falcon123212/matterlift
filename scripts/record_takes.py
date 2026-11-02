@@ -365,8 +365,8 @@ TAKES = {
 
 class Obs:
     def __init__(self, out: Path):
-        import obsws_python as obs
-        self.c = obs.ReqClient(host="localhost", port=4455, password=os.environ["OBS_PW"])
+        from obs_setup import client  # the password comes from OBS's config (or OBS_PW)
+        self.c = client()
         self.c.set_current_program_scene("APP_AUTO")
         self.c.set_record_directory(str(out))
 
@@ -384,9 +384,14 @@ class Obs:
 def chrome(p, site: str, out: Path, recorder: str) -> tuple[BrowserContext, Page]:
     args = ["--enable-unsafe-webgpu", "--lang=en-US", "--force-device-scale-factor=1",
             f"--window-size={W},{H}", "--window-position=0,0"]
-    if recorder == "obs":  # an app window: no tabs, no address bar, nothing personal in the frame
+    if recorder == "obs":
+        # kiosk: the page alone, full screen at 1920x1080 (no title bar, tabs or address bar), and
+        # without --enable-automation, whose "Chrome is controlled by automated test software" bar
+        # would sit across the top of every take
         ctx = p.chromium.launch_persistent_context(str(out.parent / "chrome-profile"), channel="chrome",
-                                                   headless=False, no_viewport=True, args=[*args, f"--app={site}"],
+                                                   headless=False, no_viewport=True,
+                                                   args=[*args, "--kiosk", f"--app={site}"],
+                                                   ignore_default_args=["--enable-automation"],
                                                    accept_downloads=True)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
     else:
