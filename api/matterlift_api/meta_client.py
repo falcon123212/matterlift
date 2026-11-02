@@ -131,6 +131,11 @@ class MetaClient:
     # --- Muse Spark -------------------------------------------------------
     def chat(self, system: str, user: str, images: list[Image.Image] | None = None,
              max_tokens: int = 6000, json_mode: bool = False) -> str:
+        return self._complete(system, user, images, max_tokens, json_mode)[0]
+
+    def _complete(self, system: str, user: str, images: list[Image.Image] | None,
+                  max_tokens: int, json_mode: bool) -> tuple[str, str]:
+        """The answer and why it stopped ("length": the reasoning used the whole budget)."""
         content: list[dict] | str = user
         if images:
             content = [{"type": "text", "text": user}] + [
@@ -144,19 +149,21 @@ class MetaClient:
         if json_mode:
             body["response_format"] = {"type": "json_object"}
         j = self._post("/chat/completions", json=body)
-        return j["choices"][0]["message"]["content"] or ""
+        choice = j["choices"][0]
+        return choice["message"]["content"] or "", choice.get("finish_reason") or ""
 
     def chat_json(self, system: str, user: str, images: list[Image.Image] | None = None,
-                  attempts: int = 2) -> dict:
-        """JSON mode, and one retry: a long answer (a room's 8 material plans) can still come back
-        malformed now and then."""
-        for attempt in range(attempts):
-            text = self.chat(system, user, images, json_mode=True)
+                  budgets: tuple[int, ...] = (6000, 18000)) -> dict:
+        """JSON mode, and one retry with a larger budget: on a photo with many materials Spark's
+        reasoning can use all 6000 tokens and leave an empty or cut answer."""
+        for attempt, budget in enumerate(budgets):
+            text, finish = self._complete(system, user, images, budget, json_mode=True)
             try:
                 return _extract_json(text)
             except json.JSONDecodeError as e:
-                if attempt == attempts - 1:
-                    raise RuntimeError(f"Spark returned invalid JSON: {e}") from e
+                if attempt == len(budgets) - 1:
+                    why = "the answer was empty" if not text.strip() else str(e)
+                    raise RuntimeError(f"Spark returned invalid JSON ({why}, stop: {finish or '?'})") from e
         raise AssertionError("unreachable")
 
     # --- Muse Image -------------------------------------------------------

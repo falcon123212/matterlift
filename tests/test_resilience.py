@@ -348,3 +348,22 @@ def test_same_export_twice_at_once(tmp_path, photo):
         zips = list(ex.map(lambda _: export_material(mat, 256, "png", tmp_path / "materials"), range(2)))
     assert zips[0] != zips[1] and all(z.exists() and z.stat().st_size > 0 for z in zips)
     assert zips[0].name == zips[1].name  # same download name
+
+
+def test_chat_json_retries_an_empty_answer_with_a_larger_budget():
+    from matterlift_api.meta_client import MetaClient
+
+    client = MetaClient.__new__(MetaClient)  # no network: _complete is replaced
+    budgets = []
+
+    def complete(system, user, images, max_tokens, json_mode):
+        budgets.append(max_tokens)
+        return ("", "length") if len(budgets) == 1 else ('{"materials": []}', "stop")
+
+    client._complete = complete
+    assert client.chat_json("s", "u") == {"materials": []}
+    assert budgets == [6000, 18000]
+
+    client._complete = lambda *a, **k: ("", "length")
+    with pytest.raises(RuntimeError, match="answer was empty, stop: length"):
+        client.chat_json("s", "u")
