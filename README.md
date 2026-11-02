@@ -77,7 +77,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
 | Preview mesh | Stanford dragon, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles with meshoptimizer: `web/public/models/stanford_dragon.ply` |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
-| Live RT renderer | Ours, written during the hackathon: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository since the commit that added `web/src/live/` (`live.html`) |
+| Live RT renderer | Ours, written during the hackathon: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris) |
 | Hosting | Modal (API), Cloudflare Workers (page) |
 | Checked with | Godot 4.7, Blender 5.0, Khronos glTF Validator |
 
