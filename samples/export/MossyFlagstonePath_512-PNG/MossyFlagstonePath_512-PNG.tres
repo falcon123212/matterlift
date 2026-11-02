@@ -1,0 +1,30 @@
+[gd_resource type="StandardMaterial3D" load_steps=7 format=3]
+
+[ext_resource type="Texture2D" id="Color" path="./MossyFlagstonePath_512-PNG_Color.png"]
+[ext_resource type="Texture2D" id="AmbientOcclusion" path="./MossyFlagstonePath_512-PNG_AmbientOcclusion.png"]
+[ext_resource type="Texture2D" id="Displacement" path="./MossyFlagstonePath_512-PNG_Displacement.png"]
+[ext_resource type="Texture2D" id="Roughness" path="./MossyFlagstonePath_512-PNG_Roughness.png"]
+[ext_resource type="Texture2D" id="NormalGL" path="./MossyFlagstonePath_512-PNG_NormalGL.png"]
+[ext_resource type="Texture2D" id="Thickness" path="./MossyFlagstonePath_512-PNG_Thickness.png"]
+
+[resource]
+albedo_texture = ExtResource("Color")
+ao_enabled = true
+ao_texture = ExtResource("AmbientOcclusion")
+ao_texture_channel = 4
+roughness_texture = ExtResource("Roughness")
+roughness_texture_channel = 4
+normal_enabled = true
+normal_texture = ExtResource("NormalGL")
+heightmap_enabled = true
+heightmap_scale = 1.0
+heightmap_texture = ExtResource("Displacement")
+subsurf_scatter_enabled = true
+subsurf_scatter_strength = 0.350
+rim_enabled = true
+rim = 0.300
+rim_tint = 0.5
+subsurf_scatter_transmittance_enabled = true
+subsurf_scatter_transmittance_color = Color(0.16, 0.177, 0.074, 1)
+subsurf_scatter_transmittance_texture = ExtResource("Thickness")
+subsurf_scatter_transmittance_depth = 0.1

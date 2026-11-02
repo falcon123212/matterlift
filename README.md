@@ -8,12 +8,29 @@
 - **Video:** coming soon
 - **Repository:** https://github.com/falcon123212/matterlift
 
-<!-- Hero image goes here: photo -> material on the sphere (picked from the results gallery). -->
+![MatterLift: "vieux parquet de chêne très usé, rayé" on the sphere, with Spark's critique and the export](docs/img/interface.jpg)
+*"vieux parquet de chêne très usé, rayé" (very worn, scratched old oak parquet): Spark judged the
+first result 5/10 under raking light (wear too faint, planks too clean), changed the plan itself and
+the new version scored 7/10. Right: export and the tiled 3×3 check.*
 
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, ORM, glTF) ready for Godot,
 Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image, SAM 3.1,
 Muse Voice Transcribe).
+
+## Gallery
+
+Five materials made from a sentence alone, shown in **Live RT** (the Stanford dragon path traced in
+the browser, WebGPU). Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
+gives it (512 px PNG): maps, `.glb`, Godot `.tres` and shader, MaterialX, USD, Blender script, all
+passing the Khronos glTF validator, MaterialX, USD and Godot 4.
+
+| | | |
+|---|---|---|
+| ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
+| **"un rubis"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Rubis_512-PNG)) | **"vieux parquet de chêne très usé, rayé"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Pierre calcaire centenaire gris-beige patiné, finition mate brute, pores, fissures fines et joints maçonnés visibles…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
+| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | |
+| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | |
 
 ## Why MatterLift
 
@@ -109,8 +126,13 @@ With a photo, MatterLift works in two steps so you see what it understood before
 half hidden by furniture is better described by several samples). Muse gets all of them and is
 told to keep the pattern scale of the first: the kitchen's octagonal floor tiles stay octagons.
 
-**Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, with the height map as real
-displacement on the mesh (so the depth pass shows the relief), and Save PNG for the current pass.
+**Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, Thickness, with the height
+map as real displacement on the mesh (so the depth pass shows the relief), and Save PNG for the
+current pass.
+
+![The ruby on the Stanford dragon: Beauty, Depth, Normal and Thickness passes](docs/img/passes_ruby.jpg)
+*"un rubis" on the dragon: Beauty, Depth (white = near), Normal, Thickness (white = thick: the veins
+of the stone, projected triplanar since the scan has no UVs).*
 
 **Preview shapes and look-dev**: Sphere, Cube, Plane and three Stanford scans, **Dragon**, **Buddha**
 and **Lucy** (150k triangles each; no UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,

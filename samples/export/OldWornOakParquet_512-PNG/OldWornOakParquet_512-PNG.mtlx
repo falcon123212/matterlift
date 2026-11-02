@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<materialx version="1.39" fileprefix="./">
+  <open_pbr_surface name="OldWornOakParquet_512_PNG_OpenPbrSurface" type="surfaceshader">
+    <input name="base_color" type="color3" nodename="OldWornOakParquet_512_PNG_Color" />
+    <input name="specular_roughness" type="float" nodename="OldWornOakParquet_512_PNG_Roughness" />
+    <input name="coat_weight" type="float" value="0.050" />
+    <input name="coat_roughness" type="float" value="0.700" />
+    <input name="specular_roughness_anisotropy" type="float" value="0.200" />
+    <input name="geometry_normal" type="vector3" nodename="NormalMap" />
+  </open_pbr_surface>
+  <surfacematerial name="OldWornOakParquet_512_PNG" type="material">
+    <input name="surfaceshader" type="surfaceshader" nodename="OldWornOakParquet_512_PNG_OpenPbrSurface" />
+    <input name="displacementshader" type="displacementshader" nodename="displacement" />
+  </surfacematerial>
+  <tiledimage name="OldWornOakParquet_512_PNG_Color" type="color3">
+    <input name="file" type="filename" value="OldWornOakParquet_512-PNG_Color.png" colorspace="srgb_texture" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="OldWornOakParquet_512_PNG_Roughness" type="float">
+    <input name="file" type="filename" value="OldWornOakParquet_512-PNG_Roughness.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="OldWornOakParquet_512_PNG_NormalGL" type="vector3">
+    <input name="file" type="filename" value="OldWornOakParquet_512-PNG_NormalGL.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <tiledimage name="OldWornOakParquet_512_PNG_Displacement" type="float">
+    <input name="file" type="filename" value="OldWornOakParquet_512-PNG_Displacement.png" />
+    <input name="uvtiling" type="vector2" value="1.0, 1.0" />
+  </tiledimage>
+  <normalmap name="NormalMap" type="vector3">
+    <input name="in" type="vector3" nodename="OldWornOakParquet_512_PNG_NormalGL" />
+    <input name="scale" type="float" value="1.0" />
+  </normalmap>
+  <displacement name="displacement" type="displacementshader">
+    <input name="displacement" type="float" nodename="OldWornOakParquet_512_PNG_Displacement" />
+    <input name="scale" type="float" value="1.0" />
+  </displacement>
+</materialx>
