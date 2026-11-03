@@ -440,7 +440,7 @@ API:
 
 ## Tests and benchmarks
 
-180 offline tests (no Meta key, no network) run on every push in GitHub Actions, with Godot and the
+191 offline tests (no Meta key, no network) run on every push in GitHub Actions, with Godot and the
 formats' official validators installed:
 
 | What | How it is checked |

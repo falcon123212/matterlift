@@ -2,6 +2,7 @@
 
 The installed Chrome shows the page; a drawn cursor glides to each control, pauses, then clicks for
 real, so every take is steady and can be redone identically. Two recorders:
+  dda    ffmpeg grabs the 1920x1080 screen the kiosk Chrome fills (Desktop Duplication, GPU encode).
   obs    OBS records its `APP_AUTO` scene (window capture of this Chrome window, "Capture Cursor" OFF:
          the drawn cursor is the one on screen). Needs OBS's WebSocket server and OBS_PW in the env.
   video  Playwright records each take itself (a test take, no OBS needed).
@@ -298,7 +299,7 @@ def c01(hand: Hand, ids: dict) -> None:
     time.sleep(3.0)  # the overlay and Spark's sentence
     _done(hand.page, critique=True)
     time.sleep(2.0)
-    _remember(hand.page, ids["_dir"], "bowl")
+    _remember(hand.page, ids["_dir"], "bowl_rerun")  # c02-c04 keep the bowl the voice-over speaks of
 
 
 def c07(hand: Hand, ids: dict) -> None:
@@ -340,11 +341,44 @@ def c16(hand: Hand, ids: dict) -> None:
     time.sleep(2.5)
 
 
+def c17(hand: Hand, ids: dict) -> None:
+    """Voice: Speak, the words go to Muse Voice Transcribe, Spark enriches them, Generate, Spark's
+    critique. The microphone is Chrome's fake one, fed photos/voice_request.wav; every API call is
+    logged with its time in the take (c17_calls.json), for the banners."""
+    page, t0, calls = hand.page, time.time(), []
+    started = {}
+    page.on("request", lambda r: started.__setitem__(r, time.time() - t0))
+    def done(r):
+        path = r.url.split("?")[0].split("/", 3)[-1]
+        if r.request.method == "POST" or path.endswith("critique"):
+            calls.append({"path": "/" + path, "start": round(started.get(r.request, 0), 2),
+                          "end": round(time.time() - t0, 2), "status": r.status})
+    page.on("response", done)
+    hand.click("#mic")
+    time.sleep(5.2)  # the request is spoken
+    hand.click("#mic")
+    page.wait_for_function("""() => !document.querySelector('#enrich-undo').hidden
+        && !document.querySelector('#enrich').disabled""", timeout=90_000)  # heard, then enriched by Spark
+    time.sleep(2.5)  # the words, then Spark's brief, in the box
+    hand.click('#request button[type="submit"]')
+    hand.move(1500, 420, 0.8)
+    _done(page, critique=True)
+    time.sleep(1.5)
+    for sel in ("#critique-box", "#crit-issues", "#crit-after-fig"):
+        hand.scroll_panel(sel, 1.0)
+        time.sleep(1.8)
+    hand.scroll_panel("#maps", 1.2, 40)
+    time.sleep(2.0)
+    (ids["_dir"] / "c17_calls.json").write_text(json.dumps(calls, indent=2), encoding="utf-8")
+    _remember(page, ids["_dir"], "voice_oak")
+
+
 # take name -> (material name in ids.json, or None for an empty page; what it does; start state)
 TAKES = {
     "c01_bowl_auto": (None, c01, blank(True, "1024")),
     "c07_text_oak": (None, c07, blank(False, "512")),
     "c16_sam_points": (None, c16, blank(False, "512")),
+    "c17_voice": (None, c17, blank(True, "512")),
     "c02_bowl_look": ("bowl", c02, None),
     "c03_bowl_maps": ("bowl", c03, None),
     "c04_bowl_critique": ("bowl", c04, None),
@@ -381,10 +415,35 @@ class Obs:
         time.sleep(1.5)
 
 
+class Dda:
+    """ffmpeg's Desktop Duplication grab of the 1920x1080 screen the kiosk window fills (GPU content,
+    Live RT included, where a window capture can come out black), encoded on the GPU."""
+    SCREEN = (1, 2560, 357)  # ddagrab output index of the 1920x1080 display, and where it sits
+
+    def __init__(self, out: Path):
+        self.out, self.proc = out, None
+
+    def start(self, name: str) -> None:
+        self.proc = subprocess.Popen(
+            [shutil.which("ffmpeg"), "-v", "error", "-y", "-f", "lavfi", "-i",
+             f"ddagrab=output_idx={self.SCREEN[0]}:framerate=60:draw_mouse=0", "-vf", "hwdownload,format=bgra,format=yuv420p", "-c:v", "h264_nvenc",
+             "-preset", "p7", "-cq", "16", str(self.out / f"{name}.mp4")],
+            stdin=subprocess.PIPE)
+        time.sleep(1.0)
+
+    def stop(self) -> None:
+        time.sleep(2.0)
+        self.proc.communicate(b"q", timeout=30)
+
+
 def chrome(p, site: str, out: Path, recorder: str) -> tuple[BrowserContext, Page]:
     args = ["--enable-unsafe-webgpu", "--lang=en-US", "--force-device-scale-factor=1",
-            f"--window-size={W},{H}", "--window-position=0,0"]
-    if recorder == "obs":
+            f"--window-size={W},{H}",
+            "--window-position={},{}".format(*(Dda.SCREEN[1:] if recorder == "dda" else (0, 0))),
+            # the voice take's microphone: a recorded request instead of a real one
+            "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream",
+            f"--use-file-for-fake-audio-capture={out.parent / 'photos' / 'voice_request.wav'}"]
+    if recorder in ("obs", "dda"):
         # kiosk: the page alone, full screen at 1920x1080 (no title bar, tabs or address bar), and
         # without --enable-automation, whose "Chrome is controlled by automated test software" bar
         # would sit across the top of every take
@@ -407,11 +466,11 @@ def chrome(p, site: str, out: Path, recorder: str) -> tuple[BrowserContext, Page
 def run_takes(names: list[str], site: str, folder: Path, recorder: str) -> None:
     path = folder / "ids.json"
     ids = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
-    out = folder / ("captures" if recorder == "obs" else "test-takes")
+    out = folder / ("test-takes" if recorder == "video" else "captures")
     out.mkdir(parents=True, exist_ok=True)
     names = list(TAKES) if names == ["all"] else [n for n in TAKES if any(n.startswith(a) for a in names)]
     with sync_playwright() as p:
-        obs = Obs(out) if recorder == "obs" else None
+        obs = {"obs": Obs, "dda": Dda}[recorder](out) if recorder != "video" else None
         ctx, page = chrome(p, site, out, recorder)
         for name in names:
             mat, take, prep = TAKES[name]
@@ -512,7 +571,7 @@ def main() -> None:
     ap.add_argument("names", nargs="*", help="takes: names or prefixes (c06, c10) or 'all'; pregen: materials")
     ap.add_argument("--site", default=SITE)
     ap.add_argument("--dir", default=str(DIR))
-    ap.add_argument("--recorder", choices=["video", "obs"], default="video")
+    ap.add_argument("--recorder", choices=["video", "obs", "dda"], default="video")
     args = ap.parse_args()
     folder = Path(args.dir)
     folder.mkdir(parents=True, exist_ok=True)
