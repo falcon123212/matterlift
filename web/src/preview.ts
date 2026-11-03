@@ -4,8 +4,8 @@ import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 
 export type Shape = "sphere" | "cube" | "plane" | Scan;
-/** The Stanford scans (no UVs: always triplanar, no displacement). */
-export type Scan = "dragon" | "buddha" | "lucy";
+/** The loaded meshes (PLY files): the material study. */
+export type Scan = "study";
 export type LightPass = "hdri" | "key" | "raking" | "back";
 /** Render passes (AOVs): the lit beauty pass, or one buffer shown on its own. */
 export type Aov = "beauty" | "depth" | "normal" | "albedo" | "roughness" | "ao" | "thickness";
@@ -41,18 +41,25 @@ export interface Shading {
 const REPEAT = 2;
 // Triplanar tiles per world unit, matching each shape's UV density (REPEAT tiles across its UVs).
 const TRI_SCALE: Record<Shape, number> = {
-  sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4, dragon: REPEAT / 0.8, buddha: REPEAT / 0.8, lucy: REPEAT / 0.8,
+  sphere: REPEAT / Math.PI, cube: REPEAT / 1.5, plane: REPEAT / 2.4, study: REPEAT / 0.8,
 };
-// Stanford 3D Scanning Repository models, decimated to 150k triangles (credits: public/models/CREDITS.md).
-// `zUp`: the scan stands on its z axis (three.js is y-up).
-export const SCANS: Record<Scan, { url: string; zUp: boolean }> = {
-  dragon: { url: "models/stanford_dragon.ply", zUp: false },
-  buddha: { url: "models/happy_buddha.ply", zUp: false },
-  lucy: { url: "models/lucy.ply", zUp: true },
+// MatterLift's own material study, modelled in Blender from scripts/material_study.py (MIT; credits:
+// public/models/CREDITS.md). `zUp`: the mesh stands on its z axis (three.js is y-up). `uv`: it has UVs (REPEAT tiles per UV unit, the
+// density of its triplanar projection), so it takes UV mapping and displacement like the primitives.
+export const SCANS: Record<Scan, { url: string; zUp: boolean; uv?: boolean }> = {
+  study: { url: "models/material_study.ply", zUp: true, uv: true },
 };
 export const isScan = (shape: string): shape is Scan => shape in SCANS;
+/** Shapes with UVs: the primitives and the study. A loaded mesh without them would always be triplanar,
+ * without displacement. */
+export const hasUV = (shape: string): boolean => !isScan(shape) || !!SCANS[shape].uv;
 // The height map displaces the mesh for real, so silhouettes and the depth AOV show the relief.
 const DISPLACEMENT = 0.035;
+// The study's tiles are ~4x smaller than the sphere's: its relief shrinks with them, so a height map keeps
+// the same depth for the size of its pattern (else its small pieces swell).
+const DISPLACEMENT_SHAPE: Partial<Record<Shape, number>> = { study: TRI_SCALE.sphere / TRI_SCALE.study };
+// Real-world scale: every shape (unit bounding sphere) is shown 1 m across, so 50 cm per unit.
+const REAL_RADIUS_CM = 50;
 const BACKGROUND = new THREE.Color(0x141416);
 
 /** Triplanar projection, injected into MeshPhysicalMaterial: every map is sampled along the three
@@ -94,6 +101,21 @@ vec3 triNormalWorld(sampler2D t) {
 }
 `;
 
+/** Height for the displacement in triplanar mode (vertex shader: object position and normal to world). */
+const TRI_HEIGHT_GLSL = /* glsl */ `
+#ifdef USE_DISPLACEMENTMAP
+uniform float triplanar;
+uniform float triScale;
+float triHeight(vec3 pos, vec3 nrm) {
+  vec3 p = (modelMatrix * vec4(pos, 1.0)).xyz * triScale;
+  vec3 w = pow(abs(normalize(mat3(modelMatrix) * nrm)), vec3(4.0));
+  w /= w.x + w.y + w.z;
+  return texture2D(displacementMap, p.zy).x * w.x + texture2D(displacementMap, p.xz).x * w.y + texture2D(displacementMap, p.xy).x * w.z;
+}
+#endif
+`;
+const TRI_HEIGHT_CALL = "( triplanar > 0.5 ? triHeight( transformed, objectNormal ) : texture2D( displacementMap, vDisplacementMapUv ).x )";
+
 function addTriplanar(
   material: THREE.MeshPhysicalMaterial | THREE.MeshBasicMaterial,
   uniforms: { triplanar: { value: number }; triScale: { value: number }; triNormalScale: { value: number } },
@@ -114,11 +136,21 @@ function addTriplanar(
       if (patched === THREE.ShaderChunk[name]) console.warn(`triplanar: ${name} did not match`);
       shader.fragmentShader = shader.fragmentShader.replace(`#include <${name}>`, patched);
     };
+    // the relief follows the projection: in triplanar mode the height map is read along the world axes
+    // too, so the bumps sit under the pattern they belong to (with UVs they would not match it)
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <displacementmap_pars_vertex>", "#include <displacementmap_pars_vertex>\n" + TRI_HEIGHT_GLSL)
+      .replace(
+        "#include <displacementmap_vertex>",
+        THREE.ShaderChunk.displacementmap_vertex.replace("texture2D( displacementMap, vDisplacementMapUv ).x", TRI_HEIGHT_CALL),
+      );
     shader.fragmentShader = shader.fragmentShader.replace("#include <common>", "#include <common>\n" + TRIPLANAR_GLSL);
     chunk("map_fragment", "texture2D( map, vMapUv )", "triTex( map, vMapUv )");
     chunk("roughnessmap_fragment", "texture2D( roughnessMap, vRoughnessMapUv )", "triTex( roughnessMap, vRoughnessMapUv )");
     chunk("metalnessmap_fragment", "texture2D( metalnessMap, vMetalnessMapUv )", "triTex( metalnessMap, vMetalnessMapUv )");
     chunk("aomap_fragment", "texture2D( aoMap, vAoMapUv )", "triTex( aoMap, vAoMapUv )");
+    if (material instanceof THREE.MeshPhysicalMaterial)
+      chunk("lights_physical_fragment", "texture2D( sheenColorMap, vSheenColorMapUv )", "triTex( sheenColorMap, vSheenColorMapUv )");
     chunk(
       "normal_fragment_maps",
       "normal = normalize( tbn * mapN );",
@@ -138,15 +170,21 @@ class LinearDepthMaterial extends THREE.ShaderMaterial {
         displacementMap: { value: null as THREE.Texture | null },
         displacementScale: { value: DISPLACEMENT },
         uvTransform: { value: new THREE.Matrix3() },
+        // shared with the beauty material (Preview's constructor): the depth follows the same relief
+        triplanar: { value: 0 },
+        triScale: { value: 1 },
       },
       vertexShader: /* glsl */ `
+        #define USE_DISPLACEMENTMAP
         uniform sampler2D displacementMap;
         uniform float displacementScale;
         uniform mat3 uvTransform;
         varying float vDepth;
+        ${TRI_HEIGHT_GLSL}
         void main() {
           vec2 st = (uvTransform * vec3(uv, 1.0)).xy;
-          vec3 p = position + normal * (texture2D(displacementMap, st).r - 0.5) * displacementScale;
+          float h = triplanar > 0.5 ? triHeight(position, normal) : texture2D(displacementMap, st).r;
+          vec3 p = position + normal * (h - 0.5) * displacementScale;
           vec4 view = modelViewMatrix * vec4(p, 1.0);
           vDepth = -view.z;
           gl_Position = projectionMatrix * view;
@@ -179,6 +217,7 @@ export class Preview {
   private aov: Aov = "beauty";
   private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere }, triNormalScale: { value: 1 } };
   private tweaks: Tweaks = { normalScale: 1, displacement: 1, tiling: 1, clay: false };
+  private tileCm = 0; // real-world scale (setRealScale), 0 = off
   private shape: Shape = "sphere";
   private triplanarChosen = false;
   private scans = new Map<Scan, Promise<THREE.BufferGeometry>>();
@@ -206,7 +245,8 @@ export class Preview {
     this.scene.add(this.sun);
 
     addTriplanar(this.material, this.tri);
-    addTriplanar(this.flatMaterial, this.tri, "normal"); // the Albedo/Rough/AO/Thick passes, on scans too
+    Object.assign(this.depthMaterial.uniforms, { triplanar: this.tri.triplanar, triScale: this.tri.triScale });
+    addTriplanar(this.flatMaterial, this.tri, "normal"); // the Albedo/Rough/AO/Thick passes, on loaded meshes too
     this.mesh = new THREE.Mesh(this.geometry("sphere"), this.material);
     this.scene.add(this.mesh);
     this.setLight("hdri");
@@ -235,13 +275,14 @@ export class Preview {
     return new THREE.SphereGeometry(1, 256, 128);
   }
 
-  /** A scan, loaded once, upright, centred and scaled to the unit sphere like the other shapes. */
+  /** A loaded mesh, once, upright, centred and scaled to the unit sphere like the other shapes. */
   private loadScan(scan: Scan): Promise<THREE.BufferGeometry> {
     const cached = this.scans.get(scan);
     if (cached) return cached;
     const loading = new PLYLoader().loadAsync(SCANS[scan].url).then((g) => {
       if (SCANS[scan].zUp) g.rotateX(-Math.PI / 2);
-      g.computeVertexNormals();
+      // the study ships smooth normals (recomputed, its UV seams would show); a mesh without them gets them
+      if (!g.attributes.normal) g.computeVertexNormals();
       g.computeBoundingSphere();
       const { center, radius } = g.boundingSphere!;
       g.translate(-center.x, -center.y, -center.z);
@@ -266,7 +307,7 @@ export class Preview {
     if (!this.scanGeometries.has(this.mesh.geometry)) this.mesh.geometry.dispose();
     this.mesh.geometry = geometry;
     this.mesh.rotation.set(shape === "plane" ? -0.9 : 0, 0, 0);
-    this.tri.triScale.value = TRI_SCALE[shape] * this.tweaks.tiling;
+    this.applyTiling();
     this.applyTriplanar();
     this.applyDisplacement();
   }
@@ -286,20 +327,20 @@ export class Preview {
     this.sun.position.set(...pos[pass]);
   }
 
-  /** Triplanar projection on or off (beauty pass). The scans have no UVs, so they are always triplanar;
-   * the choice comes back on the other shapes. */
+  /** Triplanar projection on or off (beauty pass). A loaded mesh without UVs would always be triplanar;
+   * the choice applies to every shape with UVs. */
   setTriplanar(on: boolean) {
     this.triplanarChosen = on;
     this.applyTriplanar();
   }
 
   private applyTriplanar() {
-    this.tri.triplanar.value = this.triplanarChosen || isScan(this.shape) ? 1 : 0;
+    this.tri.triplanar.value = this.triplanarChosen || !hasUV(this.shape) ? 1 : 0;
   }
 
-  /** The height map displaces along UVs, which the scans lack: no displacement there. */
+  /** The height map displaces along UVs: none on a loaded mesh without them. */
   private displacement(): number {
-    return isScan(this.shape) ? 0 : DISPLACEMENT * this.tweaks.displacement;
+    return hasUV(this.shape) ? DISPLACEMENT * (DISPLACEMENT_SHAPE[this.shape] ?? 1) * this.tweaks.displacement : 0;
   }
 
   private applyDisplacement() {
@@ -307,16 +348,33 @@ export class Preview {
     this.material.displacementBias = -this.material.displacementScale / 2;
   }
 
+  /** Real-world scale: one tile covers `tileCm` (the plan's tile_size_cm) on a shape shown 1 m across;
+   * 0 goes back to the tiling slider. */
+  setRealScale(tileCm: number) {
+    this.tileCm = tileCm;
+    this.applyTiling();
+  }
+
+  /** Tiles per unit of the triplanar density: the slider, or the real-world scale for this shape. */
+  private tiling(): number {
+    return this.tileCm > 0 ? REAL_RADIUS_CM / this.tileCm / TRI_SCALE[this.shape] : this.tweaks.tiling;
+  }
+
+  private applyTiling() {
+    const k = this.tiling();
+    this.tri.triScale.value = TRI_SCALE[this.shape] * k;
+    for (const t of Object.values(this.textures)) {
+      t?.repeat.set(REPEAT * k, REPEAT * k);
+      t?.updateMatrix();
+    }
+  }
+
   setTweaks(tweaks: Tweaks) {
     this.tweaks = { ...tweaks };
     const m = this.material;
     m.normalScale.set(tweaks.normalScale, tweaks.normalScale);
     this.tri.triNormalScale.value = tweaks.normalScale;
-    this.tri.triScale.value = TRI_SCALE[this.shape] * tweaks.tiling;
-    for (const t of Object.values(this.textures)) {
-      t?.repeat.set(REPEAT * tweaks.tiling, REPEAT * tweaks.tiling);
-      t?.updateMatrix();
-    }
+    this.applyTiling();
     this.applyDisplacement();
     this.applyClay();
     this.setAov(this.aov);
@@ -328,6 +386,7 @@ export class Preview {
     const t = this.textures;
     const clay = this.tweaks.clay || !t.albedo;
     m.map = clay ? null : t.albedo!;
+    m.sheenColorMap = clay ? null : (t.albedo ?? null); // the fibres' sheen takes their colour
     m.metalnessMap = clay ? null : (t.metallic ?? null);
     m.roughnessMap = clay ? null : (t.roughness ?? null);
     m.color.set(clay && t.albedo ? 0xb4b4b4 : t.albedo ? 0xffffff : 0xbbbbbb);
@@ -374,7 +433,7 @@ export class Preview {
       (this.mesh.geometry.computeBoundingSphere(), this.mesh.geometry.boundingSphere))!;
     const u = this.depthMaterial.uniforms;
     if (isScan(this.shape)) {
-      // A scan (dragon, Buddha, Lucy) shows surfaces down to its back: its whole depth, from its
+      // A loaded mesh (the study) shows surfaces down to its back: its whole depth, from its
       // bounding box seen along the view (tighter than its sphere, so the depth keeps contrast).
       const g = this.mesh.geometry;
       if (!g.boundingBox) g.computeBoundingBox();
@@ -407,7 +466,7 @@ export class Preview {
   private async texture(url: string, color = false): Promise<THREE.Texture> {
     const t = await this.loader.loadAsync(url);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(REPEAT * this.tweaks.tiling, REPEAT * this.tweaks.tiling);
+    t.repeat.set(REPEAT * this.tiling(), REPEAT * this.tiling());
     t.updateMatrix();
     t.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
     t.colorSpace = color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
@@ -458,6 +517,10 @@ export class Preview {
     m.clearcoat = s.clearcoat ?? 0;
     m.clearcoatRoughness = s.clearcoat_roughness ?? 0.1;
     m.sheen = s.sheen ?? 0;
+    // three's sheen colour is black by default, which turns the lobe off whatever `sheen` says: white,
+    // tinted by the albedo (sheenColorMap, applyClay); a soft, wide lobe as on fur, velvet and felt
+    m.sheenColor.setScalar(1);
+    m.sheenRoughness = 0.5;
     m.anisotropy = s.anisotropy ?? 0;
   }
 

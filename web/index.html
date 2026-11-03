@@ -84,9 +84,7 @@
             <button data-shape="sphere" class="on">Sphere</button>
             <button data-shape="cube">Cube</button>
             <button data-shape="plane">Plane</button>
-            <button data-shape="dragon" title="Try the material on the Stanford dragon (triplanar: the scan has no UVs)">Dragon</button>
-            <button data-shape="buddha" title="Try the material on the Stanford Happy Buddha (triplanar: the scan has no UVs)">Buddha</button>
-            <button data-shape="lucy" title="Try the material on the Stanford Lucy (triplanar: the scan has no UVs)">Lucy</button>
+            <button data-shape="study" title="Try the material on MatterLift's material study: a plinth, a sphere, a rounded cube with Suzanne, a torus and a fluted column (UV-mapped, so displacement works; triplanar on demand)">Study</button>
           </div>
           <div class="group" id="lights">
             <button data-light="hdri" class="on">HDRI</button>
@@ -104,14 +102,15 @@
             <button data-aov="thickness" title="Thickness: how much matter light crosses (white = thick). Exported for translucent materials: skin, wax, jade, glass">Thick</button>
           </div>
           <button type="button" id="triplanar" aria-pressed="false" title="Project the maps along the world axes: no UVs, no stretching">Triplanar</button>
-          <button type="button" id="live" aria-pressed="false" title="Live path tracing (WebGPU, unbiased ReSTIR, 256 spots) of this material on the Stanford dragon. Click again to come back.">Live RT</button>
+          <button type="button" id="live" aria-pressed="false" title="Live path tracing (WebGPU, unbiased ReSTIR, 256 spots) of this material on the material study (or the scan picked). Click again to come back.">Live RT</button>
           <button type="button" id="snapshot">Save PNG</button>
         </div>
         <div class="tweaks" id="tweaks">
           <label title="Strength of the normal map">Normal scale <input type="range" id="tw-normal" min="0" max="2" step="0.05" value="1" /> <output>1.00</output></label>
-          <label title="Height of the real displacement (preview shapes with UVs only: the dragon and Live RT keep their mesh)">Displacement scale <input type="range" id="tw-disp" min="0" max="3" step="0.05" value="1" /> <output>1.00</output></label>
+          <label title="Height of the real displacement (Sphere, Cube, Plane and Study: Live RT keeps the mesh as it is)">Displacement scale <input type="range" id="tw-disp" min="0" max="3" step="0.05" value="1" /> <output>1.00</output></label>
           <label title="Texture repeats, x0.25 to x4">Tiling scale <input type="range" id="tw-tiling" min="-2" max="2" step="0.1" value="0" /> <output>1.00</output></label>
           <label title="Grey clay: no colour, no metal; the relief stays"><input type="checkbox" id="tw-clay" /> Clay render</label>
+          <label id="tw-real-label" title="Every shape shown 1 m across, one tile at the real width Spark gave the material (replaces the tiling scale)"><input type="checkbox" id="tw-real" disabled /> Real-world scale <output id="tw-real-out"></output></label>
         </div>
       </section>
 

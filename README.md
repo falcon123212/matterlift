@@ -71,8 +71,9 @@ SAM 3.1, Muse Voice Transcribe).
 
 ## Gallery
 
-Six materials made from a sentence alone, on the Stanford dragon: five in **Live RT** (path traced in
-the browser, WebGPU), the diamond in the 3D preview. Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
+Six materials made from a sentence alone: five in **Live RT** (path traced in the browser, WebGPU),
+the diamond in the 3D preview. These captures and videos predate MatterLift's own preview scene: they
+show the Stanford scans the app used then (credits below), which it no longer ships. Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
 gives it (512 px PNG): maps, `.glb`, Godot `.tres` and shader, MaterialX, USD, Blender script, all
 passing the Khronos glTF validator, MaterialX, USD and Godot 4. Prompts typed in French are shown translated: MatterLift
 takes requests in any language Spark reads.
@@ -117,8 +118,9 @@ material ready for Godot, Blender, Unity or Unreal.
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
    and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
-   passes (Depth, Normal, Albedo, Rough, AO). Try it on the Stanford **Dragon**, **Buddha** or **Lucy**, or
-   in **Live RT**: that scan path traced in the browser (WebGPU; tested on Chrome on Windows with an NVIDIA
+   passes (Depth, Normal, Albedo, Rough, AO). Try it on the **Study** (MatterLift's own scene: a
+   plinth, a sphere, a rounded cube with Suzanne, a torus and a fluted column), tick **Real-world
+   scale**, or open **Live RT**: that scene path traced in the browser (WebGPU; tested on Chrome on Windows with an NVIDIA
    GPU only, see [Live RT limits](#live-rt-limits)) with the same material. With a photo, MatterLift
    first shows what it understood: the surface SAM masked and the square it sampled, before
    generating anything.
@@ -141,7 +143,7 @@ way the page does it: **Understand** with no text at all, **Generate** at
 [`results/photo_test/`](results/photo_test); the photos themselves are not in the repository, only
 the square that was sampled).
 
-Each material in **Live RT** on the dragon, above the square sampled from the photo and the tileable
+Each material in **Live RT** on the Stanford dragon (captured before the material study replaced it), above the square sampled from the photo and the tileable
 texture made from it (the version kept after Spark's critique):
 
 | | | |
@@ -197,7 +199,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
 | Ported from Meta | `matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
-| Preview meshes | Stanford Dragon, Happy Buddha and Lucy, Stanford 3D Scanning Repository (Stanford Computer Graphics Laboratory), decimated to 150k triangles each: `web/public/models/` (details and terms in `web/public/models/CREDITS.md`) |
+| Preview mesh | Ours: the material study, modelled from code in Blender 5.0 by `scripts/material_study.py` (MIT; Suzanne is Blender's own primitive), saved as `docs/blender/material_study.blend`, shipped as `web/public/models/material_study.ply`. No third-party mesh. Earlier captures show the Stanford scans (see `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
 | Live RT renderer | Ours, written during the hackathon in WebGPU/WGSL: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris). Its design comes from an offline NVIDIA OptiX/CUDA path tracer I wrote before the hackathon (ReSTIR direct lighting): its algorithms and parameters were ported from it into WGSL. No CUDA or OptiX code is in this repository; the WebGPU side (software BVH traversal, passes, shaders) was written during the hackathon |
 | Runtime AI | **Meta models only**: Muse Spark, Muse Image, SAM 3.1 and Muse Voice Transcribe, through the Meta Model API (`https://api.meta.ai/v1`, the only AI endpoint the code calls). Checked in the code: `matterlift_api/`, `pbrforge/` and `web/src/` contain no call to any other AI provider or model (no OpenAI, Anthropic, Google Gemini, Hugging Face, Replicate, Stability or other service). pbrforge is plain numpy/SciPy; Live RT is our own renderer, on your GPU |
@@ -237,13 +239,20 @@ map as real displacement on the mesh (so the depth pass shows the relief), and S
 current pass.
 
 ![The ruby on the Stanford dragon: Beauty, Depth, Normal and Thickness passes](docs/img/passes_ruby.jpg)
-*"a ruby" on the dragon: Beauty, Depth (white = near), Normal, Thickness (white = thick: the veins
-of the stone, projected triplanar since the scan has no UVs).*
+*"a ruby" on the dragon (an earlier capture): Beauty, Depth (white = near), Normal, Thickness (white =
+thick: the veins of the stone, projected triplanar since the scan had no UVs).*
 
-**Preview shapes and look-dev**: Sphere, Cube, Plane and three Stanford scans, **Dragon**, **Buddha**
-and **Lucy** (150k triangles each; no UVs, so always triplanar and without displacement). **Normal scale**, **Displacement scale**,
-**Tiling scale** and **Clay render** (grey, no colour or metal, the relief stays) apply to every
-shape. A see-through material (glass, gem) shows the studio behind it, dimmed, so its refraction has
+**Preview shapes and look-dev**: Sphere, Cube, Plane and the **Study**, MatterLift's own scene
+(135k triangles, `scripts/material_study.py`): a two-step plinth (large flat areas, round edges), a
+sphere (every angle at once), a rounded cube with Suzanne on it (flat faces, organic hollows), an
+upright torus (concave and convex) and a fluted column (narrow grooves). It has UVs at the triplanar
+density, whole tiles around the sphere, the torus and the cylinders, so displacement works on it and
+the **Triplanar** switch compares both; in triplanar mode the relief is read along the world axes
+too, under the pattern it belongs to. **Normal scale**, **Displacement scale**, **Tiling scale** and
+**Clay render** (grey, no colour or metal, the relief stays) apply to every shape. **Real-world
+scale** shows every shape 1 m across with one tile at the width Spark gives the material
+(`tile_size_cm` in its plan: "a few planks of parquet 120 cm", "woven fabric 15 cm"), in the preview
+and in Live RT. Sheen (fur, velvet, felt) takes the albedo's colour. A see-through material (glass, gem) shows the studio behind it, dimmed, so its refraction has
 something to bend, with colour dispersion growing with its IOR.
 
 <p align="center">
@@ -252,26 +261,32 @@ something to bend, with colour dispersion growing with its IOR.
   <sub><b>"a ruby"</b> in Live RT: path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
 </p>
 
-**Live RT**: the same material on the selected scan (Dragon, Buddha or Lucy; Sphere, Cube and Plane
-are greyed out while it is on), path traced in the browser with WebGPU: unbiased
-ReSTIR DI (generalised RIS with pairwise MIS, temporal and spatial reuse) over 256 spot lights,
-shadow rays through a BVH in compute shaders, an SVGF denoiser, accumulation that stops once the
-image has converged. It is written for any WebGPU GPU (plain WGSL, default limits, GPU timers only
-when offered): its *Auto* quality steps down the internal resolution until a frame takes under
-40 ms. The renderer is the `live.html` page of the same site (`web/src/live/`: `restir.js` for the
-passes, `wgsl.js` for the shared WGSL, `main.js` for the scene), shown in an iframe over the preview
-and fed the current maps and scan; it uses the preview's decimated scans (150k triangles each). Its
-unbiasedness is checked against an exact reference (every light, one shadow ray each) by
-`live.html?test`: mean bias under 0.1 % (0.03 % for both unbiased variants, -12.9 % for the plain
-biased combination, over 128 frames on the dragon). Normal scale, tiling and clay follow it; displacement does not (it traces the mesh as
-it is).
+**Live RT**: the same material on the study (Sphere, Cube and Plane are greyed out while it is on),
+path traced in the browser with WebGPU: unbiased ReSTIR DI (generalised RIS with pairwise MIS,
+temporal and spatial reuse) over 256 white spot lights, or a three-point rig (key, fill, rim) for
+judging a material; shadow rays through a BVH in compute shaders; GGX with metalness blended as it
+is, the AO map as micro-shadowing, a Charlie sheen lobe; an SVGF denoiser that filters the lighting
+alone (the texture stays sharp); accumulation with sub-pixel jitter (anti-aliased) that stops once
+the image has converged. It renders at the size the canvas is shown at (up to 1080p) and is written
+for any WebGPU GPU (plain WGSL, default limits, GPU timers only when offered): its *Auto* quality
+aims at 60 FPS while the camera moves, with the cheaper unbiased variant then, and a lower resolution
+if needed. The renderer is the `live.html` page of the same site (`web/src/live/`: `restir.js` for
+the passes, `wgsl.js` for the shared WGSL, `main.js` for the scene), shown in an iframe over the
+preview and fed the current maps, shading and model. Its HUD names the layers it does not trace
+(transmission, clearcoat, anisotropy). Its unbiasedness is checked against an exact reference
+(every light, one shadow ray each) by `live.html?test`: mean bias under 0.1 % (-0.08 % and -0.03 %
+for the two unbiased variants, -6.9 % for the plain biased combination, over 128 frames on the
+study). Normal scale, tiling, real-world scale and clay follow it; displacement does not (it traces
+the mesh as it is).
 
 <a id="live-rt-limits"></a>**Live RT limits** (an experimental viewer; the rest of MatterLift does not depend on it):
 
 - **Tested on Chrome on Windows with an NVIDIA GPU only:** one machine, Windows 11, NVIDIA GeForce
   RTX 4060 (desktop), AMD CPU, in Chromium (Chrome and the Chromium of the Claude desktop app). Other
   browsers, systems and GPUs may work but are not verified. There it runs at 30-150 FPS depending on the
-  variant and the zoom, about 25 ms per frame at 1080p for the visibility-in-target variant.
+  variant and the zoom: about 27 ms per frame at 1080p for the visibility-in-target variant, 11 ms
+  for the unshadowed-target one (bias test on the study), and well over 60 FPS while orbiting in the
+  page, where it renders at the canvas's own size.
 - **AMD GPU:** one remote test on a Radeon (RDNA 2) showed a corrupted image. The cause (integers stored
   in float lanes, which AMD may canonicalise) is fixed, but the fix has not been checked on an AMD
   GPU since.
@@ -283,8 +298,9 @@ it is).
 - **Weak or integrated GPUs** should settle at 540p or 360p (estimate from the costs measured on the
   RTX 4060). The renderer needs about 700 MB of GPU memory at 1080p and 170 MB at 540p; if allocation
   fails it steps down, and if the driver drops the GPU it asks for a reload.
-- **Not a full material preview:** direct lighting only (no indirect bounce), a mirror floor without
-  shadows, and transmission, clearcoat, sheen, AO and displacement are not rendered.
+- **Not a full material preview:** direct lighting only (no indirect bounce, no environment light), a
+  mirror floor without shadows, and transmission, clearcoat, anisotropy, subsurface and displacement
+  are not rendered (the HUD says which ones the current material uses).
 
 **Library mode**: one photo of a room gives every material in it. Spark lists up to 8 materials
 with two points on each; SAM masks each from its noun phrase (one concept per request, all in
@@ -575,13 +591,15 @@ gallery. Claude Code was used to write code during development only: it is never
 MatterLift runs, where the only AI models are Meta's (see *Runtime AI* in
 [Built during the hackathon](#built-during-the-hackathon)).
 Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
-3D models: Stanford Dragon, Happy Buddha and Lucy from the Stanford 3D Scanning Repository,
-Stanford University Computer Graphics Laboratory (https://graphics.stanford.edu/data/3Dscanrep/),
-used under its terms (non-commercial, source acknowledged); see `web/public/models/CREDITS.md`.
+3D model: the material study is ours (`scripts/material_study.py`, MIT). Earlier captures and videos
+show the Stanford Dragon, Happy Buddha and Lucy from the Stanford 3D Scanning Repository, Stanford
+University Computer Graphics Laboratory (https://graphics.stanford.edu/data/3Dscanrep/), used under
+its terms (non-commercial, source acknowledged); the meshes are no longer in the repository. See
+`web/public/models/CREDITS.md`.
 Third-party code, data and libraries: see [Built during the hackathon](#built-during-the-hackathon).
 
 ## License
 
 MIT (see `LICENSE`), except `matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`,
-which is distributed under the SAM License (see `LICENSE-SAM`), and the 3D models in
-`web/public/models/` (Stanford 3D Scanning Repository terms, see `web/public/models/CREDITS.md`).
+which is distributed under the SAM License (see `LICENSE-SAM`). The material study in
+`web/public/models/` is MIT like the rest.

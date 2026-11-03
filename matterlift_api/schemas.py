@@ -37,6 +37,8 @@ class MaterialPlan(BaseModel):
     detail_kind: str = ""  # procedural detail layer: wood, stone, fabric, metal, plaster or none
     detail_strength: float = 0.5
     wear: float = 0.0
+    # real-world width one tile of the texture covers, in cm (0 = unknown, as on materials made before it)
+    tile_size_cm: float = 0.0
     shading: Shading = Shading()
 
     @classmethod
@@ -59,7 +61,7 @@ class MaterialPlan(BaseModel):
             plan = cls()
         clamp = {"roughness": (0.02, 1), "roughness_variation": (0, 0.5), "metallic": (0, 1),
                  "height_strength": (0.1, 2), "normal_strength": (0.1, 3), "detail": (0.25, 3),
-                 "detail_strength": (0, 1), "wear": (0, 1)}
+                 "detail_strength": (0, 1), "wear": (0, 1), "tile_size_cm": (0, 1000)}
         fixed = {k: min(hi, max(lo, getattr(plan, k))) for k, (lo, hi) in clamp.items()}
         fixed["points"] = [(min(1000, max(0, x)), min(1000, max(0, y))) for x, y in plan.points][:3]
         fixed["name"] = plan.name.strip().replace(" ", "_")[:48] or "material"

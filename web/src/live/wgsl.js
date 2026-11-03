@@ -11,7 +11,8 @@ const NONE = 0xffffffffu;
 const PI = 3.14159265;
 
 // current and previous camera (for temporal reprojection); accum = frames since the camera last moved
-struct Cam { o: vec4f, u: vec4f, v: vec4f, w: vec4f, po: vec4f, pu: vec4f, pv: vec4f, pw: vec4f, frame: u32, accum: u32, live: u32, p2: u32 };
+// sheen.x = the material's sheen (fur, velvet), on the model only
+struct Cam { o: vec4f, u: vec4f, v: vec4f, w: vec4f, po: vec4f, pu: vec4f, pv: vec4f, pw: vec4f, frame: u32, accum: u32, live: u32, p2: u32, sheen: vec4f };
 // three-mesh-bvh node: min xyz, max xyz, offset (leaf: first triangle, inner: relative right child), flags.
 // The second half is read as u32: integers kept in f32 lanes are NaN / denormal bit patterns, which some
 // GPUs (AMD) canonicalise or flush to zero.
@@ -41,6 +42,17 @@ fn camDir( px: vec2u ) -> vec3f { return camDirAt( px, vec2f( 0.5 ) ); }
 fn jitter() -> vec2f {
 	if ( ( cam.p2 & 8u ) == 0u || cam.accum == 0u ) { return vec2f( 0.5 ); }
 	return fract( vec2f( 0.5 ) + f32( cam.accum ) * vec2f( 0.7548776662, 0.5698402910 ) );
+}
+
+// roughness, metalness and ambient occlusion (0..1 each) <-> one f32: three bytes as an exact integer
+struct MatP { rough: f32, metal: f32, ao: f32 };
+fn packMat( rough: f32, metal: f32, ao: f32 ) -> f32 {
+	let q = round( clamp( vec3f( rough, metal, ao ), vec3f( 0.0 ), vec3f( 1.0 ) ) * 255.0 );
+	return q.x + q.y * 256.0 + q.z * 65536.0;
+}
+fn unpackMat( f: f32 ) -> MatP {
+	let q = u32( f );
+	return MatP( f32( q & 255u ) / 255.0, f32( ( q >> 8u ) & 255u ) / 255.0, f32( q >> 16u ) / 255.0 );
 }
 
 // unit normal <-> one f32: octahedral map, 11 bits per axis, as an exact integer (no NaN bit patterns)

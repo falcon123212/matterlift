@@ -1,5 +1,5 @@
 import "./style.css";
-import { Preview, isScan, type Aov, type LightPass, type MaterialMaps, type Scan, type Shading, type Shape, type Tweaks } from "./preview";
+import { Preview, hasUV, isScan, type Aov, type LightPass, type MaterialMaps, type Scan, type Shading, type Shape, type Tweaks } from "./preview";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "") ?? "";
 
@@ -97,7 +97,7 @@ toggle("#shapes", "shape", (v) => {
     void preview.setShape(previous);
     $("#shapes").querySelectorAll<HTMLButtonElement>("button").forEach((b) => b.classList.toggle("on", b.dataset.shape === previous));
   });
-  showTriplanar(isScan(v));
+  showTriplanar(!hasUV(v));
   // Live RT follows the scan picked here
   if (isScan(v)) sendLiveModel(v);
 });
@@ -120,7 +120,7 @@ $("#triplanar").addEventListener("click", () => {
   showTriplanar(false);
   preview.setTriplanar(triplanarOn);
 });
-/** The scans are always triplanar (no UVs): the button shows it and is locked there. */
+/** A loaded mesh without UVs would always be triplanar: the button shows it and is locked there. */
 function showTriplanar(forced: boolean) {
   const b = $<HTMLButtonElement>("#triplanar");
   const on = forced || triplanarOn;
@@ -146,8 +146,8 @@ liveBtn.addEventListener("click", () => {
   const on = !liveBtn.classList.contains("on");
   liveBtn.classList.toggle("on", on);
   liveBtn.setAttribute("aria-pressed", String(on));
-  // Live RT traces the scans only: Sphere / Cube / Plane are greyed out, and a primitive switches to the dragon
-  if (on && !isScan(currentShape)) $<HTMLButtonElement>('#shapes [data-shape="dragon"]').click();
+  // Live RT traces the study only: Sphere / Cube / Plane are greyed out, and a primitive switches to it
+  if (on && !isScan(currentShape)) $<HTMLButtonElement>('#shapes [data-shape="study"]').click();
   $("#shapes")
     .querySelectorAll<HTMLButtonElement>("button")
     .forEach((b) => {
@@ -192,9 +192,28 @@ $("#tweaks").addEventListener("input", () => {
   const t = tweaks();
   const outs = $("#tweaks").querySelectorAll("output");
   [t.normalScale, t.displacement, t.tiling].forEach((v, i) => (outs[i].textContent = v.toFixed(2)));
+  $<HTMLInputElement>("#tw-tiling").disabled = realTileCm() > 0;
+  preview.setRealScale(realTileCm());
   preview.setTweaks(t);
   sendLiveTweaks();
 });
+
+/** Real-world scale: the width of one tile Spark gave the material (tile_size_cm), when the box is
+ * ticked and the material has one (materials made before it do not). 0 = the tiling slider rules. */
+function realTileCm(): number {
+  const cm = Number(currentMaterial?.plan.tile_size_cm ?? 0);
+  return $<HTMLInputElement>("#tw-real").checked && cm > 0 ? cm : 0;
+}
+
+function showRealScale(mat: Material) {
+  const cm = Number(mat.plan.tile_size_cm ?? 0);
+  const box = $<HTMLInputElement>("#tw-real");
+  box.disabled = !(cm > 0);
+  $("#tw-real-out").textContent = cm > 0 ? `1 tile = ${cm} cm` : "(not given for this material)";
+  $<HTMLInputElement>("#tw-tiling").disabled = realTileCm() > 0;
+  preview.setRealScale(realTileCm());
+  sendLiveTweaks();
+}
 
 function sendLiveModel(model: Scan) {
   if (!live?.contentWindow || !liveReady || model === liveModel) return;
@@ -205,17 +224,19 @@ function sendLiveModel(model: Scan) {
 function sendLiveTweaks() {
   if (!live?.contentWindow || !liveReady) return;
   const { normalScale, tiling, clay } = tweaks();
-  live.contentWindow.postMessage({ type: "live-rt:settings", normalScale, tiling, clay }, "*");
+  live.contentWindow.postMessage({ type: "live-rt:settings", normalScale, tiling, clay, tileCm: realTileCm() }, "*");
 }
 
 async function sendLiveMaterial() {
   if (!live?.contentWindow || !liveReady || !liveMaps) return;
-  const keys = ["albedo", "normal", "roughness", "metallic"] as const;
+  const keys = ["albedo", "normal", "roughness", "metallic", "ao"] as const;
   const bitmaps = await Promise.all(
     keys.map(async (k) => (liveMaps?.[k] ? createImageBitmap(await (await fetch(liveMaps[k])).blob()) : undefined)),
   );
   const maps = Object.fromEntries(keys.map((k, i) => [k, bitmaps[i]]));
-  live.contentWindow.postMessage({ type: "live-rt:material", maps }, "*", bitmaps.filter((b) => b !== undefined));
+  // the shading layers too: Live RT names the ones it does not trace (transmission, clearcoat...)
+  const shading = currentMaterial?.plan.shading ?? null;
+  live.contentWindow.postMessage({ type: "live-rt:material", maps, shading }, "*", bitmaps.filter((b) => b !== undefined));
 }
 
 function absolute(maps: Record<string, string>): Record<string, string> {
@@ -317,6 +338,7 @@ async function show(mat: Material, updateUrl = true) {
   liveMaps = maps;
   void sendLiveMaterial();
   await preview.load(maps, mat.plan.shading);
+  showRealScale(mat);
   // materials made before the thickness map have none: no empty pass to show
   const thick = $<HTMLButtonElement>('[data-aov="thickness"]');
   thick.disabled = !maps.thickness;

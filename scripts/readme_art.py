@@ -25,7 +25,7 @@ def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont:
 
 
 def backdrop(w: int, h: int) -> Image.Image:
-    """Near-black with a warm glow on the right, where the dragons stand."""
+    """Near-black with a warm glow on the right, where the renders stand."""
     y, x = np.mgrid[0:h, 0:w].astype(np.float32)
     glow = np.exp(-(((x - w * 0.72) / (w * 0.35)) ** 2 + ((y - h * 0.55) / (h * 0.6)) ** 2))
     base = np.array(BG, np.float32)
@@ -46,7 +46,7 @@ def soft(img: Image.Image, size: tuple[int, int], feather: float = 0.22) -> tupl
 def hero() -> Path:
     W, H = 1800, 720
     im = backdrop(W, H)
-    # one dragon, large, its render fading into the backdrop (several showed their floor's edge)
+    # one render, large, its render fading into the backdrop (several showed their floor's edge)
     layer, alpha = soft(Image.open(IMG / "live_ruby.jpg"), (1180, 673), feather=0.35)
     im.paste(layer, (760, 40), alpha)
     # a dark veil on the left so the title reads over anything
@@ -109,7 +109,7 @@ def flow() -> Path:
     render = render.resize((rw, round(render.height * rw / render.width)), Image.LANCZOS)
     im.paste(render, (rx, ry))
     d.text((rx, 70), "PATH TRACED IN YOUR BROWSER", font=font(20, True), fill=ACCENT)
-    d.text((rx, ry + render.height + 10), "Live RT · WebGPU ReSTIR · Stanford dragon", font=font(20),
+    d.text((rx, ry + render.height + 10), "Live RT · WebGPU ReSTIR · material study", font=font(20),
            fill=(150, 150, 158))
 
     for ax in (450, 1075):  # arrows

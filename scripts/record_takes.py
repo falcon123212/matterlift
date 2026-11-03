@@ -163,7 +163,7 @@ def c02(hand: Hand, ids: dict) -> None:
     hand.click('[data-light="raking"]')
     hand.move(*canvas_point(hand.page))
     hand.drag(260, 30, 2.2)
-    hand.click('[data-shape="dragon"]')
+    hand.click('[data-shape="study"]')
     time.sleep(1.5)
     live_on(hand, 3.0)
     time.sleep(4.0)
@@ -197,14 +197,14 @@ def c05(hand: Hand, ids: dict) -> None:
     hand.click('[data-light="hdri"]')
     hand.move(*canvas_point(hand.page))
     hand.drag(320, 20, 3.0)
-    hand.click('[data-shape="dragon"]')
+    hand.click('[data-shape="study"]')
     time.sleep(2.5)
     hand.move(*canvas_point(hand.page))
     hand.drag(240, 0, 2.0)
 
 
 def c06(hand: Hand, ids: dict) -> None:
-    hand.click('[data-shape="dragon"]')
+    hand.click('[data-shape="study"]')
     time.sleep(1.2)
     live_on(hand, 4.0)
     time.sleep(1.0)
@@ -218,13 +218,13 @@ def c09(hand: Hand, ids: dict) -> None:
     for aov in ("depth", "normal", "albedo", "roughness", "ao", "beauty"):
         hand.click(f'[data-aov="{aov}"]', 0.25)
         time.sleep(0.65)
-    for shape in ("dragon", "buddha", "lucy"):
+    for shape in ("sphere", "cube", "study"):
         hand.click(f'[data-shape="{shape}"]', 0.25)
         time.sleep(1.3)
 
 
 def c09b(hand: Hand, ids: dict) -> None:
-    hand.click('[data-shape="dragon"]')
+    hand.click('[data-shape="study"]')
     time.sleep(1.2)
     hand.click('[data-aov="thickness"]')
     time.sleep(2.0)
@@ -242,7 +242,7 @@ def gallery(shape: str):
 
 
 def desk(hand: Hand, ids: dict) -> None:
-    hand.click('[data-shape="dragon"]')
+    hand.click('[data-shape="study"]')
     time.sleep(1.2)
     live_on(hand, 3.0)
     time.sleep(2.0)
@@ -352,10 +352,10 @@ TAKES = {
     "c06_ruby_live": ("ruby", c06, None),
     "c09_passes": ("oak", c09, None),
     "c09b_thickness": ("ruby", c09b, None),
-    "c10_gallery_live_steel": ("steel", gallery("dragon"), None),
-    "c10_gallery_live_moss": ("moss", gallery("lucy"), None),
-    "c10_gallery_live_limestone": ("limestone", gallery("buddha"), None),
-    "c10_gallery_live_oak": ("oak", gallery("dragon"), None),
+    "c10_gallery_live_steel": ("steel", gallery("study"), None),
+    "c10_gallery_live_moss": ("moss", gallery("study"), None),
+    "c10_gallery_live_limestone": ("limestone", gallery("study"), None),
+    "c10_gallery_live_oak": ("oak", gallery("study"), None),
     "c15_desk_cube": ("cube", desk, None),
     "c15_desk_plush": ("plush", desk, None),
 }

@@ -65,6 +65,9 @@ clean, flat, unoccluded areas of that surface, far from its edges and from objec
 "metal", "plaster", "none",
  "detail_strength": 0..1 (0.3 subtle, 0.6 clearly visible up close),
  "wear": 0..1 (0 new, 0.4 used, 0.8 old and worn: lighter rubbed edges, dirt in recesses),
+ "tile_size_cm": the real-world width the texture covers, in cm, from the sizes in the request or the \
+photo, else typical ones (a few planks of parquet 120, a stretch of brick wall 100, flagstones 150, \
+woven fabric 15, leather 30, brushed metal 40),
  "shading": {"transmission": 0..1, "ior": 1..2.4, "clearcoat": 0..1, "clearcoat_roughness": 0..1,
              "sheen": 0..1, "subsurface": 0..1, "anisotropy": 0..1}
 }

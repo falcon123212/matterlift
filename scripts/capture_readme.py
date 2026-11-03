@@ -5,8 +5,8 @@ API serving those materials (uvicorn ... --port 8001).
     .venv/Scripts/python scripts/capture_readme.py [--url http://localhost:5173] [--ids df73c74e41 ...]
         [--out docs/img/candidates] [--live-seconds 25]
 
-Per material: ui_<name>.png (the whole page, sphere), dragon_<name>.png (the preview), live_<name>.png
-(Live RT path tracing on the dragon). For the first one, passes_<name>.png: beauty, depth, normal,
+Per material: ui_<name>.png (the whole page, sphere), study_<name>.png (the preview), live_<name>.png
+(Live RT path tracing on the material study). For the first one, passes_<name>.png: beauty, depth, normal,
 thickness side by side.
 """
 from __future__ import annotations
@@ -57,8 +57,8 @@ def capture(page: Page, url: str, mid: str, out: Path, live_seconds: float, pass
     files.append(out / f"ui_{mid}.png")
     page.screenshot(path=files[-1])
 
-    _click(page, '[data-shape="dragon"]', 4)  # the scan downloads the first time
-    files.append(out / f"dragon_{mid}.png")
+    _click(page, '[data-shape="study"]', 4)  # the model downloads the first time
+    files.append(out / f"study_{mid}.png")
     _canvas(page).save(files[-1])
 
     if passes:

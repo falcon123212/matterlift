@@ -1,7 +1,7 @@
-// MatterLift Live RT: a Stanford scan path traced with WebGPU (unbiased ReSTIR DI over 256 spot
+// MatterLift Live RT: the material study path traced with WebGPU (unbiased ReSTIR DI over 256 spot
 // lights, BVH shadow rays, SVGF denoiser), wearing the material MatterLift sends it (restir.js).
 //   live.html                live viewer (inside MatterLift: ?embed; H hides the controls)
-//   live.html?model=buddha   start on another scan (dragon, buddha, lucy); MatterLift can switch later
+//   live.html?model=study    start on a given model (MODELS); MatterLift can switch later
 //   live.html?test           bias test against the exact reference (every light, one shadow ray each)
 import * as THREE from 'three';
 import { PLYLoader } from 'three/examples/jsm/loaders/PLYLoader.js';
@@ -9,17 +9,16 @@ import { MeshBVH, SAH } from 'three-mesh-bvh';
 import { W, H } from './wgsl.js';
 import { liveUnbiased, setupUnbiased, testUnbiased } from './restir.js';
 
-// The decimated Stanford scans of the WebGL preview (credits: public/models/CREDITS.md).
-// zUp: the file already stands on z (the renderer's up axis); the others stand on y.
+// The models of the WebGL preview: MatterLift's own material study (scripts/material_study.py, MIT;
+// public/models/CREDITS.md). zUp: the file stands on z (the renderer's up axis), else on y.
+// elevation: the camera's angle above the model (the study is wide and low: 18° shows the plinth's top).
 const MODELS = {
-	dragon: { url: 'models/stanford_dragon.ply', zUp: false, label: 'the Stanford Dragon' },
-	buddha: { url: 'models/happy_buddha.ply', zUp: false, label: 'the Happy Buddha' },
-	lucy: { url: 'models/lucy.ply', zUp: true, label: 'Lucy' },
+	study: { url: 'models/material_study.ply', zUp: true, label: 'the material study', elevation: 18 },
 };
 // a step that never settles (driver, network) ends in an error with a retry instead of an endless load
 const ADAPTER_TIMEOUT = 15000;
 const MODEL_TIMEOUT = 60000;
-const SIZE = 0.2; // every scan scaled to 20 cm along its longest side, so the spot rig fits them all
+const SIZE = 0.2; // every model scaled to 20 cm along its longest side, so the spot rig fits it
 const FOV = 30;
 
 const QUERY = new URLSearchParams( location.search );
@@ -72,7 +71,7 @@ async function main() {
 	// inside MatterLift the render controls show from the start; H hides them
 	if ( QUERY.has( 'embed' ) ) document.body.classList.add( 'embed' );
 
-	const name = TEST ? 'dragon' : QUERY.get( 'model' ) in MODELS ? QUERY.get( 'model' ) : 'dragon';
+	const name = TEST ? 'study' : QUERY.get( 'model' ) in MODELS ? QUERY.get( 'model' ) : 'study';
 	setLoading( `Starting WebGPU for ${ MODELS[ name ].label }…` );
 	const adapter = await withTimeout( navigator.gpu.requestAdapter( { powerPreference: 'high-performance' } ), ADAPTER_TIMEOUT, 'The GPU (WebGPU adapter)' );
 	if ( ! adapter ) throw new Error( 'no WebGPU adapter' );
@@ -95,10 +94,10 @@ async function main() {
 
 }
 
-// A scan stood upright on z, scaled to SIZE, centred on a 6 m floor, with its BVH and a camera framing it.
+// A model stood upright on z, scaled to SIZE, centred on a 6 m floor, with its BVH and a camera framing it.
 async function loadModel( name ) {
 
-	const model = MODELS[ name ] ?? MODELS.dragon;
+	const model = MODELS[ name ] ?? MODELS.study;
 	const t0 = performance.now();
 	setLoading( `Loading ${ model.label } and building its BVH…` );
 	// revalidated fetch (a stale cached 404 must not stick), checked before parsing
@@ -139,7 +138,10 @@ async function loadModel( name ) {
 	for ( let i = 0; i < p.length; i += 3 ) for ( let k = 0; k < 3; k ++ ) p[ i + k ] = ( p[ i + k ] + off[ k ] ) * s;
 	const height = ( box[ 5 ] - box[ 2 ] ) * s;
 	geo.attributes.position.needsUpdate = true;
-	geo.computeVertexNormals();
+	// the study ships its normals (its UV seams split vertices; normals from one side would show them);
+	// a mesh without them gets them. A uniform scale and shift leave normals as they are. UVs: unused here (triplanar)
+	if ( ! geo.attributes.normal ) geo.computeVertexNormals();
+	geo.deleteAttribute( 'uv' );
 	// model size, before the floor joins the geometry (the material's triplanar scale follows it)
 	geo.computeBoundingSphere();
 	const radius = geo.boundingSphere.radius;
@@ -153,9 +155,12 @@ async function loadModel( name ) {
 	Object.assign( results.scene, { name, triangles, bvhNodes: root.byteLength / 32, bvhBuildCpuMs: performance.now() - t1 } );
 	log( `SAH BVH: ${ root.byteLength / 32 } nodes, built in ${ ( ( performance.now() - t1 ) / 1000 ).toFixed( 1 ) } s` );
 
-	// camera in front, aimed at mid-height, far enough for the whole height (the dragon keeps 35 cm)
-	const dist = Math.max( 0.35, height / 2 / Math.tan( FOV * Math.PI / 360 ) * 1.3 );
-	const view = [ [ 0, - dist, height * 0.55 ], [ 0, 0, height * 0.5 ], FOV ];
+	// camera in front, framed on the model's height and width, `elevation` degrees above, aimed low
+	const half = Math.tan( FOV * Math.PI / 360 );
+	const width = ( box[ 3 ] - box[ 0 ] ) * s;
+	const dist = Math.max( height / 2 / half, width / 2 / ( half * 16 / 9 ) ) * 1.2;
+	const a = model.elevation * Math.PI / 180;
+	const view = [ [ 0, - dist * Math.cos( a ), height * 0.4 + dist * Math.sin( a ) ], [ 0, 0, height * 0.4 ], FOV ];
 	return { scene: { geo, root, bvh, radius }, view };
 
 }

@@ -46,7 +46,7 @@ def main() -> None:
         page.locator("iframe.live-frame").element_handle().content_frame().evaluate(
             "document.body.classList.add('hide-ui'); document.querySelector('#tip')?.remove()")
         box = page.locator("#canvas-wrap").bounding_box()
-        cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] * 0.35  # above the dragon
+        cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] * 0.35  # above the model
         for _ in range(args.frames):
             page.mouse.move(cx, cy)
             page.mouse.down()

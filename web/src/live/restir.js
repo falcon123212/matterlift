@@ -46,6 +46,20 @@ function makeSpots() {
 
 }
 
+// Three-point rig for judging a material (every model is 20 cm long, on z = 0, seen from -y): a warm key
+// high on the left, a cool fill low on the right, a rim from behind. Wide soft cones cover the whole model.
+function rigSpot( pos, aim, deg, col, I ) {
+	const d = aim.map( ( v, k ) => v - pos[ k ] );
+	const l = Math.hypot( ...d );
+	const outer = deg * Math.PI / 180;
+	return { pos, dir: d.map( v => v / l ), cosO: Math.cos( outer ), cosI: Math.cos( outer * 0.6 ), col, I };
+}
+export const THREE_POINT = [
+	rigSpot( [ - 0.22, - 0.28, 0.30 ], [ 0, 0, 0.04 ], 32, [ 1.0, 0.96, 0.9 ], 1.0 ),
+	rigSpot( [ 0.30, - 0.22, 0.10 ], [ 0, 0, 0.04 ], 34, [ 0.9, 0.95, 1.0 ], 0.35 ),
+	rigSpot( [ 0.08, 0.32, 0.26 ], [ 0, 0, 0.05 ], 30, [ 1.0, 1.0, 1.0 ], 0.7 ),
+];
+
 // GPU light data + alias table for the current settings: the first `count` spots are lit when `on`,
 // with their own colours or a single linear-RGB `color`. Unlit spots have zero power and are never picked.
 function spotBuffers( spots, { on = true, count = NUM_LIGHTS, color = null, custom = [], gain = 1 } = {} ) {
@@ -116,6 +130,7 @@ const DECLS = {
 	tNrm: 'var tNrm: texture_2d<f32>;',
 	tRgh: 'var tRgh: texture_2d<f32>;',
 	tMet: 'var tMet: texture_2d<f32>;',
+	tAO: 'var tAO: texture_2d<f32>;',
 	smp: 'var smp: sampler;',
 	guide: 'var<storage, read> guide: array<vec4f>;',
 	disp: 'var<storage, read_write> disp: array<vec4f>;',
@@ -125,14 +140,15 @@ const LIGHTS = /* wgsl */`
 const NL = ${ TOTAL }u;
 // pos.w = cos outer cone, dir.w = cos inner cone, col.rgb = intensity, col.w = pick pdf
 struct Light { pos: vec4f, dir: vec4f, col: vec4f };
-// spec = roughness, plus 2 for a metal (G-Buffer channel c.w); n is the shading (normal-mapped) normal,
+// spec = packed roughness, metalness and AO (packMat, G-Buffer channel c.w); n is the shading (normal-mapped) normal,
 // gn the smooth surface normal
-struct Surf { p: vec3f, n: vec3f, alb: vec3f, spec: f32, v: vec3f, ok: bool, gn: vec3f };
+struct Surf { p: vec3f, n: vec3f, alb: vec3f, spec: f32, v: vec3f, ok: bool, gn: vec3f, sheen: f32 };
 
 fn lum( c: vec3f ) -> f32 { return dot( c, vec3f( 0.2126, 0.7152, 0.0722 ) ); }
 
 fn surfFrom( a: vec4f, b: vec4f, c: vec4f, eye: vec3f ) -> Surf {
-	return Surf( a.xyz, b.xyz, c.xyz, c.w, normalize( eye - a.xyz ), b.w > 0.0, select( b.xyz, octUnpack( a.w ), b.w > 0.0 ) );
+	// b.w: 1 on the model (which wears the material, sheen included), 4 on the floor
+	return Surf( a.xyz, b.xyz, c.xyz, c.w, normalize( eye - a.xyz ), b.w > 0.0, select( b.xyz, octUnpack( a.w ), b.w > 0.0 ), select( 0.0, cam.sheen.x, b.w == 1.0 ) );
 }
 
 // BRDF * Le * cos / d^2 for spot li, without visibility
@@ -145,9 +161,11 @@ fn unshadowed( s: Surf, li: u32 ) -> vec3f {
 	if ( ndl <= 0.0 ) { return vec3f( 0.0 ); }
 	let fall = smoothstep( L.pos.w, L.dir.w, dot( -l, L.dir.xyz ) );
 	if ( fall <= 0.0 ) { return vec3f( 0.0 ); }
-	// GGX + Smith (Schlick-GGX) + Schlick Fresnel, metal / roughness workflow
-	let metal = select( 0.0, 1.0, s.spec >= 2.0 );
-	let a = max( s.spec - 2.0 * metal, 0.05 );
+	// GGX + Smith (Schlick-GGX) + Schlick Fresnel, metal / roughness workflow, metalness blended as it is
+	// (worn paint over steel keeps its transitions)
+	let m = unpackMat( s.spec );
+	let metal = m.metal;
+	let a = max( m.rough, 0.05 );
 	let a2 = a * a * a * a;
 	let h = normalize( l + s.v );
 	let ndh = max( dot( s.n, h ), 0.0 );
@@ -158,7 +176,20 @@ fn unshadowed( s: Surf, li: u32 ) -> vec3f {
 	let G = ndl / ( ndl * ( 1.0 - k ) + k ) * ndv / ( ndv * ( 1.0 - k ) + k );
 	let F = mix( vec3f( 0.04 ), s.alb, metal ) + ( 1.0 - mix( vec3f( 0.04 ), s.alb, metal ) ) * pow( 1.0 - max( dot( s.v, h ), 0.0 ), 5.0 );
 	let diffuse = s.alb * ( 1.0 - metal ) * ( vec3f( 1.0 ) - F ) / PI;
-	return ( diffuse + D * G * F / ( 4.0 * ndl * ndv ) ) * ndl * L.col.rgb * fall / d2;
+	var brdf = diffuse + D * G * F / ( 4.0 * ndl * ndv );
+	if ( s.sheen > 0.0 ) {
+		// sheen (fur, velvet, felt): Charlie distribution (Estevez & Kulla 2017) with Neubelt visibility,
+		// tinted by the albedo, sheen roughness 0.5, the base scaled down as three.js does
+		let sc = s.alb * s.sheen;
+		let inv = 1.0 / 0.25;
+		let sin2h = max( 1.0 - ndh * ndh, 0.0078125 );
+		let Dc = ( 2.0 + inv ) * pow( sin2h, inv * 0.5 ) / ( 2.0 * PI );
+		let Vn = clamp( 1.0 / ( 4.0 * ( ndl + ndv - ndl * ndv ) ), 0.0, 1.0 );
+		brdf = brdf * ( 1.0 - 0.157 * max( sc.r, max( sc.g, sc.b ) ) ) + sc * Dc * Vn;
+	}
+	// the AO map as micro-shadowing (Chan 2018, as in Filament): its cavities darken under grazing light only
+	let ms = clamp( ndl * inverseSqrt( 1.0 - min( m.ao, 0.9999 ) ), 0.0, 1.0 );
+	return brdf * ndl * L.col.rgb * fall / d2 * ms * ms;
 }
 
 // the ray leaves along the smooth normal: the normal map may tilt n under the surface (shadow acne),
@@ -297,7 +328,7 @@ fn texLod( t: f32 ) -> f32 { return log2( max( matU.texSize * matU.scale * t * m
 
 const KERNELS = {
 
-	primary: { uses: [ 'cam', 'nodes', 'tris', 'tnorm', 'gout', 'guideW', 'matU', 'tAlb', 'tNrm', 'tRgh', 'tMet', 'smp' ], code: TRAVERSE + MATERIAL + MAIN + /* wgsl */`
+	primary: { uses: [ 'cam', 'nodes', 'tris', 'tnorm', 'gout', 'guideW', 'matU', 'tAlb', 'tNrm', 'tRgh', 'tMet', 'tAO', 'smp' ], code: TRAVERSE + MATERIAL + MAIN + /* wgsl */`
 		let d = camDirAt( gid.xy, jitter() );
 		let h = traverse( cam.o.xyz, d, 1e5, false );
 		if ( h.tri == NONE ) { gout[ 3u * pix + 1u ] = vec4f( 0.0 ); guide[ pix ] = vec4f( 0.0 ); return; }
@@ -307,16 +338,16 @@ const KERNELS = {
 		let isFloor = p.z < 1e-4 && n.z > 0.99;
 		// the model wears the material (triplanar, normal-mapped); the floor stays dark and glossy
 		var alb = vec3f( 0.05, 0.05, 0.055 );
-		var rs = 0.25;
+		var rs = packMat( 0.25, 0.0, 1.0 );
 		var ns = n;
 		if ( ! isFloor ) {
 			let lod = texLod( h.t );
 			if ( matU.clay > 0.5 ) {
 				alb = vec3f( 0.45 );
-				rs = 0.6;
+				rs = packMat( 0.6, 0.0, 1.0 );
 			} else {
 				alb = triTex( tAlb, p, n, lod ).rgb;
-				rs = clamp( triTex( tRgh, p, n, lod ).r, 0.05, 1.0 ) + select( 0.0, 2.0, triTex( tMet, p, n, lod ).r > 0.5 );
+				rs = packMat( clamp( triTex( tRgh, p, n, lod ).r, 0.05, 1.0 ), triTex( tMet, p, n, lod ).r, triTex( tAO, p, n, lod ).r );
 			}
 			ns = triNormal( tNrm, p, n, lod );
 		}
@@ -424,7 +455,7 @@ const KERNELS = {
 					var hn = normalize( tnorm[ 3u * h.tri ].xyz * ( 1.0 - h.u - h.v ) + tnorm[ 3u * h.tri + 1u ].xyz * h.u + tnorm[ 3u * h.tri + 2u ].xyz * h.v );
 					if ( dot( hn, rdir ) > 0.0 ) { hn = -hn; }
 					let hp = s.p + rdir * h.t;
-					let hs = Surf( hp, hn, triAlb( hp, hn, texLod( h.t + length( s.p - cam.o.xyz ) ) ), 0.5, -rdir, true, hn );
+					let hs = Surf( hp, hn, triAlb( hp, hn, texLod( h.t + length( s.p - cam.o.xyz ) ) ), packMat( 0.5, 0.0, 1.0 ), -rdir, true, hn, cam.sheen.x );
 					var seed = seedOf( pix, 3u );
 					rc = vec3f( 0.0 );
 					for ( var i = 0u; i < 2u; i++ ) {
@@ -654,7 +685,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 	const spots = makeSpots();
 	const initial = spotBuffers( spots );
 	const B = {
-		cam: mk( 144, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST ),
+		cam: mk( 160, GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST ),
 		nodes: upload( new Uint8Array( root ) ), tris: upload( tri ), tnorm: upload( tn ),
 		g: [ mk( N * 48 ), mk( N * 48 ) ],
 		lights: upload( initial.data ), alias: upload( new Uint8Array( initial.table ) ),
@@ -688,14 +719,17 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 		normal: solidTexture( device, [ 128, 128, 255, 255 ], 'rgba8unorm' ),
 		roughness: solidTexture( device, [ 77, 77, 77, 255 ], 'rgba8unorm' ),
 		metallic: solidTexture( device, [ 0, 0, 0, 255 ], 'rgba8unorm' ),
+		ao: solidTexture( device, [ 255, 255, 255, 255 ], 'rgba8unorm' ),
 	};
 	let mat = { ...JADE };
 	// same density as the MatterLift preview: 2.5 tiles per bounding-sphere radius
 	// look-dev settings from MatterLift: normal strength, tiling, clay
-	let look = { normalScale: 1, tiling: 1, clay: false };
+	// tileCm > 0: real-world scale, the model shown 1 m across (its bounding sphere is 50 cm in radius), one
+	// tile at tileCm, as in the preview: 50 / tileCm tiles per radius = 2.5 x (20 / tileCm)
+	let look = { normalScale: 1, tiling: 1, clay: false, tileCm: 0 };
 	let texSize = 1;
 	const writeMatU = () => device.queue.writeBuffer( B.matU, 0, new Float32Array( [
-		2.5 / radius * look.tiling, texSize, 2 * Math.tan( 15 * Math.PI / 180 ) / H, look.normalScale, look.clay ? 1 : 0, 0, 0, 0 ] ) );
+		2.5 / radius * ( look.tileCm > 0 ? 20 / look.tileCm : look.tiling ), texSize, 2 * Math.tan( 15 * Math.PI / 180 ) / H, look.normalScale, look.clay ? 1 : 0, 0, 0, 0 ] ) );
 	writeMatU();
 	const setLook = settings => {
 		look = { ...look, ...settings };
@@ -704,7 +738,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 
 	// bind groups for both G-Buffer parities
 	const bind = ( v, name, par ) => {
-		const res = { matU: B.matU, smp, tAlb: mat.albedo.createView(), tNrm: mat.normal.createView(), tRgh: mat.roughness.createView(), tMet: mat.metallic.createView(),
+		const res = { matU: B.matU, smp, tAlb: mat.albedo.createView(), tNrm: mat.normal.createView(), tRgh: mat.roughness.createView(), tMet: mat.metallic.createView(), tAO: mat.ao.createView(),
 			cam: B.cam, nodes: B.nodes, tris: B.tris, tnorm: B.tnorm, gout: B.g[ par ], guideW: B.guide, gcur: B.g[ par ], gprev: B.g[ 1 - par ],
 			lights: B.lights, alias: B.alias, out: B.out, ref: B.ref,
 			resIn: { temporal: B.resInit, spatial: B.resTemp, shade: B.resHist }[ name ], hist: B.resHist,
@@ -718,7 +752,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 	// a generated material (ImageBitmaps; any missing map keeps the jade default), or null for jade
 	const setMaterial = async maps => {
 		const next = { ...JADE };
-		const formats = { albedo: 'rgba8unorm-srgb', normal: 'rgba8unorm', roughness: 'rgba8unorm', metallic: 'rgba8unorm' };
+		const formats = { albedo: 'rgba8unorm-srgb', normal: 'rgba8unorm', roughness: 'rgba8unorm', metallic: 'rgba8unorm', ao: 'rgba8unorm' };
 		for ( const key of Object.keys( formats ) ) if ( maps?.[ key ] ) next[ key ] = await textureFrom( device, maps[ key ], formats[ key ] );
 		for ( const key of Object.keys( mat ) ) if ( mat[ key ] !== JADE[ key ] ) mat[ key ].destroy();
 		mat = next;
@@ -748,7 +782,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 
 	const accGroups = [ 0, 1 ].map( par => dnBind( 'accProject', { cam: B.cam, gcur: B.g[ par ], gprev: B.g[ 1 - par ], out: B.out } ) );
 
-	const camData = new ArrayBuffer( 144 );
+	const camData = new ArrayBuffer( 160 );
 	const camF = new Float32Array( camData ), camU = new Uint32Array( camData );
 
 	// encodes one frame (variant v) and optionally times each pass
@@ -788,7 +822,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 		cp.end();
 	};
 	// camera basis from a three camera: origin, right * tan(fov/2) * aspect, up * tan(fov/2), forward
-	const setCamera = ( cam, prev, frame, accum, live, flags = 0 ) => {
+	const setCamera = ( cam, prev, frame, accum, live, flags = 0, sheen = 0 ) => {
 		const e = cam.matrixWorld.elements;
 		const hh = Math.tan( cam.fov * Math.PI / 360 ), hw = hh * W / H;
 		const basis = [ e[ 12 ], e[ 13 ], e[ 14 ], 0, e[ 0 ] * hw, e[ 1 ] * hw, e[ 2 ] * hw, 0, e[ 4 ] * hh, e[ 5 ] * hh, e[ 6 ] * hh, 0, - e[ 8 ], - e[ 9 ], - e[ 10 ], 0 ];
@@ -798,6 +832,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 		camU[ 33 ] = accum;
 		camU[ 34 ] = live ? 1 : 0;
 		camU[ 35 ] = flags;
+		camF[ 36 ] = sheen;
 		device.queue.writeBuffer( B.cam, 0, camData );
 		return basis;
 	};
@@ -925,7 +960,7 @@ async function buildAtQuality( device, scene, sizes, level ) {
 
 }
 
-// loadModel( name ) -> { scene, view }: another Stanford scan, when MatterLift switches model
+// loadModel( name ) -> { scene, view }: another model, when MatterLift switches it
 export async function liveUnbiased( device, scene, sceneCam, results, triangles, bvh, loadModel ) {
 
 	// Live RT runs on any WebGPU GPU (NVIDIA, AMD, Intel, Apple, Qualcomm): plain WGSL, default limits,
@@ -966,11 +1001,13 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 
 	// spot panel: on / off, how many, original colours or one picked colour
 	const panel = document.getElementById( 'panel' );
+	// neutral white by default, so the light never tints the material being judged
 	panel.innerHTML = `
+		<label>Lighting <select id="rig"><option value="spots" selected>${ NUM_LIGHTS } scene spots</option><option value="three">Three-point rig (key, fill, rim)</option></select></label>
 		<label><input type="checkbox" id="spotsOn" checked> ${ NUM_LIGHTS } scene spots</label>
 		<label>Count <input type="range" id="spotCount" min="1" max="${ NUM_LIGHTS }" value="${ NUM_LIGHTS }"> <span id="spotCountOut">${ NUM_LIGHTS }</span></label>
-		<label><input type="radio" name="spotColor" value="orig" checked> Original colours</label>
-		<label><input type="radio" name="spotColor" value="one"> Single colour <input type="color" id="spotPick" value="#ffd9a0"></label>
+		<label><input type="radio" name="spotColor" value="orig"> Original colours</label>
+		<label><input type="radio" name="spotColor" value="one" checked> Single colour <input type="color" id="spotPick" value="#ffffff"></label>
 		<label>Power per spot <input type="range" id="spotGain" min="-20" max="20" value="0"> <span id="spotGainOut"></span></label>
 		<div>My spots: <span id="customOut">0</span> / ${ MAX_CUSTOM } · Shift + click to place <button id="customClear">Clear</button></div>
 		<label>Exposure <input type="range" id="exposure" min="-30" max="30" value="0"> <span id="exposureOut">0 EV</span></label>
@@ -986,10 +1023,13 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		$( 'spotCountOut' ).textContent = $( 'spotCount' ).value;
 		// power slider: x0.1 to x10 on a log scale; the label shows the mean intensity of the lit spots
 		const gain = 10 ** ( $( 'spotGain' ).value / 20 );
-		const lit = [ ...spots.slice( 0, $( 'spotsOn' ).checked ? + $( 'spotCount' ).value : 0 ), ...custom ];
+		// the three-point rig replaces the scene spots; it takes the first of the placed-spot slots
+		const rig = $( 'rig' ).value === 'three' ? THREE_POINT : [];
+		const decor = $( 'spotsOn' ).checked && ! rig.length;
+		const lit = [ ...spots.slice( 0, decor ? + $( 'spotCount' ).value : 0 ), ...rig, ...custom ];
 		const mean = lit.length ? lit.reduce( ( a, sp ) => a + sp.I, 0 ) / lit.length * gain : 0;
 		$( 'spotGainOut' ).textContent = `x${ gain.toFixed( 2 ) } · mean intensity ${ ( mean * 1000 ).toFixed( 1 ) }`;
-		R.setSpots( { on: $( 'spotsOn' ).checked, count: + $( 'spotCount' ).value, color: one ? toLinear( $( 'spotPick' ).value ) : null, custom, gain } );
+		R.setSpots( { on: decor, count: + $( 'spotCount' ).value, color: one ? toLinear( $( 'spotPick' ).value ) : null, custom: [ ...rig, ...custom ], gain } );
 		$( 'customOut' ).textContent = custom.length;
 		reset = true;
 		refValid = false;
@@ -1044,7 +1084,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		const toCam = cam.position.clone().sub( hit.point ).normalize();
 		const pos = hit.point.clone().add( toCam.multiplyScalar( 0.6 ).add( n.multiplyScalar( 0.4 ) ).add( new THREE.Vector3( 0, 0, 0.5 ) ).normalize().multiplyScalar( 0.25 ) );
 		const dir = hit.point.clone().sub( pos ).normalize();
-		if ( custom.length >= MAX_CUSTOM ) custom.shift();
+		if ( custom.length >= MAX_CUSTOM - THREE_POINT.length ) custom.shift();
 		custom.push( { pos: pos.toArray(), dir: dir.toArray(), cosO: Math.cos( 0.26 ), cosI: Math.cos( 0.18 ), col: [ 1, 0.92, 0.82 ], I: 0.05 } );
 		applySpots();
 	} );
@@ -1163,7 +1203,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		const paused = $( 'accPause' ).checked && accCap > 0 && accum >= accCap && ! moved && ! showRef;
 		const capBits = ( accCap === Infinity ? 0xffffff : accCap ) << 8;
 		// bit 3: sub-pixel jitter of the primary rays while accumulating (anti-aliasing)
-		prevBasis = setCamera( cam, prevBasis, frame, accum, true, ( denoise ? 1 : 0 ) | ( dropHistory ? 2 : 0 ) | ( $( 'keepAcc' ).checked ? 4 : 0 ) | 8 | capBits );
+		prevBasis = setCamera( cam, prevBasis, frame, accum, true, ( denoise ? 1 : 0 ) | ( dropHistory ? 2 : 0 ) | ( $( 'keepAcc' ).checked ? 4 : 0 ) | 8 | capBits, sheen );
 
 		const enc = device.createCommandEncoder();
 		const timed = ts && ! reading && ! showRef && ! paused;
@@ -1208,9 +1248,9 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 			frames = 0;
 			tFps = now;
 			results.live = { fps, gpuMs, dnMs, accum, variant: v, fastMove, showRef, denoise, width: W, height: H, auto, timer: ts };
-			hud.textContent = ( modelError ? `⚠ ${ modelError }\n` : '' ) + ( showRef
+			hud.textContent = ( modelError ? `⚠ ${ modelError }\n` : '' ) + ( caveat ? `⚠ ${ caveat }\n` : '' ) + ( showRef
 				? `EXACT REFERENCE: every spot, one shadow ray each per pixel · ${ fps.toFixed( 0 ) } FPS\n`
-				: `ReSTIR DI ${ MODES[ v ] } ·${ $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n` );
+				: `ReSTIR DI ${ MODES[ v ] } · ${ $( 'rig' ).value === 'three' ? 'three-point rig' : $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n` );
 			hud.textContent += `${ triangles.toLocaleString( 'en' ) } triangles · Drag: orbit 360° · Wheel: zoom · Shift + click: place a spot · 1/2/3: ReSTIR variant · R: exact reference · D: denoiser · H: hide UI`;
 		}
 		// the frame index drives the G-Buffer / history ping-pong, so it only advances when something was rendered
@@ -1220,7 +1260,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 	}
 	let prevBasis = null;
 	let lastMaps = null, lastLook = null;
-	let modelSeq = 0, modelError = null;
+	let modelSeq = 0, modelError = null, caveat = null, sheen = 0;
 	showQuality();
 	device.lost.then( info => {
 		document.body.classList.remove( 'live' );
@@ -1228,20 +1268,27 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		el.classList.add( 'error' );
 		el.textContent = `The GPU stopped the renderer (${ info.reason || 'device lost' }). Reload the page to try again.`;
 	} );
-	// inside MatterLift the spots are neutral white, so the light never tints the material being judged
-	if ( document.body.classList.contains( 'embed' ) ) {
-		$( 'spotPick' ).value = '#ffffff';
-		panel.querySelector( 'input[value=one]' ).checked = true;
-	}
 	applySpots();
 
 	// MatterLift sends the generated material as ImageBitmaps; null goes back to jade
 	addEventListener( 'message', async e => {
 		if ( e.source !== window.parent ) return;
-		if ( e.data?.type === 'live-rt:material' ) await R.setMaterial( ( lastMaps = e.data.maps ) );
+		if ( e.data?.type === 'live-rt:material' ) {
+			// layers of the material this renderer does not trace: said in the HUD, so the image is not
+			// mistaken for the material (the 3D preview shows them)
+			const sh = e.data.shading || {};
+			const missing = [
+				sh.transmission > 0.01 && `transmission (IOR ${ ( sh.ior ?? 1.5 ).toFixed( 2 ) })`,
+				sh.clearcoat > 0.01 && 'clearcoat',
+				Math.abs( sh.anisotropy ?? 0 ) > 0.01 && 'anisotropy',
+			].filter( Boolean );
+			caveat = missing.length ? `Not traced here: ${ missing.join( ', ' ) }. The 3D preview shows them.` : null;
+			sheen = Math.min( 1, Math.max( 0, sh.sheen ?? 0 ) );
+			await R.setMaterial( ( lastMaps = e.data.maps ) );
+		}
 		else if ( e.data?.type === 'live-rt:settings' ) R.setLook( ( lastLook = e.data ) );
 		else if ( e.data?.type === 'live-rt:model' && loadModel ) {
-			// another scan: new geometry and BVH, the renderer rebuilt around them, the camera reframed;
+			// another model: new geometry and BVH, the renderer rebuilt around them, the camera reframed;
 			// spots placed on the previous model go. Quick clicks: the last one wins.
 			const seq = ++modelSeq;
 			let next;

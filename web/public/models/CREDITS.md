@@ -1,16 +1,17 @@
 # 3D models: credits and terms
 
-These meshes are **not** covered by MatterLift's MIT license. They come from the
-**Stanford 3D Scanning Repository**, Stanford University Computer Graphics Laboratory
-(https://graphics.stanford.edu/data/3Dscanrep/), and are used under its terms: free for research
-and non-commercial use, redistribution free of charge allowed, the source must be acknowledged;
-commercial use needs Stanford's permission.
+## `material_study.ply`: MatterLift's own
 
-| File | Model | Source | Original | Here |
-|---|---|---|---|---|
-| `stanford_dragon.ply` | Stanford Dragon | Stanford Computer Graphics Laboratory | `dragon_vrip.ply`, 871,414 triangles | 150,000 triangles (meshoptimizer) |
-| `happy_buddha.ply` | Happy Buddha | Stanford Computer Graphics Laboratory | `happy_vrip.ply`, 1,087,716 triangles | 150,000 triangles (fast-simplification) |
-| `lucy.ply` | Lucy | Stanford Computer Graphics Laboratory | `lucy.ply`, 28,055,742 triangles | 149,998 triangles (fast-simplification) |
+The material study (a two-step plinth, a sphere, a rounded cube with Suzanne on it, an upright torus and
+a fluted column; 135,584 triangles, with UVs and normals) is modelled from code by
+`scripts/material_study.py` in Blender; the scene is saved as `docs/blender/material_study.blend`. It is
+part of MatterLift and under its MIT license, like the script. Suzanne is Blender's own primitive,
+generated here by Blender itself. It is the only mesh MatterLift ships, in the material preview and in
+Live RT: no third-party model.
 
-Changes: decimated with quadric simplification, positions and triangles only, binary little-endian
-PLY. MatterLift shows them in the material preview (Dragon, Buddha, Lucy) and in Live RT.
+## Earlier screenshots and videos
+
+Some README images and demo videos recorded before 2026-11-04 show the Stanford Dragon, Happy Buddha and
+Lucy, from the Stanford 3D Scanning Repository, Stanford University Computer Graphics Laboratory
+(https://graphics.stanford.edu/data/3Dscanrep/), used under its terms (research and non-commercial use,
+source acknowledged). The meshes themselves are no longer part of MatterLift.
