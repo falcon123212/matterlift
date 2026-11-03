@@ -53,9 +53,15 @@ def main() -> None:
             page.mouse.move(cx + args.step, cy, steps=4)
             page.mouse.up()
             time.sleep(args.settle)
-            shot = trim_bars(Image.open(io.BytesIO(page.locator("#canvas-wrap").screenshot())))
-            frames.append(shot.resize((args.width, round(shot.height * args.width / shot.width)), Image.LANCZOS))
+            frames.append(Image.open(io.BytesIO(page.locator("#canvas-wrap").screenshot())).convert("RGB"))
         browser.close()
+
+    # one crop for every frame: the bars found on the first (a dark floor edge can move them a pixel)
+    w0, h0 = frames[0].size
+    t = trim_bars(frames[0])
+    top = next(y for y in range(h0) if frames[0].crop((8, y, w0 - 8, y + t.height)).tobytes() == t.tobytes())
+    frames = [f.crop((8, top, w0 - 8, top + t.height)).resize(
+        (args.width, round(t.height * args.width / t.width)), Image.LANCZOS) for f in frames]
 
     # the camera's inertia makes the turn uneven: close the loop on the frame most like the first,
     # once past half the frames, so the GIF does not jump when it starts over

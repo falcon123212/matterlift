@@ -3,6 +3,13 @@
 </p>
 
 <p align="center">
+  <b>Track:</b> Indie Developer<br>
+  <b>Problem statement:</b> Build for Your World<br>
+  <b>Bonus targeted: Creative Build</b><br>
+  <sub>Built from scratch Nov 1–4; Live RT ports the design of my earlier OptiX tracer.</sub>
+</p>
+
+<p align="center">
   <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
   <a href="https://youtu.be/lK5YGg_GBmg"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
   <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
@@ -46,44 +53,41 @@ SAM 3.1, Muse Voice Transcribe).
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/videos/demo.jpg" alt="Watch the 3-minute demo: one photo of a bowl becomes a game-ready material" width="100%"></a><br><b>The 3-minute demo</b><br><sub>A photo of a bowl, every step on screen</sub></td>
-    <td width="33%" align="center"><a href="https://youtu.be/BPpDhytLlfs"><img src="docs/img/videos/diamond.jpg" alt="Watch a diamond being generated from two words" width="100%"></a><br><b>A diamond, from two words</b><br><sub>Spark sets transmission and IOR 2.4</sub></td>
-    <td width="33%" align="center"><a href="https://youtu.be/g-3Ds-COs7U"><img src="docs/img/videos/buddha.jpg" alt="Watch aged limestone on the Buddha, path traced live" width="100%"></a><br><b>Limestone on the Buddha</b><br><sub>Path traced live in the browser</sub></td>
+    <td width="50%" align="center"><a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/videos/demo.jpg" alt="Watch the 3-minute demo: one photo of a bowl becomes a game-ready material" width="100%"></a><br><b>The 3-minute demo</b><br><sub>A photo of a bowl, every step on screen</sub></td>
+    <td width="50%" align="center"><a href="https://youtu.be/BPpDhytLlfs"><img src="docs/img/videos/diamond.jpg" alt="Watch a diamond being generated from two words" width="100%"></a><br><b>A diamond, from two words</b><br><sub>Spark sets transmission and IOR 2.4</sub></td>
   </tr>
   <tr>
-    <td width="33%" align="center"><a href="https://youtu.be/kYKld37nRlw"><img src="docs/img/videos/lucy.jpg" alt="Watch mossy flagstone on Lucy, path traced live" width="100%"></a><br><b>Mossy flagstone on Lucy</b><br><sub>Path traced live in the browser</sub></td>
-    <td width="33%" align="center"><a href="https://youtu.be/tEU3NPhObLY"><img src="docs/img/videos/godot.jpg" alt="Watch the package in Godot 4" width="100%"></a><br><b>Straight into Godot 4</b><br><sub><code>.glb</code> · <code>.tres</code> · live <code>.gdshader</code></sub></td>
-    <td width="33%" align="center"><a href="https://youtu.be/5K5PUd57xCg"><img src="docs/img/videos/blender.jpg" alt="Watch the material in Blender with live sliders" width="100%"></a><br><b>Straight into Blender</b><br><sub>A node tree with live sliders</sub></td>
+    <td width="50%" align="center"><a href="https://youtu.be/tEU3NPhObLY"><img src="docs/img/videos/godot.jpg" alt="Watch the package in Godot 4" width="100%"></a><br><b>Straight into Godot 4</b><br><sub><code>.glb</code> · <code>.tres</code> · live <code>.gdshader</code></sub></td>
+    <td width="50%" align="center"><a href="https://youtu.be/5K5PUd57xCg"><img src="docs/img/videos/blender.jpg" alt="Watch the material in Blender with live sliders" width="100%"></a><br><b>Straight into Blender</b><br><sub>A node tree with live sliders</sub></td>
   </tr>
 </table>
 
 <p align="center"><sub>Live RT (path tracing) is tested on Chrome on Windows with an NVIDIA GPU only.</sub></p>
 
 <p align="center">
-  <img src="docs/img/flow.jpg" alt="You say: very worn, scratched old oak parquet. MatterLift makes colour, normal, roughness, AO and height maps. Path traced in your browser on the Stanford dragon." width="100%">
+  <img src="docs/img/flow.jpg" alt="You say: very worn, scratched old oak parquet. MatterLift makes colour, normal, roughness, AO and height maps. Path traced in your browser on MatterLift's own Study scene." width="100%">
 </p>
 
 <p align="center">
   <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the sphere, with its maps and the export" width="100%">
   <br>
-  <sub>The page: "very worn, scratched old oak parquet" on the sphere, the tiled 3×3 seam check, every map and the export. Spark's review under raking light gave it 8/10 at once, nothing to fix.</sub>
+  <sub>The page: "very worn, scratched old oak parquet" on the Study, the tiled 3×3 seam check, every map and the export. Spark's review under raking light gave it 8/10 at once, nothing to fix.</sub>
 </p>
 
 ## Gallery
 
 Six materials made from a sentence alone: five in **Live RT** (path traced in the browser, WebGPU),
-the diamond in the 3D preview. These captures and videos predate MatterLift's own preview scene: they
-show the Stanford scans the app used then (credits below), which it no longer ships. Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
+the diamond in the 3D preview, all on the **Study**, the scene the live demo shows. Each one is in [`samples/export/`](samples/export) exactly as **Download .zip**
 gives it (512 px PNG): maps, `.glb`, Godot `.tres` and shader, MaterialX, USD, Blender script, all
 passing the Khronos glTF validator, MaterialX, USD and Godot 4. Prompts typed in French are shown translated: MatterLift
 takes requests in any language Spark reads.
 
 | | | |
 |---|---|---|
-| ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | [![Aged limestone blocks: watch it on the Buddha, live](docs/img/live_limestone.jpg)](https://youtu.be/g-3Ds-COs7U) |
-| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Ruby_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG) · [▶ on the Buddha, live](https://youtu.be/g-3Ds-COs7U)) |
-| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | [![Mossy flagstone path: watch it on Lucy, live](docs/img/live_mossy_flagstone.jpg)](https://youtu.be/kYKld37nRlw) | [![Diamond: watch it being generated](docs/img/preview_diamond.jpg)](https://youtu.be/BPpDhytLlfs) |
-| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG) · [▶ on Lucy, live](https://youtu.be/kYKld37nRlw)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG) · [▶ watch it being generated](https://youtu.be/BPpDhytLlfs)) |
+| ![Ruby](docs/img/live_ruby.jpg) | ![Old oak parquet](docs/img/live_oak_parquet.jpg) | ![Aged limestone blocks](docs/img/live_limestone.jpg) |
+| **"a ruby"**: transmission, IOR 1.77, clearcoat, and a thickness map ([export](samples/export/Ruby_512-PNG)) | **"very worn, scratched old oak parquet"** ([export](samples/export/OldWornOakParquet_512-PNG)) | **"Century-old grey-beige weathered limestone, raw matte finish, pores, fine cracks and visible mortar joints…"**: a detailed brief, down to 60×40 cm blocks ([export](samples/export/AgedLimestoneBlocks_512-PNG)) |
+| ![Rusty painted steel](docs/img/live_rusty_steel.jpg) | ![Mossy flagstone path](docs/img/live_mossy_flagstone.jpg) | [![Diamond: watch it being generated](docs/img/preview_diamond.jpg)](https://youtu.be/BPpDhytLlfs) |
+| **"rusty painted steel plate, orange rust patches with bare grey metal and flaking blue paint"**: metal only where the paint is gone ([export](samples/export/RustyPaintedSteel_512-PNG)) | **"mossy flagstone path, irregular grey stones with green moss in the joints"** ([export](samples/export/MossyFlagstonePath_512-PNG)) | **"a diamond"**: Spark set full transmission and IOR 2.4 by itself. Shown in the 3D preview, since Live RT does not trace transmission yet ([export](samples/export/Diamond_512-PNG) · [▶ watch it being generated](https://youtu.be/BPpDhytLlfs)) |
 
 ## Why MatterLift
 
@@ -238,9 +242,9 @@ told to keep the pattern scale of the first: the kitchen's octagonal floor tiles
 map as real displacement on the mesh (so the depth pass shows the relief), and Save PNG for the
 current pass.
 
-![The ruby on the Stanford dragon: Beauty, Depth, Normal and Thickness passes](docs/img/passes_ruby.jpg)
-*"a ruby" on the dragon (an earlier capture): Beauty, Depth (white = near), Normal, Thickness (white =
-thick: the veins of the stone, projected triplanar since the scan had no UVs).*
+![The ruby on the Study: Beauty, Depth, Normal and Thickness passes](docs/img/passes_ruby.jpg)
+*"a ruby" on the Study: Beauty, Depth (white = near), Normal, Thickness (white = thick: the veins of
+the stone).*
 
 **Preview shapes and look-dev**: Sphere, Cube, Plane and the **Study**, MatterLift's own scene
 (135k triangles, `scripts/material_study.py`): a two-step plinth (large flat areas, round edges), a
@@ -256,7 +260,7 @@ and in Live RT. Sheen (fur, velvet, felt) takes the albedo's colour. A see-throu
 something to bend, with colour dispersion growing with its IOR.
 
 <p align="center">
-  <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Stanford dragon" width="560">
+  <img src="docs/img/orbit_ruby.gif" alt="A ruby material generated from two words, path traced live in the browser on the Study" width="560">
   <br>
   <sub><b>"a ruby"</b> in Live RT: path traced live in the browser (WebGPU ReSTIR, 256 lights). Not a video render: the page does this.</sub>
 </p>
