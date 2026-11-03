@@ -5,7 +5,7 @@ const api = `http://localhost:${process.env.API_PORT ?? "8001"}`;
 
 export default defineConfig({
   base: "./",
-  // served by the Cloudflare Worker (wrangler.jsonc: assets.directory); live.html is the WebGPU Live RT page
+  // web/dist is served by Vercel (vercel.json); live.html is the WebGPU Live RT page
   build: { outDir: "dist", rollupOptions: { input: { main: "index.html", live: "live.html" } } },
   server: { port: 5173, proxy: { "/materials": api, "/libraries": api, "/understand": api, "/transcribe": api, "/enhance": api, "/health": api } },
 });

@@ -6,8 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "deploy": "npm run build && node scripts/check-dist.mjs && npx wrangler deploy"
+    "preview": "vite preview"
   },
   "dependencies": {
     "three": "0.170.0",

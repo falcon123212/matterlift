@@ -9,7 +9,5 @@ samples/gate/
 samples/out/
 .pytest_cache/
 .claude/
-.wrangler/
-web/.wrangler/
 docs/img/candidates/
 results/photo_test/**/private/

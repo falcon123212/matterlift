@@ -85,7 +85,7 @@ def capture(page: Page, url: str, mid: str, out: Path, live_seconds: float, pass
     page.wait_for_function("window.__liveReady === true", timeout=120_000)
     time.sleep(live_seconds)  # let the path tracer converge
     # the renderer's own overlay (stats, light controls) off, as its H key does
-    page.locator("iframe.live-frame").element_handle().content_frame().evaluate(  # live.html, or /live on Cloudflare
+    page.locator("iframe.live-frame").element_handle().content_frame().evaluate(  # live.html
         "document.body.classList.add('hide-ui'); document.querySelector('#tip')?.remove()")
     time.sleep(0.5)
     files.append(out / f"live_{mid}.png")
