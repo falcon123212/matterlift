@@ -17,15 +17,45 @@ struct Cam { o: vec4f, u: vec4f, v: vec4f, w: vec4f, po: vec4f, pu: vec4f, pv: v
 // GPUs (AMD) canonicalise or flush to zero.
 struct Node { a: vec4f, b: vec4u };
 
-fn lcg( seed: ptr<function, u32> ) -> f32 {
-	*seed = *seed * 1664525u + 1013904223u;
-	return f32( *seed & 0x00FFFFFFu ) / 16777216.0;
+// PCG hash (Jarzynski & Olano 2020): seeds from pixel and frame without the patterns of an LCG
+fn pcg( v: u32 ) -> u32 {
+	let s = v * 747796405u + 2891336453u;
+	let w = ( ( s >> ( ( s >> 28u ) + 4u ) ) ^ s ) * 277803737u;
+	return ( w >> 22u ) ^ w;
+}
+fn seedOf( pix: u32, salt: u32 ) -> u32 { return pcg( pix ^ pcg( cam.frame * 4u + salt ) ); }
+fn rand( seed: ptr<function, u32> ) -> f32 {
+	*seed = pcg( *seed );
+	return f32( *seed >> 8u ) / 16777216.0;
 }
 
-fn camDir( px: vec2u ) -> vec3f {
-	let s = ( ( f32( px.x ) + 0.5 ) / f32( W ) - 0.5 ) * 2.0;
-	let t = ( 0.5 - ( f32( px.y ) + 0.5 ) / f32( H ) ) * 2.0;
+// ray through point (px + off) of the pixel grid
+fn camDirAt( px: vec2u, off: vec2f ) -> vec3f {
+	let s = ( ( f32( px.x ) + off.x ) / f32( W ) - 0.5 ) * 2.0;
+	let t = ( 0.5 - ( f32( px.y ) + off.y ) / f32( H ) ) * 2.0;
 	return normalize( cam.w.xyz + s * cam.u.xyz + t * cam.v.xyz );
+}
+fn camDir( px: vec2u ) -> vec3f { return camDirAt( px, vec2f( 0.5 ) ); }
+// sub-pixel offset of the primary rays: the centre while moving, an R2 sequence while accumulating
+// (cam.p2 bit 3), so the accumulated image is anti-aliased
+fn jitter() -> vec2f {
+	if ( ( cam.p2 & 8u ) == 0u || cam.accum == 0u ) { return vec2f( 0.5 ); }
+	return fract( vec2f( 0.5 ) + f32( cam.accum ) * vec2f( 0.7548776662, 0.5698402910 ) );
+}
+
+// unit normal <-> one f32: octahedral map, 11 bits per axis, as an exact integer (no NaN bit patterns)
+fn octPack( n: vec3f ) -> f32 {
+	var p = n.xy / ( abs( n.x ) + abs( n.y ) + abs( n.z ) );
+	if ( n.z < 0.0 ) { p = ( 1.0 - abs( p.yx ) ) * select( vec2f( -1.0 ), vec2f( 1.0 ), p >= vec2f( 0.0 ) ); }
+	let q = round( clamp( p * 0.5 + 0.5, vec2f( 0.0 ), vec2f( 1.0 ) ) * 2047.0 );
+	return q.x * 2048.0 + q.y;
+}
+fn octUnpack( f: f32 ) -> vec3f {
+	let qx = floor( f / 2048.0 );
+	let e = vec2f( qx, f - qx * 2048.0 ) / 2047.0 * 2.0 - 1.0;
+	var n = vec3f( e, 1.0 - abs( e.x ) - abs( e.y ) );
+	if ( n.z < 0.0 ) { n = vec3f( ( 1.0 - abs( n.yx ) ) * select( vec2f( -1.0 ), vec2f( 1.0 ), n.xy >= vec2f( 0.0 ) ), n.z ); }
+	return normalize( n );
 }
 
 // pixel of world point P in the previous frame, or -1 when it was off screen

@@ -125,13 +125,14 @@ const LIGHTS = /* wgsl */`
 const NL = ${ TOTAL }u;
 // pos.w = cos outer cone, dir.w = cos inner cone, col.rgb = intensity, col.w = pick pdf
 struct Light { pos: vec4f, dir: vec4f, col: vec4f };
-// spec = roughness, plus 2 for a metal (G-Buffer channel c.w)
-struct Surf { p: vec3f, n: vec3f, alb: vec3f, spec: f32, v: vec3f, ok: bool };
+// spec = roughness, plus 2 for a metal (G-Buffer channel c.w); n is the shading (normal-mapped) normal,
+// gn the smooth surface normal
+struct Surf { p: vec3f, n: vec3f, alb: vec3f, spec: f32, v: vec3f, ok: bool, gn: vec3f };
 
 fn lum( c: vec3f ) -> f32 { return dot( c, vec3f( 0.2126, 0.7152, 0.0722 ) ); }
 
 fn surfFrom( a: vec4f, b: vec4f, c: vec4f, eye: vec3f ) -> Surf {
-	return Surf( a.xyz, b.xyz, c.xyz, c.w, normalize( eye - a.xyz ), b.w > 0.0 );
+	return Surf( a.xyz, b.xyz, c.xyz, c.w, normalize( eye - a.xyz ), b.w > 0.0, select( b.xyz, octUnpack( a.w ), b.w > 0.0 ) );
 }
 
 // BRDF * Le * cos / d^2 for spot li, without visibility
@@ -160,8 +161,11 @@ fn unshadowed( s: Surf, li: u32 ) -> vec3f {
 	return ( diffuse + D * G * F / ( 4.0 * ndl * ndv ) ) * ndl * L.col.rgb * fall / d2;
 }
 
+// the ray leaves along the smooth normal: the normal map may tilt n under the surface (shadow acne),
+// and a light behind the surface is hidden even when the normal map faces it (no leaks)
 fn visible( s: Surf, li: u32 ) -> bool {
-	let o = s.p + s.n * 1e-4;
+	if ( dot( lights[ li ].pos.xyz - s.p, s.gn ) <= 0.0 ) { return false; }
+	let o = s.p + s.gn * 1e-4;
 	let d = lights[ li ].pos.xyz - o;
 	let dist = length( d );
 	return traverse( o, d / dist, dist * 0.999, true ).tri == NONE;
@@ -187,7 +191,7 @@ fn pack( r: Res ) -> vec4u { return vec4u( r.y, bitcast<u32>( r.W ), bitcast<u32
 struct Stream { y: u32, p: f32, wsum: f32 };
 fn add( st: ptr<function, Stream>, y: u32, p: f32, w: f32, seed: ptr<function, u32> ) {
 	( *st ).wsum += w;
-	if ( w > 0.0 && lcg( seed ) * ( *st ).wsum < w ) { ( *st ).y = y; ( *st ).p = p; }
+	if ( w > 0.0 && rand( seed ) * ( *st ).wsum < w ) { ( *st ).y = y; ( *st ).p = p; }
 }
 
 // pairwise MIS split for one canonical / neighbour pair
@@ -200,10 +204,10 @@ fn pairT( mi: f32, pi: f32, mcOverK: f32, pc: f32 ) -> f32 {
 // alias-table light pick, only in the passes that bind the table
 const PICK = /* wgsl */`
 fn pickLight( seed: ptr<function, u32> ) -> u32 {
-	let i = min( u32( lcg( seed ) * f32( NL ) ), NL - 1u );
+	let i = min( u32( rand( seed ) * f32( NL ) ), NL - 1u );
 	let e = aliasT[ i ];
 	// x = probability (f32 bits), y = alias index
-	return select( e.y, i, lcg( seed ) < bitcast<f32>( e.x ) );
+	return select( e.y, i, rand( seed ) < bitcast<f32>( e.x ) );
 }
 `;
 
@@ -294,7 +298,7 @@ fn texLod( t: f32 ) -> f32 { return log2( max( matU.texSize * matU.scale * t * m
 const KERNELS = {
 
 	primary: { uses: [ 'cam', 'nodes', 'tris', 'tnorm', 'gout', 'guideW', 'matU', 'tAlb', 'tNrm', 'tRgh', 'tMet', 'smp' ], code: TRAVERSE + MATERIAL + MAIN + /* wgsl */`
-		let d = camDir( gid.xy );
+		let d = camDirAt( gid.xy, jitter() );
 		let h = traverse( cam.o.xyz, d, 1e5, false );
 		if ( h.tri == NONE ) { gout[ 3u * pix + 1u ] = vec4f( 0.0 ); guide[ pix ] = vec4f( 0.0 ); return; }
 		let p = cam.o.xyz + d * h.t;
@@ -316,7 +320,8 @@ const KERNELS = {
 			}
 			ns = triNormal( tNrm, p, n, lod );
 		}
-		gout[ 3u * pix ] = vec4f( p, h.t );
+		// w: the smooth normal before the normal map, for ray offsets (the hit distance is |p - eye|)
+		gout[ 3u * pix ] = vec4f( p, octPack( n ) );
 		gout[ 3u * pix + 1u ] = vec4f( ns, select( 1.0, 4.0, isFloor ) );
 		gout[ 3u * pix + 2u ] = vec4f( alb, rs );
 		// the denoiser keeps the smooth normal, so the normal map does not stop its filter
@@ -327,7 +332,7 @@ const KERNELS = {
 	initial: { uses: [ 'cam', 'nodes', 'tris', 'gcur', 'lights', 'alias', 'resOut' ], code: TRAVERSE + LIGHTS + PICK + MAIN + /* wgsl */`
 		let s = surfFrom( gcur[ 3u * pix ], gcur[ 3u * pix + 1u ], gcur[ 3u * pix + 2u ], cam.o.xyz );
 		if ( ! s.ok ) { resOut[ pix ] = pack( Res( NONE, 0.0, 0.0, 0.0 ) ); return; }
-		var seed = ( pix * 9781u ) ^ ( cam.frame * 0x9e3779b9u + 1u );
+		var seed = seedOf( pix, 0u );
 		var st = Stream( NONE, 0.0, 0.0 );
 		for ( var c = 0u; c < ${ CANDIDATES }u; c++ ) {
 			let li = pickLight( &seed );
@@ -345,7 +350,7 @@ const KERNELS = {
 		let s = surfFrom( g0, gcur[ 3u * pix + 1u ], gcur[ 3u * pix + 2u ], cam.o.xyz );
 		let c = unpack( resIn[ pix ] );
 		if ( ! s.ok ) { resOut[ pix ] = pack( c ); return; }
-		var seed = ( pix * 7919u ) ^ ( cam.frame * 0x85ebca6bu + 3u );
+		var seed = seedOf( pix, 1u );
 		var ns: array<Res, 2>;
 		var nsurf: array<Surf, 2>;
 		var k = 0u;
@@ -354,7 +359,7 @@ const KERNELS = {
 			let q = u32( pp.y ) * W + u32( pp.x );
 			let ps = surfFrom( gprev[ 3u * q ], gprev[ 3u * q + 1u ], gprev[ 3u * q + 2u ], cam.po.xyz );
 			// same surface? (geometry only, so the MIS weights stay valid)
-			if ( ps.ok && dot( ps.n, s.n ) > 0.8 && length( ps.p - s.p ) < 0.02 * g0.w ) {
+			if ( ps.ok && dot( ps.n, s.n ) > 0.8 && length( ps.p - s.p ) < 0.02 * distance( g0.xyz, cam.o.xyz ) ) {
 				var h = unpack( hist[ q ] );
 				h.M = min( h.M, ${ M_CAP }.0 * c.M );
 				ns[ 0 ] = h;
@@ -371,19 +376,19 @@ const KERNELS = {
 		let s = surfFrom( g0, gcur[ 3u * pix + 1u ], gcur[ 3u * pix + 2u ], cam.o.xyz );
 		let c = unpack( resIn[ pix ] );
 		if ( ! s.ok ) { resOut[ pix ] = pack( c ); return; }
-		var seed = ( pix * 6271u ) ^ ( cam.frame * 0x27d4eb2du + 7u );
+		var seed = seedOf( pix, 2u );
 		var ns: array<Res, 2>;
 		var nsurf: array<Surf, 2>;
 		var k = 0u;
 		for ( var i = 0u; i < ${ SPATIAL }u; i++ ) {
-			let a = lcg( &seed ) * 2.0 * PI;
-			let rr = sqrt( lcg( &seed ) ) * ${ RADIUS }.0;
+			let a = rand( &seed ) * 2.0 * PI;
+			let rr = sqrt( rand( &seed ) ) * ${ RADIUS }.0;
 			let q2 = clamp( vec2i( gid.xy ) + vec2i( vec2f( cos( a ), sin( a ) ) * rr ), vec2i( 0 ), vec2i( i32( W ) - 1, i32( H ) - 1 ) );
 			let q = u32( q2.y ) * W + u32( q2.x );
 			if ( q == pix ) { continue; }
 			let n0 = gcur[ 3u * q ];
 			let nsf = surfFrom( n0, gcur[ 3u * q + 1u ], gcur[ 3u * q + 2u ], cam.o.xyz );
-			if ( ! nsf.ok || dot( nsf.n, s.n ) < 0.8 || abs( n0.w - g0.w ) > 0.1 * g0.w ) { continue; }
+			if ( ! nsf.ok || dot( nsf.n, s.n ) < 0.8 || abs( distance( n0.xyz, cam.o.xyz ) - distance( g0.xyz, cam.o.xyz ) ) > 0.1 * distance( g0.xyz, cam.o.xyz ) ) { continue; }
 			ns[ k ] = unpack( resIn[ q ] );
 			nsurf[ k ] = nsf;
 			k++;
@@ -408,8 +413,10 @@ const KERNELS = {
 				if ( VARIANT != 0u ) { vis = visible( s, r.y ); }
 				if ( vis ) { col = unshadowed( s, r.y ) * r.W; }
 			}
-			if ( cam.live == 1u && g1.w == 4.0 ) {
-				// floor mirror reflection; the hit is lit by 2 power-sampled spots, unshadowed
+			// floor mirror reflection, faded out with the distance to the model: no ray where it adds under 1 %
+			let fade = exp( -length( s.p.xy ) * 4.0 );
+			if ( cam.live == 1u && g1.w == 4.0 && fade > 0.01 ) {
+				// the hit is lit by 2 power-sampled spots, unshadowed
 				let rdir = reflect( rd, s.n );
 				let h = traverse( s.p + s.n * 1e-4, rdir, 1e5, false );
 				var rc = studioBg( rdir );
@@ -417,8 +424,8 @@ const KERNELS = {
 					var hn = normalize( tnorm[ 3u * h.tri ].xyz * ( 1.0 - h.u - h.v ) + tnorm[ 3u * h.tri + 1u ].xyz * h.u + tnorm[ 3u * h.tri + 2u ].xyz * h.v );
 					if ( dot( hn, rdir ) > 0.0 ) { hn = -hn; }
 					let hp = s.p + rdir * h.t;
-					let hs = Surf( hp, hn, triAlb( hp, hn, texLod( h.t + length( s.p - cam.o.xyz ) ) ), 0.5, -rdir, true );
-					var seed = ( pix * 3301u ) ^ ( cam.frame * 0x165667b1u );
+					let hs = Surf( hp, hn, triAlb( hp, hn, texLod( h.t + length( s.p - cam.o.xyz ) ) ), 0.5, -rdir, true, hn );
+					var seed = seedOf( pix, 3u );
 					rc = vec3f( 0.0 );
 					for ( var i = 0u; i < 2u; i++ ) {
 						let li = pickLight( &seed );
@@ -426,7 +433,7 @@ const KERNELS = {
 					}
 				}
 				let f = 0.04 + 0.96 * pow( max( 0.0, 1.0 - dot( s.n, -rd ) ), 5.0 );
-				col += rc * mix( 0.3, 1.0, f ) * exp( -length( s.p.xy ) * 4.0 );
+				col += rc * mix( 0.3, 1.0, f ) * fade;
 			}
 		}
 		let hist = outBuf[ W * H + pix ];
@@ -459,11 +466,20 @@ const DN_COMMON = /* wgsl */`
 fn lum3( c: vec3f ) -> f32 { return dot( c, vec3f( 0.2126, 0.7152, 0.0722 ) ); }
 `;
 
+// in the passes that bind the G-Buffer (gcur)
+const DEMOD = /* wgsl */`
+// The filter works on the lighting alone: the frame divided by the surface albedo, multiplied back at
+// display, so the material's texture stays sharp however much the lighting is blurred (1 on the background).
+fn demod( pix: u32 ) -> vec3f {
+	return select( vec3f( 1.0 ), max( gcur[ 3u * pix + 2u ].rgb, vec3f( 0.03 ) ), gcur[ 3u * pix + 1u ].w > 0.0 );
+}
+`;
+
 const DN_KERNELS = {
 
 	// temporal accumulation of the raw frame with reprojection, plus luminance moments for the variance
-	dnTemporal: { uses: [ 'cam', 'gcur', 'gprev', 'outR', 'hAin', 'hMin', 'hAout', 'hMout', 'dnOut' ], code: DN_COMMON + MAIN + /* wgsl */`
-		let c = outBuf[ W * H + pix ].rgb;
+	dnTemporal: { uses: [ 'cam', 'gcur', 'gprev', 'outR', 'hAin', 'hMin', 'hAout', 'hMout', 'dnOut' ], code: DN_COMMON + DEMOD + MAIN + /* wgsl */`
+		let c = outBuf[ W * H + pix ].rgb / demod( pix );
 		let l = lum3( c );
 		let g0 = gcur[ 3u * pix ];
 		let g1 = gcur[ 3u * pix + 1u ];
@@ -482,7 +498,7 @@ const DN_KERNELS = {
 			let p0 = gprev[ 3u * q ];
 			let p1 = gprev[ 3u * q + 1u ];
 			// same surface: same material, close normal and position (disocclusions start over)
-			if ( p1.w == g1.w && dot( p1.xyz, g1.xyz ) > 0.9 && length( p0.xyz - g0.xyz ) < 0.01 * g0.w + 1e-4 ) {
+			if ( p1.w == g1.w && dot( p1.xyz, g1.xyz ) > 0.9 && length( p0.xyz - g0.xyz ) < 0.01 * distance( g0.xyz, cam.o.xyz ) + 1e-4 ) {
 				prevC = hAin[ q ];
 				prevM = hMin[ q ];
 				ok = prevC.w > 0.0;
@@ -563,7 +579,7 @@ const DN_KERNELS = {
 					let q = u32( pp.y ) * W + u32( pp.x );
 					let p0 = gprev[ 3u * q ];
 					let p1 = gprev[ 3u * q + 1u ];
-					if ( p1.w == g1.w && dot( p1.xyz, g1.xyz ) > 0.9 && length( p0.xyz - g0.xyz ) < 0.01 * g0.w + 1e-4 ) {
+					if ( p1.w == g1.w && dot( p1.xyz, g1.xyz ) > 0.9 && length( p0.xyz - g0.xyz ) < 0.01 * distance( g0.xyz, cam.o.xyz ) + 1e-4 ) {
 						h = outBuf[ q ];
 						h.w = min( h.w, 8.0 );
 					}
@@ -575,12 +591,12 @@ const DN_KERNELS = {
 	}` },
 
 	// display: denoised while moving, then a progressive hand-over to the unbiased accumulation
-	dnCompose: { uses: [ 'cam', 'outR', 'dnIn', 'disp' ], code: MAIN + /* wgsl */`
+	dnCompose: { uses: [ 'cam', 'gcur', 'outR', 'dnIn', 'disp' ], code: DN_COMMON + DEMOD + MAIN + /* wgsl */`
 		let acc = outBuf[ pix ].rgb;
 		var o = acc;
 		if ( ( cam.p2 & 1u ) != 0u ) {
 			let a = outBuf[ pix ].w;
-			o = mix( dnIn[ pix ].rgb, acc, a / ( a + 64.0 ) );
+			o = mix( dnIn[ pix ].rgb * demod( pix ), acc, a / ( a + 64.0 ) );
 		}
 		disp[ pix ] = vec4f( o, 1.0 );
 	}` },
@@ -727,7 +743,7 @@ export async function setupUnbiased( device, { geo, root, radius }, size = QUALI
 	const dnGroups = [ 0, 1 ].map( par => [
 		[ 'dnTemporal', dnBind( 'dnTemporal', { cam: B.cam, gcur: B.g[ par ], gprev: B.g[ 1 - par ], outR: B.out, hAin: B.hA[ 1 - par ], hMin: B.hM[ 1 - par ], hAout: B.hA[ par ], hMout: B.hM[ par ], dnOut: B.dn[ 0 ] } ) ],
 		...B.steps.map( ( st, i ) => [ 'dnAtrous', dnBind( 'dnAtrous', { cam: B.cam, guide: B.guide, dnIn: B.dn[ i % 2 ], dnOut: B.dn[ 1 - i % 2 ], stepU: st } ) ] ),
-		[ 'dnCompose', dnBind( 'dnCompose', { cam: B.cam, outR: B.out, dnIn: B.dn[ B.steps.length % 2 ], disp: B.disp } ) ],
+		[ 'dnCompose', dnBind( 'dnCompose', { cam: B.cam, gcur: B.g[ par ], outR: B.out, dnIn: B.dn[ B.steps.length % 2 ], disp: B.disp } ) ],
 	] );
 
 	const accGroups = [ 0, 1 ].map( par => dnBind( 'accProject', { cam: B.cam, gcur: B.g[ par ], gprev: B.g[ 1 - par ], out: B.out } ) );
@@ -896,12 +912,12 @@ export async function testUnbiased( device, R, cam, log, frames = 1024 ) {
 
 // ---------------------------------------------------------------- live viewer
 
-// Builds the renderer at the best quality the GPU can allocate: an out-of-memory error steps down a level.
-async function buildAtQuality( device, scene, level ) {
+// Builds the renderer at the best size in `sizes` the GPU can allocate: an out-of-memory error steps down a level.
+async function buildAtQuality( device, scene, sizes, level ) {
 
-	for ( let q = level; q < QUALITY.length; q ++ ) {
+	for ( let q = level; q < sizes.length; q ++ ) {
 		device.pushErrorScope( 'out-of-memory' );
-		const R = await setupUnbiased( device, scene, QUALITY[ q ] );
+		const R = await setupUnbiased( device, scene, sizes[ q ] );
 		if ( ! await device.popErrorScope() ) return { R, level: q };
 		R.destroy();
 	}
@@ -914,8 +930,16 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 
 	// Live RT runs on any WebGPU GPU (NVIDIA, AMD, Intel, Apple, Qualcomm): plain WGSL, default limits,
 	// GPU timestamps only when offered. "Auto" quality starts high and steps down until a frame
-	// takes under ~40 ms: first the cheaper unbiased variant, then a lower internal resolution.
-	let built = await buildAtQuality( device, scene, 0 );
+	// takes under ~17 ms while moving: first the cheaper unbiased variant, then a lower internal resolution.
+	// "Auto" renders at the size the canvas is shown at (its 16:9 box in device pixels, at most 1080p),
+	// the fixed levels below it as fallbacks; the width stays a multiple of 8 (one workgroup).
+	const fitSize = () => {
+		const h = Math.min( 1080, Math.max( 180, Math.round( Math.min( innerHeight, innerWidth * 9 / 16 ) * devicePixelRatio / 8 ) * 8 ) );
+		return { w: Math.round( h * 16 / 9 / 8 ) * 8, h };
+	};
+	const autoSizes = () => { const f = fitSize(); return [ f, ...QUALITY.filter( q => q.h < f.h * 0.9 ) ]; };
+	let sizes = autoSizes();
+	let built = await buildAtQuality( device, scene, sizes, 0 );
 	let R = built.R;
 	let { B, encode, encodeRef, setCamera, spots } = R;
 	const canvas = document.getElementById( 'view' );
@@ -1055,7 +1079,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 	const qr = ts && device.createBuffer( { size: 96, usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC } );
 	const qm = ts && device.createBuffer( { size: 96, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST } );
 	let reading = false, gpuMs = 0, dnMs = 0, frames = 0, tFps = performance.now(), fps = 0, frameMs = 0, tLast = performance.now();
-	let frame = 0, accum = 0, last = null, reset = false;
+	let frame = 0, accum = 0, last = null, reset = false, lastVariant = 0;
 
 	// quality: level in QUALITY, "auto" adapts while the camera moves; rebuilding takes a second or two
 	let level = built.level, auto = true, rebuilding = false, probe = { t: 0, n: 0, sum: 0 };
@@ -1064,7 +1088,7 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		if ( rebuilding || ( next === level && ! force ) ) return;
 		rebuilding = true;
 		R.destroy();
-		built = await buildAtQuality( device, scene, next );
+		built = await buildAtQuality( device, scene, sizes, next );
 		R = built.R;
 		level = built.level;
 		( { B, encode, encodeRef, setCamera, spots } = R );
@@ -1085,10 +1109,23 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 	};
 	$( 'quality' ).addEventListener( 'input', e => {
 		auto = e.target.value === 'auto';
-		if ( auto ) showQuality();
-		else void rebuild( + e.target.value );
+		sizes = auto ? autoSizes() : QUALITY;
+		void rebuild( auto ? 0 : + e.target.value, true );
 	} );
-	// auto: ~1 s of moving frames per level; over 40 ms, first the cheaper variant, then a lower resolution
+	// auto follows the canvas size (window or MatterLift's frame resized), a quarter of a second after it settles
+	let resizeTimer = 0;
+	addEventListener( 'resize', () => {
+		clearTimeout( resizeTimer );
+		resizeTimer = setTimeout( () => {
+			if ( ! auto || Math.abs( fitSize().h - sizes[ 0 ].h ) < 0.1 * sizes[ 0 ].h ) return;
+			sizes = autoSizes();
+			void rebuild( 0, true );
+		}, 250 );
+	} );
+	// auto: ~1 s of moving frames per level; over 17 ms (60 FPS), first the cheaper unbiased variant while
+	// the camera moves (the chosen one comes back for the accumulation), then a lower resolution
+	const TARGET_MS = 17;
+	let fastMove = false;
 	const adapt = ms => {
 		if ( ! auto || rebuilding ) return;
 		// a hidden tab or a stall (page busy, window dragged) says nothing about the GPU: start the probe over
@@ -1099,9 +1136,9 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		if ( probe.n < 8 || performance.now() - probe.t < 1000 ) return;
 		const mean = probe.sum / probe.n;
 		probe = { t: 0, n: 0, sum: 0 };
-		if ( mean < 40 ) return;
-		if ( variant === 0 ) { variant = 1; reset = true; return; }
-		if ( level < QUALITY.length - 1 ) void rebuild( level + 1 );
+		if ( mean < TARGET_MS ) return;
+		if ( variant === 0 && ! fastMove ) { fastMove = true; return; }
+		if ( level < sizes.length - 1 ) void rebuild( level + 1 );
 	};
 
 	function tick() {
@@ -1125,12 +1162,17 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		// the orbit controls, exposure and display keep running every frame
 		const paused = $( 'accPause' ).checked && accCap > 0 && accum >= accCap && ! moved && ! showRef;
 		const capBits = ( accCap === Infinity ? 0xffffff : accCap ) << 8;
-		prevBasis = setCamera( cam, prevBasis, frame, accum, true, ( denoise ? 1 : 0 ) | ( dropHistory ? 2 : 0 ) | ( $( 'keepAcc' ).checked ? 4 : 0 ) | capBits );
+		// bit 3: sub-pixel jitter of the primary rays while accumulating (anti-aliasing)
+		prevBasis = setCamera( cam, prevBasis, frame, accum, true, ( denoise ? 1 : 0 ) | ( dropHistory ? 2 : 0 ) | ( $( 'keepAcc' ).checked ? 4 : 0 ) | 8 | capBits );
 
 		const enc = device.createCommandEncoder();
 		const timed = ts && ! reading && ! showRef && ! paused;
-		if ( ! paused ) encode( enc, variant, frame, timed ? qs : null, denoise );
-		else if ( composeDirty ) R.encodeCompose( enc, frame );
+		// the variant that renders this frame: the cheaper unbiased one while moving when the GPU needs it.
+		// Reservoirs of another variant hold another target function: the history is dropped on a switch.
+		const v = fastMove && accum === 0 && variant === 0 ? 1 : variant;
+		if ( v !== lastVariant ) { enc.clearBuffer( B.resHist ); lastVariant = v; }
+		if ( ! paused ) encode( enc, v, frame, timed ? qs : null, denoise );
+		else if ( composeDirty ) R.encodeCompose( enc, frame - 1 );
 		composeDirty = false;
 		if ( showRef && ( moved || ! refValid ) ) { encodeRef( enc, frame ); refValid = true; }
 		if ( timed ) {
@@ -1145,28 +1187,30 @@ export async function liveUnbiased( device, scene, sceneCam, results, triangles,
 		device.queue.submit( [ enc.finish() ] );
 		if ( timed ) {
 			reading = true;
+			// only moving frames tell whether the orbit stays fluid
+			const moving = accum === 0;
 			qm.mapAsync( GPUMapMode.READ ).then( () => {
 				const t = new BigInt64Array( qm.getMappedRange().slice( 0 ) );
 				qm.unmap();
 				gpuMs = gpuMs * 0.9 + Number( t[ 11 ] - t[ 0 ] ) / 1e6 * 0.1;
-				adapt( Number( t[ 11 ] - t[ 0 ] ) / 1e6 );
+				if ( moving ) adapt( Number( t[ 11 ] - t[ 0 ] ) / 1e6 );
 				dnMs = dnMs * 0.9 + Number( t[ 11 ] - t[ 10 ] ) / 1e6 * 0.1;
 				reading = false;
 			} );
 		}
 
 		// without a GPU timer, the frame interval drives the automatic quality (it includes the display wait)
-		if ( ! ts && ! paused && ! showRef ) adapt( frameMs );
+		if ( ! ts && ! paused && ! showRef && accum === 0 ) adapt( frameMs );
 		frames ++;
 		const now = performance.now();
 		if ( now - tFps > 500 ) {
 			fps = frames * 1000 / ( now - tFps );
 			frames = 0;
 			tFps = now;
-			results.live = { fps, gpuMs, dnMs, accum, variant, showRef, denoise, width: W, height: H, auto, timer: ts };
+			results.live = { fps, gpuMs, dnMs, accum, variant: v, fastMove, showRef, denoise, width: W, height: H, auto, timer: ts };
 			hud.textContent = ( modelError ? `⚠ ${ modelError }\n` : '' ) + ( showRef
 				? `EXACT REFERENCE: every spot, one shadow ray each per pixel · ${ fps.toFixed( 0 ) } FPS\n`
-				: `ReSTIR DI ${ MODES[ variant ] } · ${ $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n` );
+				: `ReSTIR DI ${ MODES[ v ] } ·${ $( 'spotsOn' ).checked ? `${ $( 'spotCount' ).value } scene spots on` : 'scene spots off' }${ custom.length ? ` + ${ custom.length } placed` : '' }\n${ fps.toFixed( 0 ) } FPS · ${ paused ? 'GPU 0 ms (converged, rendering stopped)' : ts ? `GPU ${ gpuMs.toFixed( 2 ) } ms` : `frame ${ frameMs.toFixed( 1 ) } ms (no GPU timer)` } / frame (${ W }x${ H }${ denoise && ts ? `, denoiser ${ dnMs.toFixed( 2 ) } ms` : '' }) · ${ accum ? `accumulated ${ accum } frames${ accum >= accCap ? ' (cap)' : '' }` : 'moving' }\n` );
 			hud.textContent += `${ triangles.toLocaleString( 'en' ) } triangles · Drag: orbit 360° · Wheel: zoom · Shift + click: place a spot · 1/2/3: ReSTIR variant · R: exact reference · D: denoiser · H: hide UI`;
 		}
 		// the frame index drives the G-Buffer / history ping-pong, so it only advances when something was rendered
