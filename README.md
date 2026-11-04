@@ -6,7 +6,7 @@
   <b>Track:</b> Indie Developer<br>
   <b>Problem statement:</b> Build for Your World<br>
   <b>Bonus targeted: Creative Build</b><br>
-  <sub>a path tracer in the browser written during the hackathon (WebGPU ReSTIR), a 3D scene modelled in code, and a voice-to-material workflow that ends in Godot and Blender</sub><br>
+  <sub>a path tracer in the browser written during the hackathon (WebGPU ReSTIR), a 3D scene modelled in code, and a text-to-material workflow (photo and voice optional) that ends in Godot and Blender</sub><br>
   <sub>Built from scratch Nov 1–4; Live RT ports the design of my earlier OptiX tracer.</sub>
 </p>
 
@@ -47,7 +47,7 @@
 
 <br>
 
-From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
+From a typed sentence or a photo to a game-ready material: type what you want, show a real surface if you have one, get a
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, thickness, ORM, glTF) ready
 for Godot and Blender (Unity/Unreal: standard maps, not tested). Open source, built on Meta's models (Muse Spark, Muse Image,
 SAM 3.1, Muse Voice Transcribe).
@@ -94,7 +94,7 @@ takes requests in any language Spark reads.
 
 ## Why MatterLift
 
-MatterLift is an open-source material and shader extractor: show a photo, say what you want, get a
+MatterLift is an open-source material and shader extractor: type what you want, add a photo if you have one, get a
 material ready for Godot and Blender (Unity/Unreal: standard maps, not tested).
 
 - **The problem.** A unique material takes time, technical-artist know-how and a paid tool. Free libraries
@@ -112,7 +112,8 @@ material ready for Godot and Blender (Unity/Unreal: standard maps, not tested).
   and open-source Godot grew from 0.9% to 7.1% of the releases GameDiscoverCo tracks, 2020 to 2025
   [[5]](https://newsletter.gamediscover.co/p/hows-pc-game-engine-usage-changing).
 - **How.** Muse Spark frames the surface and writes the material plan, SAM 3.1 masks it precisely,
-  Muse Image paints the tileable texture, Muse Voice Transcribe takes spoken requests. MatterLift
+  Muse Image paints the tileable texture. Typing is enough; Muse Voice Transcribe is an optional
+  comfort for those who prefer to speak the request. MatterLift
   computes the PBR maps, the shaders, the lit preview and the export, and Spark critiques the
   result itself.
 - **Gain.** Time: about 1 min from a sentence at 512 px, 1.5 min from a photo at 1K (measured on the free live demo), instead of
@@ -121,9 +122,18 @@ material ready for Godot and Blender (Unity/Unreal: standard maps, not tested).
 
 ## Judge path: three steps, about five minutes
 
-1. **Ask.** Open the [live demo](https://matterlift.vercel.app), type
-   `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
-   and **Generate**. About 1 min at 512 px; the first request after a pause also wakes the API.
+1. **Ask.** Open the [live demo](https://matterlift.vercel.app), or http://localhost:8000 to test
+   with your own key (see [Run it](#run-it)). Type `old oak planks` and press **Generate**. About
+   1 min at 512 px; the first request after a pause also wakes the API.
+   - **Optional comforts.** **✨ Enrich** lets Spark fix and complete the request first. **🎤 Speak**
+     fills the text box by voice; no microphone is needed to use MatterLift. After Speak, wait for
+     "Spark enriched it" before the next action, because that result replaces the text in the box.
+   - **With a photo, one material.** Choose a photo, leave **Every material in this photo
+     (library)** unticked, and press **Generate**.
+   - **With a photo, every material.** Choose a photo with several surfaces, tick **Every material
+     in this photo (library)**, and press **Generate**: one card per material, up to 8.
+   - Measured locally at 1024 px without the self-critique, on one run of each: about 1 min for
+     one material from a photo, about 2 min for a kitchen photo (7 of 7 materials).
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
    passes (Depth, Normal, Albedo, Rough, AO). Try it on the **Study** (MatterLift's own scene: a
    plinth, a sphere, a rounded cube with Suzanne, a torus and a fluted column), tick **Real-world
@@ -143,7 +153,8 @@ code) does everything between the calls. Nothing else calls an AI model at runti
 
 ```mermaid
 flowchart TD
-  V["🎤 Voice"] -->|"Muse Voice Transcribe"| T["Text request"]
+  K["⌨️ Typed text"] --> T["Text request"]
+  V["🎤 Voice (optional)"] -->|"Muse Voice Transcribe"| T
   T -->|"Muse Spark · Enrich"| B["Precise brief"]
   P["📷 Photo (optional)"] --> PL
   B --> PL["<b>Muse Spark · Plan</b><br/>subject, PBR values, shading,<br/>what SAM should look for"]
@@ -238,7 +249,9 @@ times the tokens; a field with a wrong type falls back to its default and number
   (periodic component + minimum-error cut), delights, matches the colours back to the photo.
 - **If it fails:** from the photo → from the description; height → from luminance.
 
-### Muse Voice Transcribe: speak the request
+### Muse Voice Transcribe: speak the request (optional)
+
+A comfort, not a requirement: everything works by typing the request.
 
 - The browser records (WebM/Opus) and converts to the only format the endpoint takes, mono 16-bit WAV
   at 24 kHz; the API normalises any WAV again.
