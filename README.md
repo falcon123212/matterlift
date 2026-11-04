@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
-  <a href="https://youtu.be/lK5YGg_GBmg"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
+  <a href="https://youtu.be/-MqR3USLmUE"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
   <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
   <a href="#how-each-meta-model-works-in-matterlift"><img alt="How each Meta model works" src="https://img.shields.io/badge/4%20Meta%20models-how%20each%20works-0866ff?style=for-the-badge&labelColor=16171c"></a>
   <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-6%20prompts%20%C2%B7%206%20photos-2b2d35?style=for-the-badge&labelColor=16171c"></a>
@@ -34,15 +34,15 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#tests-and-benchmarks">Tests</a> ·
   <a href="#run-it">Run it</a> ·
-  <b><a href="https://youtu.be/lK5YGg_GBmg">Video</a></b>
+  <b><a href="https://youtu.be/-MqR3USLmUE">Video</a></b>
 </p>
 
 <br>
 
 <p align="center">
-  <a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/video_thumbnail.jpg" alt="Watch the 3-minute demo on YouTube: one photo of a bowl becomes a game-ready 3D material in under a minute" width="720"></a>
+  <a href="https://youtu.be/-MqR3USLmUE"><img src="docs/img/video_thumbnail.jpg" alt="Watch the 3-minute demo on YouTube: one photo of a bowl becomes a game-ready 3D material in under a minute" width="720"></a>
   <br>
-  <sub>▶ <a href="https://youtu.be/lK5YGg_GBmg"><b>Watch the 3-minute demo</b></a>: one photo of a bowl, a game-ready material in under a minute, every Meta call live on screen.</sub>
+  <sub>▶ <a href="https://youtu.be/-MqR3USLmUE"><b>Watch the 3-minute demo</b></a>: one photo of a bowl, a game-ready material in under a minute, every Meta call live on screen.</sub>
 </p>
 
 <br>
@@ -56,7 +56,7 @@ SAM 3.1, Muse Voice Transcribe).
 
 <table>
   <tr>
-    <td width="50%" align="center"><a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/videos/demo.jpg" alt="Watch the 3-minute demo: one photo of a bowl becomes a game-ready material" width="100%"></a><br><b>The 3-minute demo</b><br><sub>A photo of a bowl, every step on screen</sub></td>
+    <td width="50%" align="center"><a href="https://youtu.be/-MqR3USLmUE"><img src="docs/img/videos/demo.jpg" alt="Watch the 3-minute demo: one photo of a bowl becomes a game-ready material" width="100%"></a><br><b>The 3-minute demo</b><br><sub>A photo of a bowl, every step on screen</sub></td>
     <td width="50%" align="center"><a href="https://youtu.be/BPpDhytLlfs"><img src="docs/img/videos/diamond.jpg" alt="Watch a diamond being generated from two words" width="100%"></a><br><b>A diamond, from two words</b><br><sub>Spark sets transmission and IOR 2.4</sub></td>
   </tr>
   <tr>
