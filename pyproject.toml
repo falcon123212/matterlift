@@ -1,7 +1,7 @@
 [project]
 name = "matterlift"
 version = "0.1.0"
-description = "Point at anything. Say what you want. Get a game-ready material."
+description = "Point at anything. Type what you want. Get a game-ready material."
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [

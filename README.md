@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/img/hero.jpg" alt="MatterLift. Point at anything. Say what you want. Get a game-ready material." width="100%">
+  <img src="docs/img/hero.jpg" alt="MatterLift. Point at anything. Type what you want. Get a game-ready material." width="100%">
 </p>
 
 <p align="center">

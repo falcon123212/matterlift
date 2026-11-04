@@ -59,9 +59,9 @@ def hero() -> Path:
 
     d = ImageDraw.Draw(im)
     d.text((90, 150), "MatterLift", font=font(132, True), fill=(245, 242, 236))
-    for k, line in enumerate(("Point at anything.", "Say what you want.", "Get a game-ready material.")):
+    for k, line in enumerate(("Point at anything.", "Type what you want.", "Get a game-ready material.")):
         d.text((96, 330 + k * 62), line, font=font(46), fill=ACCENT if k == 2 else (215, 212, 205))
-    d.text((98, 548), "Photo or voice  →  tileable PBR maps  →  Godot · Blender · glTF · MaterialX · USD",
+    d.text((98, 548), "Text or photo  →  tileable PBR maps  →  Godot · Blender · glTF · MaterialX · USD",
            font=font(26), fill=(150, 150, 158))
     d.text((98, 598), "Built on Muse Spark · SAM 3.1 · Muse Image · Muse Voice Transcribe", font=font(22),
            fill=(120, 120, 130))
