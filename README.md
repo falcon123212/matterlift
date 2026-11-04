@@ -514,19 +514,25 @@ git clone https://github.com/falcon123212/matterlift
 cd matterlift
 python -m venv .venv
 .venv/Scripts/python -m pip install -e .
-cp .env.example .env
 npm --prefix web ci
 npm --prefix web run build
+cp .env.example .env
+```
+
+Now set `META_API_KEY` in `.env`, **before** starting the server: the key is read at startup, so
+restart the server if you change it later. Then start it:
+
+```bash
 .venv/Scripts/python -m uvicorn matterlift_api.main:app --port 8000
 ```
 
-Then set `META_API_KEY` in `.env` and open http://localhost:8000: the API serves the built page
-too, one server. Saved materials go to `data/`. To work on the page with hot reload, run
+Open http://localhost:8000: the API serves the built page too, one server. Saved materials go to
+`data/`. To work on the page with hot reload, run
 `npm --prefix web run dev` in a second terminal and open http://localhost:5173 (it forwards the API
 calls to port 8001: start uvicorn with `--port 8001`).
 
 Checks: `.venv/Scripts/python scripts/smoke_meta.py` (every Meta model answers, needs the key);
-`.venv/Scripts/python -m pip install -e .[dev]` then `.venv/Scripts/python -m pytest -q` (offline
+`.venv/Scripts/python -m pip install -e ".[dev]"` then `.venv/Scripts/python -m pytest -q` (offline
 tests, no key; the Godot ones run when `GODOT_BIN` points at a Godot 4 binary).
 
 API:
