@@ -2,7 +2,7 @@
 generate, Spark's critique, 1K export. Times every step and keeps what each one returned.
 
     .venv/Scripts/python scripts/photo_test.py photo1.jpg photo2.jpg[::"what to take"] ... \
-        [--api https://falcon123212--matterlift-api.us-east.modal.run] [--out results/photo_test]
+        [--api https://matterlift.vercel.app] [--out results/photo_test]
 
 Writes <out>/photo_test.json, and per photo the sampled square (crop) and the albedo. The
 photos themselves and SAM's overlay (the whole photo) go to <out>/private/, which is not committed.
@@ -19,7 +19,7 @@ from pathlib import Path
 import httpx
 from PIL import Image
 
-API = "https://falcon123212--matterlift-api.us-east.modal.run"
+API = "https://matterlift.vercel.app"  # the page and the API, one Vercel project
 
 
 def _timed(fn):
@@ -76,6 +76,9 @@ def run_one(c: httpx.Client, api: str, path: Path, text: str, out: Path, k: int)
                    albedo_fix=crit.get("albedo_fix"))  # a repaint, which the parameters do not show
 
     chosen = row.get("kept", mat["id"])
+    if chosen != mat["id"]:  # the albedo of the version the critique kept
+        Image.open(io.BytesIO(_ok(c.get(f"{api}/materials/{chosen}/maps/albedo.png")).content)).convert("RGB").resize(
+            (512, 512), Image.LANCZOS).save(out / f"{k}_albedo_kept.jpg", quality=90)
     z, row["export_1k_s"], err = _timed(lambda: _ok(c.get(f"{api}/materials/{chosen}/export",
                                                            params={"size": 1024, "fmt": "png"})).content)
     if err:
@@ -94,7 +97,7 @@ def main() -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     rows = []
-    with httpx.Client(timeout=600) as c:
+    with httpx.Client(timeout=600, follow_redirects=True) as c:  # on Vercel, images and zips redirect to Blob
         _ok(c.get(f"{args.api}/health"))  # wakes the container: the first photo is not timed with a cold start
         for k, spec in enumerate(args.photos, 1):
             path, _, text = spec.partition("::")

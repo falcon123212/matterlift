@@ -120,6 +120,28 @@ def flow() -> Path:
     return out
 
 
+def photo_strips(run: Path, names: list[str]) -> list[Path]:
+    """Per photo of a photo_test run: the square sampled from the photo beside the texture made from it
+    (<run>/<k>_crop.jpg, and <run>/<k>_albedo_kept.jpg when the critique kept a fixed version, else
+    <run>/<k>_albedo.jpg), labelled, as docs/img/photo_<name>_texture.jpg."""
+    outs = []
+    for k, name in enumerate(names, 1):
+        S, G, top = 440, 12, 30
+        im = Image.new("RGB", (2 * S + G, S + top), (17, 18, 22))
+        d = ImageDraw.Draw(im)
+        albedo = f"{k}_albedo_kept.jpg" if (run / f"{k}_albedo_kept.jpg").exists() else f"{k}_albedo.jpg"
+        for col, (f, label) in enumerate(((f"{k}_crop.jpg", "photo sample"), (albedo, "texture (tileable albedo)"))):
+            src = Image.open(run / f).convert("RGB")
+            side = min(src.size)  # the square middle, as the page shows it
+            src = src.crop(((src.width - side) // 2, (src.height - side) // 2,
+                            (src.width + side) // 2, (src.height + side) // 2)).resize((S, S), Image.LANCZOS)
+            im.paste(src, (col * (S + G), top))
+            d.text((col * (S + G) + 4, 3), label, font=font(20), fill=(200, 200, 205))
+        outs.append(IMG / f"photo_{name}_texture.jpg")
+        im.save(outs[-1], quality=90)
+    return outs
+
+
 if __name__ == "__main__":
     for p in (hero(), flow()):
         print(p.relative_to(ROOT), Image.open(p).size, p.stat().st_size // 1024, "KB")

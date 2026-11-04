@@ -6,6 +6,7 @@
   <b>Track:</b> Indie Developer<br>
   <b>Problem statement:</b> Build for Your World<br>
   <b>Bonus targeted: Creative Build</b><br>
+  <sub>a path tracer in the browser written during the hackathon (WebGPU ReSTIR), a 3D scene modelled in code, and a voice-to-material workflow that ends in Godot and Blender</sub><br>
   <sub>Built from scratch Nov 1–4; Live RT ports the design of my earlier OptiX tracer.</sub>
 </p>
 
@@ -13,7 +14,8 @@
   <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
   <a href="https://youtu.be/lK5YGg_GBmg"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
   <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
-  <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-12%20materials-2b2d35?style=for-the-badge&labelColor=16171c"></a>
+  <a href="#how-each-meta-model-works-in-matterlift"><img alt="How each Meta model works" src="https://img.shields.io/badge/4%20Meta%20models-how%20each%20works-0866ff?style=for-the-badge&labelColor=16171c"></a>
+  <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-6%20prompts%20%C2%B7%206%20photos-2b2d35?style=for-the-badge&labelColor=16171c"></a>
 </p>
 
 <p align="center">
@@ -27,6 +29,7 @@
 <p align="center">
   <b><a href="https://matterlift.vercel.app">Live demo</a></b> ·
   <a href="#gallery">Gallery</a> ·
+  <a href="#how-each-meta-model-works-in-matterlift">The 4 Meta models</a> ·
   <a href="#real-photos-six-objects-from-a-desk">Real photos</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#tests-and-benchmarks">Tests</a> ·
@@ -37,9 +40,9 @@
 <br>
 
 <p align="center">
-  <a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/video_thumbnail.jpg" alt="Watch the 3-minute demo on YouTube: one photo of a bowl becomes a game-ready 3D material in 55 seconds" width="720"></a>
+  <a href="https://youtu.be/lK5YGg_GBmg"><img src="docs/img/video_thumbnail.jpg" alt="Watch the 3-minute demo on YouTube: one photo of a bowl becomes a game-ready 3D material in under a minute" width="720"></a>
   <br>
-  <sub>▶ <a href="https://youtu.be/lK5YGg_GBmg"><b>Watch the 3-minute demo</b></a>: one photo of a bowl, a game-ready material in 55 s, every step on screen.</sub>
+  <sub>▶ <a href="https://youtu.be/lK5YGg_GBmg"><b>Watch the 3-minute demo</b></a>: one photo of a bowl, a game-ready material in under a minute, every Meta call live on screen.</sub>
 </p>
 
 <br>
@@ -69,9 +72,9 @@ SAM 3.1, Muse Voice Transcribe).
 </p>
 
 <p align="center">
-  <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the sphere, with its maps and the export" width="100%">
+  <img src="docs/img/interface.jpg" alt="MatterLift: very worn, scratched old oak parquet on the Study scene, with its maps and the export" width="100%">
   <br>
-  <sub>The page: "very worn, scratched old oak parquet" on the Study, the tiled 3×3 seam check, every map and the export. Spark's review under raking light gave it 8/10 at once, nothing to fix.</sub>
+  <sub>The page: "very worn, scratched old oak parquet" on the Study, the tiled 3×3 seam check, every map and the export.</sub>
 </p>
 
 ## Gallery
@@ -112,7 +115,7 @@ material ready for Godot, Blender, Unity or Unreal.
   Muse Image paints the tileable texture, Muse Voice Transcribe takes spoken requests. MatterLift
   computes the PBR maps, the shaders, the lit preview and the export, and Spark critiques the
   result itself.
-- **Gain.** Time: one iteration takes about 40 s at 512 px (measured on the live demo) instead of
+- **Gain.** Time: about 1 min from a sentence at 512 px, 1.5 min from a photo at 1K (measured on the free live demo), instead of
   hours. Money: pay-per-use API calls instead of a subscription. Control: materials taken from your
   own photos, exported in standard formats (glTF, MaterialX, USD, Godot, Blender).
 
@@ -120,7 +123,7 @@ material ready for Godot, Blender, Unity or Unreal.
 
 1. **Ask.** Open the [live demo](https://matterlift.vercel.app), type
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
-   and **Generate**. About 40 s at 512 px; the first request after a pause also wakes the API.
+   and **Generate**. About 1 min at 512 px; the first request after a pause also wakes the API.
 2. **Look.** Turn the sphere under **Raking** light, check the seams in **Tiling 3×3**, switch the
    passes (Depth, Normal, Albedo, Rough, AO). Try it on the **Study** (MatterLift's own scene: a
    plinth, a sphere, a rounded cube with Suzanne, a torus and a fluted column), tick **Real-world
@@ -132,6 +135,120 @@ material ready for Godot, Blender, Unity or Unreal.
    `.gdshader`, MaterialX, USD and a Blender script. Drop the `.glb` into Godot, Blender or any
    glTF viewer ([▶ in Godot 4](https://youtu.be/tEU3NPhObLY): the `.glb`, the `.tres` and the live `.gdshader`; [▶ in Blender](https://youtu.be/5K5PUd57xCg), with live sliders).
 
+## How each Meta model works in MatterLift
+
+Four Meta models, ten jobs. Every call goes to the Meta Model API (`https://api.meta.ai/v1`) from
+one file, [`matterlift_api/meta_client.py`](matterlift_api/meta_client.py); pbrforge (our numpy
+code) does everything between the calls. Nothing else calls an AI model at runtime.
+
+```mermaid
+flowchart LR
+  V["🎤 voice"] -->|"Muse Voice Transcribe"| T["text"]
+  T -->|"Muse Spark · Enrich"| B["brief"]
+  P["📷 photo"] --> PL
+  B --> PL["Muse Spark · Plan<br/>subject, PBR values, shading"]
+  PL -->|"noun phrase + 2 points"| SAM["SAM 3.1 · mask"]
+  SAM --> SMP["samples inside the mask"]
+  SMP -->|"Muse Image · edit"| ALB["albedo"]
+  PL -->|"no photo: texture_prompt"| ALB
+  ALB --> PF1["pbrforge: period, seams,<br/>delight, colour match"]
+  PF1 -->|"Muse Image · edit"| HGT["height map"]
+  HGT --> PF2["pbrforge: normal, AO,<br/>roughness, ORM, thickness"]
+  PF2 --> CR["Muse Spark · Critique"]
+  CR -->|"params · colour · Muse Image repaint"| FIX["fixed version"]
+  FIX -->|"Muse Spark · Compare A/B"| KEEP["better one kept"]
+  KEEP --> OUT["preview · Live RT · export"]
+```
+
+| Model | Its jobs in MatterLift | Endpoint | Measured (median) |
+|---|---|---|---|
+| **Muse Spark** `muse-spark-1.3` | Enrich a request · plan the material from request + photo (finds the subject from the framing) · critique · compare before/after · list a room's materials | `/chat/completions`, JSON mode | plan 21 s (19 to 30 s) · enrich 17 to 20 s · critique, fix and compare 85 s |
+| **SAM 3.1** `sam-3.1` | Mask the surface Spark named, or the object under the user's clicks | `/responses` | 2.5 s |
+| **Muse Image** `muse-image-1.0` | Paint the albedo from the photo samples (or from text) · paint the height map from that albedo · repaint what the critique flags | `/images/edits`, `/images/generations` | albedo 10 s · height 12 s |
+| **Muse Voice Transcribe** `muse-voice-transcribe-1.0` | Spoken requests, in French or English | `/asr/transcribe` | 1.8 s for a 5 s request |
+
+<sub>Medians of the 6-photo test on the live site, Nov 4 (see Real photos below); enrich and transcribe from the live calls of the video's voice take.</sub>
+
+### Muse Spark: the technical artist
+
+1. **Enrich** (`POST /enhance`, the ✨ button, and automatically after a spoken request). Spark gets
+   the request (and the photo if there is one) and returns one sentence of at most 25 words in the
+   same language: speech-recognition slips fixed ("enchaîne" → "en chêne"), and only colour, finish
+   and wear added when missing, never a species, pattern or object the user did not ask for. Live,
+   from the video: *"Old oak planks, worn and slightly scratched."* → *"old brown oak planks with
+   matte finish, worn and slightly scratched"*. Undoable in one click.
+2. **Plan** (inside `POST /understand` and `POST /materials`). Spark sees the request and the photo
+   (1024 px) and writes the whole material as JSON: `texture_prompt` (what Muse should paint),
+   `subject` and `subject_reason`, `sam_prompt` plus two alternative names and two points on a clean
+   area (for SAM), roughness and its variation, metallic, relief and normal strength, the micro-detail
+   kind and strength, wear, the real-world tile size, and the shading lobes (transmission, IOR,
+   clearcoat, sheen, subsurface, anisotropy). With no words, it reads the photo as its author framed
+   it: the subject is what is centred, in focus and closest; the table under it is context. The bowl
+   in the video: subject *"ceramic bowl"*, because *"the bowl is centered, close to the camera and
+   fills most of the frame"*, `sam_prompt` *"bowl"*, roughness 0.15, clearcoat 0.9. "a diamond" gets
+   transmission 1 and IOR 2.4 by itself.
+3. **Critique** (`POST /materials/{id}/critique`, on by default after each generation). MatterLift
+   renders one review sheet: the material on a sphere under a low raking light, the texture tiled 3×3
+   and the photo sample. Spark scores it 1 to 10 and says what to change, each with its own tool:
+   parameters (relief, roughness, wear, detail) are re-derived at once with no new image; colour is
+   matched to the photo in CIELAB, deterministically; only faults in the colour texture itself (baked
+   light, a standout motif, seams) go back to Muse Image as one repaint instruction.
+4. **Compare**. The version before and the fixed one, stacked in one image: Spark scores both and
+   picks the better; that one is kept, and the UI shows both. The bowl: *"Large cream quatrefoil
+   motifs form an obvious repeating grid unlike the plain glaze in the photo"* → Muse repainted it
+   plain, 4/10 → 6/10, fixed version kept. With nothing to fix (8/10 for the spoken oak in the video),
+   the material stays as it is.
+5. **Library** (`POST /libraries`). On a room photo Spark lists up to 8 materials with two points
+   each, or plans the one under each click of the user.
+
+If Spark's JSON is empty or cut (its reasoning used the budget), the call is retried once with three
+times the tokens; a field with a wrong type falls back to its default and numbers are clamped
+(`MaterialPlan.lenient`), so a bad answer never stops a run.
+
+### SAM 3.1: the mask
+
+- **Asked:** the photo (1024 px) and Spark's noun phrase (*"bowl"*) as a concept prompt: SAM returns
+  every instance. Or point prompts, up to 16 objects in one pass, when the user clicks surfaces, and
+  as a fallback.
+- **Answers:** per instance a box and a mask, as text tokens; we request `one_bit` masks and decode
+  them with `matterlift_api/sam_mask.py`, a port of Meta's `@meta-sam/parser`.
+- **MatterLift then:** keeps the instance under Spark's points, takes the largest rectangle inside the
+  mask (up to 3:1, so a countertop strip still works) and up to two more away from it, so whatever lies
+  on the surface stays out of the samples. The page shows the photo with the mask and the sampled
+  squares *before* anything is painted.
+- **If SAM finds nothing:** Spark's two alternative names, then Spark's points as SAM point prompts,
+  then a square around the points, then the material is painted from Spark's description alone, and
+  the UI says which one happened.
+
+### Muse Image: the painter
+
+- **Albedo from the photo:** `/images/edits` with up to three samples and *"Turn these photos … into
+  one {Spark's texture_prompt}. Seamless tileable PBR albedo texture, orthographic top-down view …
+  flat even diffuse lighting, no shadows, no specular highlights … Keep the pattern elements as large
+  relative to the frame as they appear in the first sample."* The photo's scale survives: a kitchen's
+  octagonal floor tiles stay octagons.
+- **Albedo from text:** `/images/generations` with the same description and suffix.
+- **Height map:** `/images/edits` on the cleaned albedo, *"convert this texture into its grayscale
+  height map … joints, gaps and cracks black, raised surfaces white … keep every edge exactly
+  aligned"*. Against a real scanned displacement (ambientCG Bricks113A) it reaches r = 0.71, where
+  the usual luminance trick gives −0.24; normals and AO are built from it.
+- **Repaint:** Spark's fix instruction on the current albedo (*"Remove the cream quatrefoil motifs
+  and leave plain pale-blue glaze"*).
+- **Settings that matter:** PNG out, `reasoning_strength: "low"` (about twice as fast, and a unique
+  1600 px image where "high" repeats one 800 px tile 2×2), web and image search off.
+- **pbrforge cleans its output:** finds and crops the 2×2 repetition Muse often paints, removes seams
+  (periodic component + minimum-error cut), delights, matches the colours back to the photo.
+- **If it fails:** from the photo → from the description; height → from luminance.
+
+### Muse Voice Transcribe: speak the request
+
+- The browser records (WebM/Opus) and converts to the only format the endpoint takes, mono 16-bit WAV
+  at 24 kHz; the API normalises any WAV again.
+- Sent as push-to-talk with a French/English language bias and material vocabulary as keywords
+  (albedo, roughness, oak/chêne, moss/mousse, rust/rouille, flagstone/dalle, patina/patine…).
+- The words land in the text box, editable, and Spark's Enrich runs right away. If transcription
+  fails, the recording is kept and sent with Generate, and the server transcribes it then.
+
 ## Honest scope
 
 MatterLift does not scan the surface the way photogrammetry tools do: Muse Image repaints the photo
@@ -141,56 +258,52 @@ pixel-exact capture.
 
 ## Real photos: six objects from a desk
 
-Six phone photos (1500×2000, dim desk light) of what was on the desk, sent to the deployed API the
-way the page does it: **Understand** with no text at all, **Generate** at
-1K, **Spark's critique**, **Download .zip** at 1K (`scripts/photo_test.py`, raw numbers in
-[`results/photo_test/`](results/photo_test); the photos themselves are not in the repository, only
-the square that was sampled).
+Six phone photos (1500×2000, dim desk light) of what was on the desk, sent to the **live site**
+(matterlift.vercel.app, free plan) exactly the way the page does it: **Understand** with no text at
+all, **Generate** at 1K, **Spark's critique**, **Download .zip** at 1K (`scripts/photo_test.py`; raw
+numbers in [`results/photo_test/vercel_2026-11-04/`](results/photo_test/vercel_2026-11-04); the
+photos themselves are not in the repository, only the square that was sampled). Run on Nov 4.
 
-Each material in **Live RT** on the Stanford dragon (captured before the material study replaced it), above the square sampled from the photo and the tileable
+Each material in **Live RT** on the Study, above the square sampled from the photo and the tileable
 texture made from it (the version kept after Spark's critique):
 
 | | | |
 |---|---|---|
-| ![3D-printed cube in Live RT](docs/img/photo_cube_live.jpg) | ![Plush in Live RT](docs/img/photo_plush_live.jpg) | ![Crumpled paper in Live RT](docs/img/photo_paper_live.jpg) |
+| ![3D-printed cube in Live RT](docs/img/photo_cube_live.jpg) | ![Plush in Live RT](docs/img/photo_plush_live.jpg) | ![Crumpled receipt in Live RT](docs/img/photo_paper_live.jpg) |
 | ![3D-printed cube: photo sample and texture](docs/img/photo_cube_texture.jpg) | ![Plush: photo sample and texture](docs/img/photo_plush_texture.jpg) | ![Receipt: photo sample and texture](docs/img/photo_paper_texture.jpg) |
 | ![Bowl in Live RT](docs/img/photo_bowl_live.jpg) | ![Webcam in Live RT](docs/img/photo_webcam_live.jpg) | ![Massager in Live RT](docs/img/photo_massager_live.jpg) |
 | ![Bowl: photo sample and texture](docs/img/photo_bowl_texture.jpg) | ![Webcam: photo sample and texture](docs/img/photo_webcam_texture.jpg) | ![Massager: photo sample and texture](docs/img/photo_massager_texture.jpg) |
 
-| Object | Spark understood / SAM found | Understand | Generate | Critique | Result |
-|---|---|---|---|---|---|
-| 3D-printed cube | black circuit plastic / "black box" | 14 s | 29 s | 55 s, 6 → 7 | ✅ The best one: circuit traces and print grain kept |
-| Plush | beige plush fleece / "plush toy" | 32 s | 33 s | 51 s, 4 → 6 | ✅ Fleece, with sheen 0.9 and subsurface set by Spark. Critique: too pale, relief too flat |
-| Webcam | glossy black plastic / "webcam" | 18 s | 33 s | 41 s, 4 → 5 | ✅ Right but plain. Colour ΔE 0.3 |
-| Massager | white matte plastic / "white cap" | 20 s | 38 s | 64 s, 4 → 7 | ✅ Critique saw a cross-shaped seam on the sphere and had Muse repaint the tile without it |
-| Bowl | pale blue glazed ceramic / "bowl" | 17 s | 34 s | 68 s, 3 → 7 | ✅ after the critique: Muse first drew the outside's oval decoration on a plain glaze; Spark saw it and had it repainted plain |
-| Receipt, no text | frosted glass table / "glass table" | 17 s | 36 s | 41 s, 4 → 6 | ❌ Took the table: the largest surface, not the paper. Fixed since, see below |
-| Receipt, "the crumpled paper" (said in French) | crumpled paper / "crumpled paper" | 20 s | 31 s | 67 s, 6 → 3, first kept | ⚠️ The paper, without its print. But a lighter band runs along the top and bottom edges |
+| Object | Spark understood · SAM found | Understand | Generate | Critique | Colour ΔE | Result |
+|---|---|---|---|---|---|---|
+| 3D-printed cube | black circuit cube · "box" | 34 s | 51 s | 93 s, 7 → 7, first kept | 2.4 → 0.8 | ✅ Circuit traces and print grain kept. Spark: the micro grain reads pitted, the photo is smooth |
+| Plush | beige plush fabric · "plush toy" | 28 s | 53 s | 65 s, 4 → 6 | 43.2 → 17.3 | ✅ after the critique: relief like stone and too pale; colour matched to the warm tan, relief softened |
+| Crumpled receipt | crumpled receipt paper · "crumpled paper" | 28 s | 56 s | 109 s, 3 → 7 | 35.6 → 14.2 | ✅ after the critique: a dark printed band formed grid lines when tiled; Muse repainted it as plain crumpled paper |
+| Massager | matte white plastic · "white massager" | 29 s | 47 s | 78 s, 5 → 6 | 30.9 → 12.4 | ✅ after the critique: speckle, wear and a too-dark beige removed |
+| Webcam | glossy black plastic · "webcam" | 34 s | 54 s | 73 s, 5 → 5 | 1.7 → 0.6 | ⚠️ Right colour, but Spark still finds it too matte and noisy for glossy plastic |
+| Bowl | pale blue glazed ceramic · "bowl" | 39 s | 44 s | 113 s, 5 → 3, first kept | 46.4 → 18.5 | ⚠️ Muse copied the outside's oval rings into the plain glaze; Spark saw it, but its repaint scored worse, so the first version was kept |
 
-**Time** (7 runs, median): understand 18 s (Spark's plan 13 s, from 11 to 30 s; SAM 2.6 s), generate
-33 s (Muse Image 11 s, Muse height 11 s, pbrforge about 6 s), critique 55 s, 1K export 10 s for a
-10 to 21 MB zip. From photo to a downloadable 1K material: about 1 min, 2 min with the critique.
+**Time on the live site** (6 photos, median): understand 32 s (Spark's plan 21 s, SAM 2.5 s),
+generate 52 s (Muse albedo 10 s, Muse height 12 s, pbrforge 9 s, the rest is saving to Vercel Blob),
+critique 85 s, 1K export 14 s for an 8 to 19 MB zip. **From photo to a downloadable 1K material:
+about 1.5 min; 3 min with the critique.** The same pipeline on a 4 GB container (Nov 2, 7 runs):
+51 s, critique 55 s.
 
-**What went wrong, and what it says:**
-- **"The main material" meant the largest surface (fixed).** With no words, Spark picked the glass
-  table under the receipt. Saying it ("the crumpled paper") fixed it at once. Then Spark was taught to
-  read the photo as its author framed it: with no words, the subject is what is centred, in focus,
-  closest and standing out, and the table or wall around it is context. It now names the subject and
-  says why, and the page shows it. Rerun with no text, all six photos land on their object: the
-  receipt gives "crumpled printed paper" ("centered white crumpled object stands out against the
-  glass table"), and SAM masks the paper only.
-- **The seam score misses a band that repeats on both edges.** The paper scored 0.77 ("invisible")
-  with a light strip along its top and bottom edges, and the massager 1.39 with a cross Spark saw on
-  the sphere: the score compares opposite edges, and here both edges carry the same strip. Spark's
-  critique caught both; the score did not. A border-band check is the next metric to add.
-- **Muse borrows patterns from elsewhere on the object.** The bowl's inside is a plain glaze; the
-  first texture took the ovals painted on its outside. Spark's critique caught it ("repeating white
-  oval decoration... while main photo area is plain glaze") and had Muse repaint a uniform glaze:
-  3/10 → 7/10. Still missing by its own review: the glossy reflections and the fine pinholes.
-- **The critique does not always improve things.** On the paper, Spark's own fix scored 3 against 6
-  for the first version: MatterLift kept the first.
-- **Colour** after matching to the photo: ΔE 0.3 (webcam) and 1.9 (cube) on the dark objects, 12 to 17
-  on the pale ones (bowl, plush, massager, paper, table).
+**What these runs taught, and what changed:**
+- **"The main material" meant the largest surface (fixed).** On Nov 2, with no words, Spark took the
+  glass table under the receipt. Spark was then taught to read the photo as its author framed it: the
+  subject is what is centred, in focus, closest and standing out; the table or wall around it is
+  context. It names the subject and says why, and the page shows it. On Nov 4, all six photos land on
+  their object with no words at all, the receipt included.
+- **The critique catches what the numbers miss.** A band repeated on both edges of the receipt passed
+  the seam score (it compares opposite edges) and Spark saw it on the tiled view. A border-band check
+  is the next metric to add.
+- **Muse borrows patterns from elsewhere on the object.** The bowl's inside is a plain glaze; Muse
+  took the ovals painted on its outside. On Nov 2 Spark's repaint fixed it (3 → 7/10, the version in
+  the video); on Nov 4 the repaint scored worse and MatterLift kept the first. The comparison step is
+  what keeps a bad fix from shipping.
+- **Colour** after matching to the photo: ΔE under 1 on the dark objects, 12 to 18 on the pale ones,
+  whose photos sit in dim, warm light.
 
 ## Built during the hackathon
 
@@ -203,7 +316,7 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 | Meta models (API) | Muse Spark 1.3, Muse Image 1.0, SAM 3.1, Muse Voice Transcribe 1.0 |
 | Ported from Meta | `matterlift_api/sam_mask.py`: SAM mask decoder ported from `@meta-sam/parser` 0.1.0 (SAM License) |
 | Quality reference | ambientCG Bricks113A (CC0), used locally as the benchmark and export-format model; not in the repository |
-| Preview mesh | Ours: the material study, modelled from code in Blender 5.0 by `scripts/material_study.py` (MIT; Suzanne is Blender's own primitive), saved as `docs/blender/material_study.blend`, shipped as `web/public/models/material_study.ply`. No third-party mesh. Earlier captures show the Stanford scans (see `web/public/models/CREDITS.md`) |
+| Preview mesh | Ours: the material study, modelled from code in Blender 5.0 by `scripts/material_study.py` (MIT; Suzanne is Blender's own primitive), saved as `docs/blender/material_study.blend`, shipped as `web/public/models/material_study.ply`. No third-party mesh. Earlier versions used the Stanford scans (see `web/public/models/CREDITS.md`) |
 | Libraries | numpy, SciPy, Pillow, FastAPI, Uvicorn, httpx, Pydantic, python-dotenv; Three.js, three-mesh-bvh (BVH build for Live RT), Vite, TypeScript |
 | Live RT renderer | Ours, written during the hackathon in WebGPU/WGSL: started 2026-11-01 23:51 (Paris) as a standalone WebGPU prototype, shown in MatterLift from commit `3e5736c` (2026-11-02 01:21, Paris), and in this repository (`web/src/live/`, `live.html`) since commit `f345066` (2026-11-02 02:03, Paris). Its design comes from an offline NVIDIA OptiX/CUDA path tracer I wrote before the hackathon (ReSTIR direct lighting): its algorithms and parameters were ported from it into WGSL. No CUDA or OptiX code is in this repository; the WebGPU side (software BVH traversal, passes, shaders) was written during the hackathon |
 | Runtime AI | **Meta models only**: Muse Spark, Muse Image, SAM 3.1 and Muse Voice Transcribe, through the Meta Model API (`https://api.meta.ai/v1`, the only AI endpoint the code calls). Checked in the code: `matterlift_api/`, `pbrforge/` and `web/src/` contain no call to any other AI provider or model (no OpenAI, Anthropic, Google Gemini, Hugging Face, Replicate, Stability or other service). pbrforge is plain numpy/SciPy; Live RT is our own renderer, on your GPU |
@@ -214,10 +327,10 @@ Meta hackathon *Build for Your World*, Indie Developer track.
 
 With a photo, MatterLift works in two steps so you see what it understood before it paints:
 
-1. **Understand** (~13 s for one material, ~30 s for a room): Spark reads the request and the
+1. **Understand** (about 30 s on the live site: Spark 21 s, SAM 2.5 s): Spark reads the request and the
    photo, SAM 3.1 masks the surface, and the UI shows the photo with the mask, the square that
    will be sampled and Spark's description.
-2. **Generate** (~25 s per material, in parallel for a room): Muse Image and pbrforge.
+2. **Generate** (about 50 s per material at 1K on the live site, in parallel for a room): Muse Image and pbrforge.
 
 **Nothing fails alone.** Each step falls back to the next instead of stopping the run
 (`matterlift_api/locate.py`, tested offline with failure injection in `tests/test_resilience.py`):
@@ -237,6 +350,9 @@ With a photo, MatterLift works in two steps so you see what it understood before
 3:1, so a countertop strip still gives a clean sample), then up to two more away from it (a floor
 half hidden by furniture is better described by several samples). Muse gets all of them and is
 told to keep the pattern scale of the first: the kitchen's octagonal floor tiles stay octagons.
+
+<details>
+<summary><b>Preview, the Study scene and Live RT</b>: render passes, look-dev controls, the path tracer and its limits, library mode</summary>
 
 **Preview passes (AOVs)**: Beauty, Depth, Normal, Albedo, Roughness, AO, Thickness, with the height
 map as real displacement on the mesh (so the depth pass shows the relief), and Save PNG for the
@@ -320,26 +436,12 @@ pass, but a point selects an object, one brick rather than the wall, so concept 
   ↻ on a card then a click redoes that one; × removes it. Only the new or redone material is
   painted (`POST /libraries/{id}/items`, `DELETE /libraries/{id}/items/{index}`).
 
-```
-photo + voice/text
-  -> Muse Voice Transcribe   (voice -> text, shown in the box right after recording)
-  -> Muse Spark (Enrich)     ("old brick" -> a precise brief: colour, finish, wear, scale; editable, undoable)
-  -> Muse Spark              (reads request + photo: material plan as JSON, what SAM should look for)
-  -> SAM 3.1                 (masks the surface in the photo)
-  -> samples                 (up to 3 rectangles inside the mask: objects lying on it are avoided)
-  -> Muse Image              (sample -> flat, delit, top-down albedo; or text -> albedo without a photo)
-  -> pbrforge                (period crop, seamless wrap, delight, singleton taming)
-  -> Muse Image              (albedo -> height map, aligned with it)
-  -> pbrforge                (normal, AO, roughness, metallic, ORM at 512 to 4K)
-  -> preview (Three.js) and export
-```
+</details>
 
-| Model | Role |
-|---|---|
-| Muse Spark | Enriches short requests into a precise brief (same language, uses the photo); plans the material (roughness, metal, relief, shading model), names the surface for SAM |
-| SAM 3.1 | Masks the surface in the photo (or the object under the user's points), so the samples avoid what lies on it |
-| Muse Image | Paints the albedo from the photo sample or the text; paints the height map from the albedo |
-| Muse Voice Transcribe | Spoken requests |
+The whole chain, model by model, with what each one receives and answers: [How each Meta model works in MatterLift](#how-each-meta-model-works-in-matterlift).
+
+<details>
+<summary><b>pbrforge</b> (our numpy/SciPy code): what it fixes in Muse's output, the benchmark against a scanned material, the critique loop, the detail layer, colour fidelity</summary>
 
 ### pbrforge (pure numpy/scipy, no network)
 
@@ -400,6 +502,8 @@ orange). The albedo is matched to the delit photo samples in CIELAB, hue fully a
 (a sample in shadow says little about the true value). Delta E between mean colours, kitchen
 materials: oak 10.7 -> 1.7, floor 37.1 -> 7.4, brick 13.9 -> 4.5. The UI shows sample and albedo
 side by side with that score.
+
+</details>
 
 ## Run it
 
@@ -484,6 +588,9 @@ likely not fit (not measured yet: that is for the load test), so 4K exports are 
 
 ## Deploy
 
+<details>
+<summary>How it is deployed on Vercel's free plan, and how to deploy your own</summary>
+
 One Vercel project (free Hobby plan) serves the page and the API:
 
 - **The page** is built by Vercel (`vercel.json`: `npm --prefix web ci`, build, then
@@ -509,7 +616,12 @@ Setting it up, once:
 
 `VITE_LIVE_URL` points **Live RT** at another copy of the WebGPU renderer (default: `live.html` of the same site).
 
+</details>
+
 ## Export
+
+<details>
+<summary>Every file of the package, and which shading lobes go into which format</summary>
 
 Same layout as an ambientCG package (checked against Bricks113A_4K-JPG), recomputed at the
 requested resolution (512 to 4K) from the clean albedo and the Muse height:
@@ -570,7 +682,12 @@ Scripts: `smoke_meta.py` (every model answers), `gate_muse.py` (3 materials, raw
 contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's masks and spheres),
 `bench_baseline.py` (against a reference material).
 
+</details>
+
 ## Meta Model API notes (docs: https://dev.meta.ai/docs)
+
+<details>
+<summary>What we learned about the Meta Model API</summary>
 
 - Base URL `https://api.meta.ai/v1`, OpenAI-compatible. Model ids: `muse-spark-1.3`,
   `muse-image-1.0`, `sam-3.1`, `muse-voice-transcribe-1.0`.
@@ -586,6 +703,8 @@ contact sheet), `sam_table.py` (photo chain), `library_sheet.py` (a library's ma
   request `metadata.mask_encoding: "one_bit"` and decode it in `matterlift_api/sam_mask.py`, a
   Python port of Meta's `@meta-sam/parser` decoder (adaptive binary range coder, 12-bit context).
 
+</details>
+
 ## Credits
 
 Concept, product design, UI design and build plan: Silver (falcon123212).
@@ -595,7 +714,7 @@ gallery. Claude Code was used to write code during development only: it is never
 MatterLift runs, where the only AI models are Meta's (see *Runtime AI* in
 [Built during the hackathon](#built-during-the-hackathon)).
 Meta models: Muse Spark, SAM 3.1, Muse Image, Muse Voice Transcribe.
-3D model: the material study is ours (`scripts/material_study.py`, MIT). Earlier captures and videos
+3D model: the material study is ours (`scripts/material_study.py`, MIT). Earlier versions and short videos
 show the Stanford Dragon, Happy Buddha and Lucy from the Stanford 3D Scanning Repository, Stanford
 University Computer Graphics Laboratory (https://graphics.stanford.edu/data/3Dscanrep/), used under
 its terms (non-commercial, source acknowledged); the meshes are no longer in the repository. See

@@ -1,0 +1,445 @@
+{
+  "date": "2026-11-04T00:20:52+00:00",
+  "api": "https://matterlift.vercel.app",
+  "rows": [
+    {
+      "photo": "bowl.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 39.4,
+      "understood": "pale_blue_glazed_ceramic",
+      "sam_prompt": "bowl",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"bowl\"",
+      "spark_sam_s": {
+        "spark_plan": 30.01,
+        "sam_mask": 2.28
+      },
+      "generate_s": 44.1,
+      "material_id": "2794c2818b",
+      "plan": {
+        "roughness": 0.3,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.35
+      },
+      "shading": {
+        "clearcoat": 0.7,
+        "clearcoat_roughness": 0.25,
+        "subsurface": 0.05,
+        "ior": 1.5
+      },
+      "stages_s": {
+        "spark_plan": 30.01,
+        "sam_mask": 2.28,
+        "muse_image": 8.53,
+        "pbrforge_albedo": 6.46,
+        "muse_height": 9.74,
+        "pbrforge_maps": 1.77
+      },
+      "seam_before": 12.71,
+      "seam_after": 1.37,
+      "delta_e": {
+        "delta_e_before": 46.4,
+        "delta_e_after": 18.5
+      },
+      "critique_s": 112.6,
+      "score_before": 5,
+      "score_after": 3,
+      "kept": "2794c2818b",
+      "issues": [
+        "Large white oval rings form a repeating grid not present as plain glaze in photo",
+        "Relief too strong for smooth glazed ceramic, rings look embossed",
+        "Surface looks too matte, missing glossy glazed shininess"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.4,
+          0.3
+        ],
+        "roughness": [
+          0.3,
+          0.15
+        ],
+        "roughness_variation": [
+          0.15,
+          0.05
+        ],
+        "detail_strength": [
+          0.25,
+          0.05
+        ]
+      },
+      "albedo_fix": "Remove the large white oval rings and repaint as plain pale blue-grey glaze",
+      "export_1k_s": 13.3,
+      "export_1k_mb": 11.7,
+      "n": 1
+    },
+    {
+      "photo": "webcam.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 34.4,
+      "understood": "glossy_black_plastic",
+      "sam_prompt": "webcam",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"webcam\"",
+      "spark_sam_s": {
+        "spark_plan": 25.51,
+        "sam_mask": 1.99
+      },
+      "generate_s": 54.3,
+      "material_id": "46fe626585",
+      "plan": {
+        "roughness": 0.32,
+        "metallic": 0.0,
+        "detail_kind": "none",
+        "wear": 0.35
+      },
+      "shading": {
+        "clearcoat": 0.7,
+        "clearcoat_roughness": 0.25,
+        "ior": 1.49
+      },
+      "stages_s": {
+        "spark_plan": 25.51,
+        "sam_mask": 1.99,
+        "muse_image": 11.13,
+        "pbrforge_albedo": 6.19,
+        "muse_height": 18.44,
+        "pbrforge_maps": 1.45
+      },
+      "seam_before": 13.52,
+      "seam_after": 1.03,
+      "delta_e": {
+        "delta_e_before": 1.7,
+        "delta_e_after": 0.6
+      },
+      "critique_s": 72.8,
+      "score_before": 5,
+      "score_after": 5,
+      "kept": "2b2f7253dc",
+      "issues": [
+        "Too matte and grey for glossy black plastic",
+        "Raking light shows noisy pitted relief instead of smooth surface",
+        "Speckled wear spots visible that are not on clean plastic"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.4,
+          0.3
+        ],
+        "roughness": [
+          0.32,
+          0.12
+        ],
+        "roughness_variation": [
+          0.2,
+          0.05
+        ],
+        "wear": [
+          0.35,
+          0.0
+        ]
+      },
+      "albedo_fix": "",
+      "export_1k_s": 10.5,
+      "export_1k_mb": 8.1,
+      "n": 2
+    },
+    {
+      "photo": "paper.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 27.7,
+      "understood": "crumpled_receipt_paper",
+      "sam_prompt": "crumpled paper",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"crumpled paper\"",
+      "spark_sam_s": {
+        "spark_plan": 20.25,
+        "sam_mask": 1.74
+      },
+      "generate_s": 56.0,
+      "material_id": "e20f14948c",
+      "plan": {
+        "roughness": 0.85,
+        "metallic": 0.0,
+        "detail_kind": "fabric",
+        "wear": 0.65
+      },
+      "shading": {
+        "clearcoat_roughness": 0.5,
+        "subsurface": 0.3,
+        "ior": 1.5
+      },
+      "stages_s": {
+        "spark_plan": 20.25,
+        "sam_mask": 1.74,
+        "muse_image": 11.68,
+        "pbrforge_albedo": 9.92,
+        "muse_height": 13.95,
+        "pbrforge_maps": 1.71
+      },
+      "seam_before": 6.91,
+      "seam_after": 1.32,
+      "delta_e": {
+        "delta_e_before": 35.6,
+        "delta_e_after": 14.2
+      },
+      "critique_s": 109.2,
+      "score_before": 3,
+      "score_after": 7,
+      "kept": "f752c042c1",
+      "issues": [
+        "Dark printed band repeats as horizontal grid lines when tiled",
+        "Large crumple relief too flat compared to photo sample"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.7,
+          1.2
+        ],
+        "height_strength": [
+          0.8,
+          1.2
+        ],
+        "detail_strength": [
+          0.3,
+          0.0
+        ]
+      },
+      "albedo_fix": "Remove dark horizontal printed band and inpaint as plain crumpled paper",
+      "export_1k_s": 14.5,
+      "export_1k_mb": 15.2,
+      "n": 3
+    },
+    {
+      "photo": "cube.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 33.8,
+      "understood": "black_circuit_cube",
+      "sam_prompt": "box",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"box\"",
+      "spark_sam_s": {
+        "spark_plan": 22.31,
+        "sam_mask": 3.85
+      },
+      "generate_s": 50.8,
+      "material_id": "dab1eba5ba",
+      "plan": {
+        "roughness": 0.75,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.55
+      },
+      "shading": {
+        "clearcoat": 0.15,
+        "clearcoat_roughness": 0.6,
+        "ior": 1.46
+      },
+      "stages_s": {
+        "spark_plan": 22.31,
+        "sam_mask": 3.85,
+        "muse_image": 8.96,
+        "pbrforge_albedo": 9.36,
+        "muse_height": 11.57,
+        "pbrforge_maps": 1.72
+      },
+      "seam_before": 3.94,
+      "seam_after": 1.04,
+      "delta_e": {
+        "delta_e_before": 2.4,
+        "delta_e_after": 0.8
+      },
+      "critique_s": 92.5,
+      "score_before": 7,
+      "score_after": 7,
+      "kept": "dab1eba5ba",
+      "issues": [
+        "plaster micro grain looks pitted and noisy under raking light, photo shows smooth dusty plastic"
+      ],
+      "params_changed": {
+        "detail_strength": [
+          0.4,
+          0.15
+        ]
+      },
+      "albedo_fix": "",
+      "export_1k_s": 13.9,
+      "export_1k_mb": 18.7,
+      "n": 4
+    },
+    {
+      "photo": "plush.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 27.9,
+      "understood": "beige_plush_fabric",
+      "sam_prompt": "plush toy",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"plush toy\"",
+      "spark_sam_s": {
+        "spark_plan": 18.91,
+        "sam_mask": 2.81
+      },
+      "generate_s": 52.7,
+      "material_id": "32a69f955f",
+      "plan": {
+        "roughness": 0.95,
+        "metallic": 0.0,
+        "detail_kind": "fabric",
+        "wear": 0.2
+      },
+      "shading": {
+        "clearcoat_roughness": 0.8,
+        "sheen": 0.8,
+        "subsurface": 0.2,
+        "ior": 1.5
+      },
+      "stages_s": {
+        "spark_plan": 18.91,
+        "sam_mask": 2.81,
+        "muse_image": 10.54,
+        "pbrforge_albedo": 8.55,
+        "muse_height": 10.56,
+        "pbrforge_maps": 1.76
+      },
+      "seam_before": 7.33,
+      "seam_after": 0.98,
+      "delta_e": {
+        "delta_e_before": 43.2,
+        "delta_e_after": 17.3
+      },
+      "critique_s": 65.0,
+      "score_before": 4,
+      "score_after": 6,
+      "kept": "818cfda5cb",
+      "issues": [
+        "Raking light shows coarse pitted relief like stone instead of soft plush fibers",
+        "Tiled colour is pale grey-beige while photo sample is warm golden tan"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.5,
+          0.3
+        ],
+        "height_strength": [
+          0.5,
+          0.3
+        ]
+      },
+      "albedo_fix": "",
+      "export_1k_s": 14.6,
+      "export_1k_mb": 18.2,
+      "n": 5
+    },
+    {
+      "photo": "massager.jpg",
+      "request": "(none: the main material)",
+      "photo_px": [
+        4000,
+        3000
+      ],
+      "understand_s": 29.4,
+      "understood": "matte_white_plastic",
+      "sam_prompt": "massager top",
+      "matched": true,
+      "crop_from": "mask",
+      "found_by": "SAM \"white massager\"",
+      "spark_sam_s": {
+        "spark_plan": 19.71,
+        "sam_mask": 3.46
+      },
+      "generate_s": 46.6,
+      "material_id": "5c86f4b37b",
+      "plan": {
+        "roughness": 0.48,
+        "metallic": 0.0,
+        "detail_kind": "plaster",
+        "wear": 0.35
+      },
+      "shading": {
+        "clearcoat": 0.15,
+        "clearcoat_roughness": 0.4,
+        "subsurface": 0.05,
+        "ior": 1.46
+      },
+      "stages_s": {
+        "spark_plan": 19.71,
+        "sam_mask": 3.46,
+        "muse_image": 9.24,
+        "pbrforge_albedo": 5.85,
+        "muse_height": 11.84,
+        "pbrforge_maps": 1.57
+      },
+      "seam_before": 16.38,
+      "seam_after": 1.09,
+      "delta_e": {
+        "delta_e_before": 30.9,
+        "delta_e_after": 12.4
+      },
+      "critique_s": 77.5,
+      "score_before": 5,
+      "score_after": 6,
+      "kept": "e2675fda13",
+      "issues": [
+        "Plaster speckle noise over surface unlike smooth plastic in photo",
+        "Scratches and dark spots from wear not present in photo sample",
+        "Tiled albedo too dark beige instead of white plastic"
+      ],
+      "params_changed": {
+        "normal_strength": [
+          0.4,
+          0.3
+        ],
+        "height_strength": [
+          0.35,
+          0.3
+        ],
+        "roughness": [
+          0.48,
+          0.75
+        ],
+        "roughness_variation": [
+          0.15,
+          0.05
+        ],
+        "detail_strength": [
+          0.25,
+          0.0
+        ],
+        "wear": [
+          0.35,
+          0.0
+        ]
+      },
+      "albedo_fix": "",
+      "export_1k_s": 13.5,
+      "export_1k_mb": 12.0,
+      "n": 6
+    }
+  ]
+}
