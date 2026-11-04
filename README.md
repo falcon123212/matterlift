@@ -13,7 +13,7 @@
 <p align="center">
   <a href="https://matterlift.vercel.app"><img alt="Open the live demo" src="https://img.shields.io/badge/%E2%96%B6%20%20Live%20demo-open%20MatterLift-d6aa60?style=for-the-badge&labelColor=16171c"></a>
   <a href="https://youtu.be/-MqR3USLmUE"><img alt="Watch the 3-minute video" src="https://img.shields.io/badge/%E2%96%B6%20%20Video-3%20min-ff0033?style=for-the-badge&labelColor=16171c"></a>
-  <a href="#60-second-judge-path"><img alt="60-second judge path" src="https://img.shields.io/badge/60%20s-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
+  <a href="#judge-path-three-steps-about-five-minutes"><img alt="Judge path: three steps, about five minutes" src="https://img.shields.io/badge/5%20min-judge%20path-2b2d35?style=for-the-badge&labelColor=16171c"></a>
   <a href="#how-each-meta-model-works-in-matterlift"><img alt="How each Meta model works" src="https://img.shields.io/badge/4%20Meta%20models-how%20each%20works-0866ff?style=for-the-badge&labelColor=16171c"></a>
   <a href="#gallery"><img alt="Gallery" src="https://img.shields.io/badge/Gallery-6%20prompts%20%C2%B7%206%20photos-2b2d35?style=for-the-badge&labelColor=16171c"></a>
 </p>
@@ -49,7 +49,7 @@
 
 From a photo or a sentence to a game-ready material: show a real surface, say what you want, get a
 tileable PBR material (albedo, normal, height, AO, roughness, metallic, thickness, ORM, glTF) ready
-for Godot, Blender, Unity or Unreal. Open source, built on Meta's models (Muse Spark, Muse Image,
+for Godot and Blender (Unity/Unreal: standard maps, not tested). Open source, built on Meta's models (Muse Spark, Muse Image,
 SAM 3.1, Muse Voice Transcribe).
 
 ## See it in action
@@ -95,7 +95,7 @@ takes requests in any language Spark reads.
 ## Why MatterLift
 
 MatterLift is an open-source material and shader extractor: show a photo, say what you want, get a
-material ready for Godot, Blender, Unity or Unreal.
+material ready for Godot and Blender (Unity/Unreal: standard maps, not tested).
 
 - **The problem.** A unique material takes time, technical-artist know-how and a paid tool. Free libraries
   give everyone the same materials.
@@ -119,7 +119,7 @@ material ready for Godot, Blender, Unity or Unreal.
   hours. Money: pay-per-use API calls instead of a subscription. Control: materials taken from your
   own photos, exported in standard formats (glTF, MaterialX, USD, Godot, Blender).
 
-## 60-second judge path
+## Judge path: three steps, about five minutes
 
 1. **Ask.** Open the [live demo](https://matterlift.vercel.app), type
    `old oak planks` or press **Speak**, then **✨ Enrich** (Spark fixes and completes the request)
@@ -284,7 +284,7 @@ texture made from it (the version kept after Spark's critique):
 **Time on the live site** (6 photos, median): understand 32 s (Spark's plan 21 s, SAM 2.5 s),
 generate 52 s (Muse albedo 10 s, Muse height 12 s, pbrforge 9 s, the rest is saving to Vercel Blob),
 critique 85 s, 1K export 14 s for an 8 to 19 MB zip. **From photo to a downloadable 1K material:
-about 1.5 min; 3 min with the critique.** The same pipeline on a 4 GB container (Nov 2, 7 runs):
+about 1.5 min; 3 min with the critique.** The same pipeline on Modal, a 4 GB container (Nov 2, 7 runs):
 51 s, critique 55 s.
 
 **What these runs taught, and what changed:**
@@ -581,8 +581,9 @@ drop the folder into a Godot project, open the `.glb` in Blender, or load the `.
 | 2K | 5.5 | 487 MB | 7.8 | 66 / 47 MB |
 | 4K | 24.7 | 2.5 GB | 31 | 224 / 149 MB |
 
-A 4K export needs about 2.5 GB, within the 4 GB of the API container; two at the same moment would
-likely not fit (not measured yet: that is for the load test), so 4K exports are best done one at a time.
+A 4K export peaks at about 2.5 GB (measured above, on a desktop): it runs when MatterLift runs locally,
+not on the free Vercel demo (2 GB per function), which stops at 2K. Two 4K exports at the same moment
+have not been measured, so they are best done one at a time.
 
 ## Deploy
 
