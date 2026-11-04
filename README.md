@@ -142,22 +142,20 @@ one file, [`matterlift_api/meta_client.py`](matterlift_api/meta_client.py); pbrf
 code) does everything between the calls. Nothing else calls an AI model at runtime.
 
 ```mermaid
-flowchart LR
-  V["🎤 voice"] -->|"Muse Voice Transcribe"| T["text"]
-  T -->|"Muse Spark · Enrich"| B["brief"]
-  P["📷 photo"] --> PL
-  B --> PL["Muse Spark · Plan<br/>subject, PBR values, shading"]
-  PL -->|"noun phrase + 2 points"| SAM["SAM 3.1 · mask"]
-  SAM --> SMP["samples inside the mask"]
-  SMP -->|"Muse Image · edit"| ALB["albedo"]
-  PL -->|"no photo: texture_prompt"| ALB
-  ALB --> PF1["pbrforge: period, seams,<br/>delight, colour match"]
-  PF1 -->|"Muse Image · edit"| HGT["height map"]
-  HGT --> PF2["pbrforge: normal, AO,<br/>roughness, ORM, thickness"]
-  PF2 --> CR["Muse Spark · Critique"]
-  CR -->|"params · colour · Muse Image repaint"| FIX["fixed version"]
-  FIX -->|"Muse Spark · Compare A/B"| KEEP["better one kept"]
-  KEEP --> OUT["preview · Live RT · export"]
+flowchart TD
+  V["🎤 Voice"] -->|"Muse Voice Transcribe"| T["Text request"]
+  T -->|"Muse Spark · Enrich"| B["Precise brief"]
+  P["📷 Photo (optional)"] --> PL
+  B --> PL["<b>Muse Spark · Plan</b><br/>subject, PBR values, shading,<br/>what SAM should look for"]
+  PL -->|"noun phrase + 2 points"| SAM["<b>SAM 3.1 · Mask</b><br/>samples inside the mask"]
+  SAM -->|"photo samples"| ALB["<b>Muse Image · Albedo</b><br/>flat, top-down, tileable"]
+  PL -->|"no photo: the description"| ALB
+  ALB --> PF["pbrforge: period, seams,<br/>delight, colour match"]
+  PF --> HGT["<b>Muse Image · Height</b><br/>aligned with the albedo"]
+  HGT --> MAPS["pbrforge: normal, AO,<br/>roughness, ORM, thickness"]
+  MAPS --> CR["<b>Muse Spark · Critique</b><br/>sphere under raking light,<br/>3×3 tiling, photo sample"]
+  CR -->|"parameters · colour · repaint by Muse Image"| CMP["<b>Muse Spark · Compare</b><br/>before vs after, better one kept"]
+  CMP --> OUT["Preview · Live RT · Download .zip<br/>glTF · Godot · Blender · MaterialX · USD"]
 ```
 
 | Model | Its jobs in MatterLift | Endpoint | Measured (median) |
