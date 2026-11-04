@@ -212,7 +212,8 @@ export class Preview {
   private depthMaterial = new LinearDepthMaterial();
   private corner = new THREE.Vector3();
   private normalMaterial = new THREE.MeshNormalMaterial();
-  private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false });
+  private flatMaterial = new THREE.MeshBasicMaterial({ toneMapped: false }); // Albedo: a colour, encoded for the screen
+  private dataMaterial = new THREE.MeshBasicMaterial({ toneMapped: false }); // Rough/AO/Thick: the map's values, not encoded
   private textures: Partial<Record<"albedo" | "normal" | "ao" | "roughness" | "metallic" | "height" | "thickness", THREE.Texture>> = {};
   private aov: Aov = "beauty";
   private tri = { triplanar: { value: 0 }, triScale: { value: TRI_SCALE.sphere }, triNormalScale: { value: 1 } };
@@ -247,6 +248,13 @@ export class Preview {
     addTriplanar(this.material, this.tri);
     Object.assign(this.depthMaterial.uniforms, { triplanar: this.tri.triplanar, triScale: this.tri.triScale });
     addTriplanar(this.flatMaterial, this.tri, "normal"); // the Albedo/Rough/AO/Thick passes, on loaded meshes too
+    addTriplanar(this.dataMaterial, this.tri, "normal");
+    const triplanarPatch = this.dataMaterial.onBeforeCompile;
+    this.dataMaterial.onBeforeCompile = (shader, renderer) => {
+      triplanarPatch.call(this.dataMaterial, shader, renderer);
+      shader.fragmentShader = shader.fragmentShader.replace("#include <colorspace_fragment>", "");
+    };
+    this.dataMaterial.customProgramCacheKey = () => "flat-data-pass";
     this.mesh = new THREE.Mesh(this.geometry("sphere"), this.material);
     this.scene.add(this.mesh);
     this.setLight("hdri");
@@ -421,9 +429,10 @@ export class Preview {
       this.normalMaterial.needsUpdate = true;
       this.mesh.material = this.normalMaterial;
     } else {
-      this.flatMaterial.map = t[aov] ?? null;
-      this.flatMaterial.needsUpdate = true;
-      this.mesh.material = this.flatMaterial;
+      const flat = aov === "albedo" ? this.flatMaterial : this.dataMaterial;
+      flat.map = t[aov] ?? null;
+      flat.needsUpdate = true;
+      this.mesh.material = flat;
     }
   }
 
